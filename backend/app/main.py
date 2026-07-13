@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.db.database import get_recent_opportunities, init_db
-from app.models.schemas import DashboardResponse
+from app.models.schemas import DashboardResponse, MarketSummary
 from app.scheduler.jobs import is_running, scheduled_scan, start_scheduler, stop_scheduler
 from app.scanners.opportunity_scanner import scanner
 
@@ -53,18 +53,44 @@ async def health():
 
 @app.get("/api/dashboard", response_model=DashboardResponse)
 async def dashboard():
-    if not scanner.bitcoin_cycle or not scanner.presidential_cycle or not scanner.quotes:
+    if not scanner.bitcoin_cycle or not scanner.market_assessments:
         await scanner.scan()
     if not scanner.bitcoin_cycle or not scanner.presidential_cycle:
         raise HTTPException(status_code=503, detail="Nie udało się pobrać danych cykli")
+
+    summary = scanner.market_summary or MarketSummary(
+        total_assets=0, by_signal={}, by_class={}, by_region={},
+        avg_confidence=0, outlook="mixed", outlook_label="Brak danych",
+    )
+
     return DashboardResponse(
         bitcoin_cycle=scanner.bitcoin_cycle,
         presidential_cycle=scanner.presidential_cycle,
         opportunities=scanner.opportunities,
         monitored_assets=scanner.quotes,
+        market_assessments=scanner.market_assessments,
+        market_summary=summary,
         last_scan_at=scanner.last_scan_at,
         scanner_running=is_running(),
     )
+
+
+@app.get("/api/markets/assessments")
+async def market_assessments(
+    region: str | None = None,
+    asset_class: str | None = None,
+    signal: str | None = None,
+):
+    if not scanner.market_assessments:
+        await scanner.scan()
+    results = scanner.market_assessments
+    if region:
+        results = [a for a in results if a.region == region]
+    if asset_class:
+        results = [a for a in results if a.asset_class.value == asset_class]
+    if signal:
+        results = [a for a in results if a.signal.value == signal]
+    return results
 
 
 @app.post("/api/scan")

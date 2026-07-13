@@ -75,6 +75,35 @@ class AssetQuote(BaseModel):
     updated_at: datetime
 
 
+class AssetCycleAssessment(BaseModel):
+    symbol: str
+    name: str
+    asset_class: AssetClass
+    region: str
+    price: float
+    change_pct_24h: Optional[float] = None
+    change_pct_7d: Optional[float] = None
+    high_52w: Optional[float] = None
+    drawdown_from_high_pct: Optional[float] = None
+    macro_cycle: str
+    macro_phase: str
+    price_phase: str
+    signal: SignalAction
+    confidence: float = Field(ge=0, le=100)
+    rationale: str
+    updated_at: datetime
+
+
+class MarketSummary(BaseModel):
+    total_assets: int
+    by_signal: dict[str, int]
+    by_class: dict[str, int]
+    by_region: dict[str, int]
+    avg_confidence: float
+    outlook: str
+    outlook_label: str
+
+
 class Opportunity(BaseModel):
     id: Optional[int] = None
     symbol: str
@@ -94,5 +123,7 @@ class DashboardResponse(BaseModel):
     presidential_cycle: PresidentialCycleStatus
     opportunities: list[Opportunity]
     monitored_assets: list[AssetQuote]
+    market_assessments: list[AssetCycleAssessment]
+    market_summary: MarketSummary
     last_scan_at: Optional[datetime] = None
     scanner_running: bool

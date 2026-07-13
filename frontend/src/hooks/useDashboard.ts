@@ -26,17 +26,18 @@ export function useDashboard(pollMs = 90_000) {
     return () => clearInterval(interval)
   }, [load, pollMs])
 
-  const scan = async () => {
+  const scan = useCallback(async () => {
     setScanning(true)
     try {
       await triggerScan()
       await load()
     } catch {
       setError('Skanowanie nie powiodło się')
+      throw new Error('scan failed')
     } finally {
       setScanning(false)
     }
-  }
+  }, [load])
 
   return { data, loading, scanning, error, reload: load, scan }
 }

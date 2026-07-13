@@ -1,6 +1,7 @@
 export type AssetClass = 'crypto' | 'stock' | 'index' | 'bond' | 'commodity' | 'forex'
 export type SignalAction = 'buy' | 'sell' | 'hold' | 'watch'
 export type CyclePhase = 'bear' | 'accumulation' | 'bull' | 'distribution' | 'neutral'
+export type Region = 'global' | 'us' | 'eu' | 'asia' | 'em'
 
 export interface BitcoinCycleStatus {
   last_ath_date: string
@@ -41,6 +42,35 @@ export interface AssetQuote {
   updated_at: string
 }
 
+export interface AssetCycleAssessment {
+  symbol: string
+  name: string
+  asset_class: AssetClass
+  region: Region
+  price: number
+  change_pct_24h: number | null
+  change_pct_7d: number | null
+  high_52w: number | null
+  drawdown_from_high_pct: number | null
+  macro_cycle: string
+  macro_phase: string
+  price_phase: string
+  signal: SignalAction
+  confidence: number
+  rationale: string
+  updated_at: string
+}
+
+export interface MarketSummary {
+  total_assets: number
+  by_signal: Record<string, number>
+  by_class: Record<string, number>
+  by_region: Record<string, number>
+  avg_confidence: number
+  outlook: string
+  outlook_label: string
+}
+
 export interface Opportunity {
   symbol: string
   name: string
@@ -59,6 +89,8 @@ export interface DashboardResponse {
   presidential_cycle: PresidentialCycleStatus
   opportunities: Opportunity[]
   monitored_assets: AssetQuote[]
+  market_assessments: AssetCycleAssessment[]
+  market_summary: MarketSummary
   last_scan_at: string | null
   scanner_running: boolean
 }

@@ -7,6 +7,14 @@ export const ASSET_LABELS = {
   forex: 'Forex',
 } as const
 
+export const REGION_LABELS = {
+  global: 'Globalny',
+  us: 'USA',
+  eu: 'Europa',
+  asia: 'Azja',
+  em: 'Emerging',
+} as const
+
 export const SIGNAL_LABELS = {
   buy: 'Kupuj',
   sell: 'Sprzedaj',
@@ -27,10 +35,17 @@ export const PHASE_LABELS: Record<string, string> = {
 }
 
 export const NAV_ITEMS = [
+  { path: '/', label: 'Start' },
+  { path: '/dashboard', label: 'Panel' },
+  { path: '/rynki', label: 'Rynki' },
+  { path: '/okazje', label: 'Okazje' },
+  { path: '/cykle', label: 'Cykle' },
+]
+
+export const MOBILE_NAV = [
   { path: '/', label: 'Start', icon: '⌂' },
-  { path: '/dashboard', label: 'Dashboard', icon: '◫' },
-  { path: '/cykle', label: 'Cykle', icon: '↻' },
-  { path: '/okazje', label: 'Okazje', icon: '◎' },
+  { path: '/dashboard', label: 'Panel', icon: '◫' },
   { path: '/rynki', label: 'Rynki', icon: '▤' },
-  { path: '/o-aplikacji', label: 'O aplikacji', icon: 'i' },
+  { path: '/okazje', label: 'Okazje', icon: '◎' },
+  { path: '/cykle', label: 'Cykle', icon: '↻' },
 ]
