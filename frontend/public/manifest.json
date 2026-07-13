@@ -1,0 +1,18 @@
+{
+  "name": "Cyclical Trader",
+  "short_name": "Cyclical",
+  "description": "Trading cykliczny — krypto i rynki tradycyjne",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0e17",
+  "theme_color": "#0a0e17",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect fill='%230a0e17' width='192' height='192' rx='40'/%3E%3Ctext x='96' y='130' font-size='100' text-anchor='middle' fill='%23f7931a'%3E↻%3C/text%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
