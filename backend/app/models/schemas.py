@@ -179,6 +179,12 @@ class AlertSettings(BaseModel):
     alert_on_new_opportunity: bool = True
 
 
+class TwilioConfigRequest(BaseModel):
+    account_sid: str
+    auth_token: str
+    from_number: str
+
+
 class PushSubscriptionRequest(BaseModel):
     endpoint: str
     keys: dict[str, str]
