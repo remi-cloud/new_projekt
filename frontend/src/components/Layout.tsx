@@ -4,11 +4,13 @@ import { MOBILE_NAV, NAV_ITEMS } from '../constants'
 
 interface LayoutProps {
   scannerRunning?: boolean
+  liveMode?: boolean
+  liveConnected?: boolean
   onScan?: () => Promise<void>
   scanning?: boolean
 }
 
-export function Layout({ scannerRunning, onScan, scanning }: LayoutProps) {
+export function Layout({ scannerRunning, liveMode, liveConnected, onScan, scanning }: LayoutProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const [toast, setToast] = useState<string | null>(null)
@@ -36,7 +38,11 @@ export function Layout({ scannerRunning, onScan, scanning }: LayoutProps) {
           <div>
             <div className="mobile-title">{pageTitle}</div>
             <div className="mobile-subtitle">
-              {scannerRunning ? '● Live 24/7' : '○ Offline'}
+              {liveMode && liveConnected
+                ? '● Live realtime'
+                : scannerRunning
+                  ? '● Live 24/7'
+                  : '○ Offline'}
             </div>
           </div>
         </button>

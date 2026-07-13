@@ -42,6 +42,7 @@ export const NAV_ITEMS = [
   { path: '/rynki', label: 'Rynki' },
   { path: '/okazje', label: 'Okazje' },
   { path: '/cykle', label: 'Cykle' },
+  { path: '/powiadomienia', label: 'Alerty' },
 ]
 
 export const MOBILE_NAV = [
@@ -49,5 +50,5 @@ export const MOBILE_NAV = [
   { path: '/dashboard', label: 'Panel', icon: '◫' },
   { path: '/rynki', label: 'Rynki', icon: '▤' },
   { path: '/okazje', label: 'Okazje', icon: '◎' },
-  { path: '/cykle', label: 'Cykle', icon: '↻' },
+  { path: '/powiadomienia', label: 'Alerty', icon: '🔔' },
 ]

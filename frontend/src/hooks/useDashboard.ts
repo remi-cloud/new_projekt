@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { fetchDashboard, triggerScan } from '../api'
+import { useLiveFeed } from './useLiveFeed'
 import { DashboardResponse } from '../types'
 
-export function useDashboard(pollMs = 90_000) {
+export function useDashboard(pollMs = 30_000) {
   const [data, setData] = useState<DashboardResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [scanning, setScanning] = useState(false)
@@ -26,6 +27,12 @@ export function useDashboard(pollMs = 90_000) {
     return () => clearInterval(interval)
   }, [load, pollMs])
 
+  const { connected: liveConnected, lastEventAt } = useLiveFeed((event) => {
+    if (event.type === 'price_tick' || event.type === 'full_scan' || event.type === 'alerts') {
+      load()
+    }
+  })
+
   const scan = useCallback(async () => {
     setScanning(true)
     try {
@@ -39,5 +46,5 @@ export function useDashboard(pollMs = 90_000) {
     }
   }, [load])
 
-  return { data, loading, scanning, error, reload: load, scan }
+  return { data, loading, scanning, error, reload: load, scan, liveConnected, lastEventAt }
 }
