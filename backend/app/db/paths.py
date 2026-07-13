@@ -37,6 +37,11 @@ def portfolio_snapshot_path() -> Path:
     return portfolio_dir() / "portfolio_snapshot.json"
 
 
+def portfolio_repo_backup_path() -> Path:
+    """Committed backup in repo — restored on first run when portfolio DB is empty."""
+    return BACKEND_ROOT.parent / "backups" / "portfolio_latest.sqlite"
+
+
 def ensure_data_dir() -> Path:
     path = database_path()
     path.parent.mkdir(parents=True, exist_ok=True)

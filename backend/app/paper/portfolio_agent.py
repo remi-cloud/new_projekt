@@ -13,6 +13,7 @@ from app.db.paths import (
     database_path,
     portfolio_database_path,
     portfolio_dir,
+    portfolio_repo_backup_path,
     portfolio_snapshot_path,
 )
 from app.db.sqlite import db_session, portfolio_db_session
@@ -110,6 +111,22 @@ async def refresh_snapshot() -> dict:
     return payload
 
 
+async def restore_repo_backup_if_needed() -> bool:
+    """Copy committed backups/portfolio_latest.sqlite when local DB is empty."""
+    backup = portfolio_repo_backup_path()
+    if not backup.exists():
+        return False
+    if not await _new_portfolio_is_empty():
+        return False
+
+    target = portfolio_database_path()
+    ensure = portfolio_dir()
+    ensure.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(backup, target)
+    logger.info("Portfolio agent: restored from repo backup → %s", target)
+    return True
+
+
 async def sync_on_startup() -> dict:
     """Run when the app starts: ensure folder, migrate legacy DB, refresh snapshot."""
     folder = portfolio_dir()
@@ -117,9 +134,12 @@ async def sync_on_startup() -> dict:
     logger.info("Portfolio agent: folder %s", folder)
 
     await paper_db.init_paper_db()
+    restored = await restore_repo_backup_if_needed()
     migrated = await migrate_legacy_portfolio_if_needed()
     if migrated:
         logger.info("Portfolio agent: restored data from legacy trader.db")
+    elif restored:
+        logger.info("Portfolio agent: restored data from backups/portfolio_latest.sqlite")
 
     positions = await paper_db.get_positions()
     account = await paper_db.get_account()
