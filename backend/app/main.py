@@ -58,12 +58,16 @@ async def lifespan(app: FastAPI):
     await init_paper_db()
     ensure_vapid_keys()
     start_scheduler()
-    try:
-        await scheduled_full_scan()
-        if scanner.market_assessments:
-            alert_engine.reset(scanner.market_assessments)
-    except Exception as exc:
-        logger.warning("Initial scan failed (will retry on schedule): %s", exc)
+
+    async def _initial_scan() -> None:
+        try:
+            await scheduled_full_scan()
+            if scanner.market_assessments:
+                alert_engine.reset(scanner.market_assessments)
+        except Exception as exc:
+            logger.warning("Initial scan failed (will retry on schedule): %s", exc)
+
+    asyncio.create_task(_initial_scan())
     yield
     stop_scheduler()
 
