@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ASSET_LABELS, PHASE_LABELS, REGION_LABELS, SIGNAL_LABELS } from '../constants'
 import { useLazyVisible } from '../hooks/useLazyVisible'
 import { AssetCycleAssessment } from '../types'
-import { ChartPreset, ChartResponse } from '../types/chart'
+import { ChartPreset, ChartResponse, INTRADAY_CHART_PRESETS, SWING_CHART_PRESETS } from '../types/chart'
 import { TradePanel } from './PaperTrading'
 import { ChartLoader } from './TradingChart'
 import { PriceHeader } from './PriceHeader'
@@ -46,16 +46,30 @@ export function InstrumentPanel({ item, expanded = false }: InstrumentPanelProps
       <div className="instrument-chart-wrap" onClick={(e) => expanded && e.stopPropagation()}>
         {expanded && (
           <div className="chart-timeframes">
-            {(['1D', '1W', '1M', '3M', '1Y', 'MAX'] as ChartPreset[]).map((p) => (
-              <button
-                key={p}
-                type="button"
-                className={`tf-btn ${preset === p ? 'active' : ''}`}
-                onClick={() => setPreset(p)}
-              >
-                {p}
-              </button>
-            ))}
+            <div className="chart-tf-row">
+              {INTRADAY_CHART_PRESETS.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  className={`tf-btn tf-intraday ${preset === p ? 'active' : ''}`}
+                  onClick={() => setPreset(p)}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+            <div className="chart-tf-row">
+              {SWING_CHART_PRESETS.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  className={`tf-btn ${preset === p ? 'active' : ''}`}
+                  onClick={() => setPreset(p)}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
           </div>
         )}
         {(visible || expanded) && (

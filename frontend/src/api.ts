@@ -1,5 +1,8 @@
 import { AlertSettings, DashboardResponse, NotificationStatus, PaperOrderRequest, PaperPortfolio, TwilioConfig } from './types'
-import { ChartPreset, ChartResponse } from './types/chart'
+import { ChartPreset, ChartResponse, CHART_PRESETS } from './types/chart'
+
+export { CHART_PRESETS }
+export type { ChartPreset, ChartResponse }
 
 export const API_BASE = '/api'
 
@@ -96,4 +99,8 @@ export async function fetchChart(symbol: string, range: ChartPreset = '3M'): Pro
   return res.json()
 }
 
-export const CHART_PRESETS: ChartPreset[] = ['1D', '1W', '1M', '3M', '1Y', 'MAX']
+export async function fetchChartPresets(): Promise<string[]> {
+  const res = await fetch(`${API_BASE}/markets/chart-presets`)
+  if (!res.ok) return CHART_PRESETS
+  return res.json()
+}

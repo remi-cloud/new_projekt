@@ -1,4 +1,16 @@
-export type ChartPreset = '1D' | '1W' | '1M' | '3M' | '1Y' | 'MAX'
+export type ChartPreset =
+  | '1m'
+  | '5m'
+  | '15m'
+  | '30m'
+  | '1H'
+  | '4H'
+  | '1D'
+  | '1W'
+  | '1M'
+  | '3M'
+  | '1Y'
+  | 'MAX'
 
 export interface ChartCandle {
   time: number
@@ -23,3 +35,10 @@ export interface ChartResponse {
   day_low: number | null
   prev_close: number | null
 }
+
+/** Intraday: 1 minute → 4 hours */
+export const INTRADAY_CHART_PRESETS: ChartPreset[] = ['1m', '5m', '15m', '30m', '1H', '4H']
+
+export const SWING_CHART_PRESETS: ChartPreset[] = ['1D', '1W', '1M', '3M', '1Y', 'MAX']
+
+export const CHART_PRESETS: ChartPreset[] = [...INTRADAY_CHART_PRESETS, ...SWING_CHART_PRESETS]
