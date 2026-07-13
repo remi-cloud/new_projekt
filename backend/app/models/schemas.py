@@ -163,4 +163,28 @@ class DashboardResponse(BaseModel):
     market_assessments: list[AssetCycleAssessment]
     market_summary: MarketSummary
     last_scan_at: Optional[datetime] = None
+    last_price_tick_at: Optional[datetime] = None
+    live_mode: bool = False
     scanner_running: bool
+
+
+class AlertSettings(BaseModel):
+    phone: str = ""
+    sms_enabled: bool = False
+    push_enabled: bool = True
+    min_confidence: float = Field(default=60, ge=40, le=95)
+    alert_on_signal_change: bool = True
+    alert_on_new_opportunity: bool = True
+
+
+class PushSubscriptionRequest(BaseModel):
+    endpoint: str
+    keys: dict[str, str]
+
+
+class NotificationStatus(BaseModel):
+    push_configured: bool
+    sms_configured: bool
+    vapid_public_key: str
+    push_subscriptions: int
+    settings: AlertSettings

@@ -7,6 +7,8 @@ interface DashboardContextValue {
   loading: boolean
   scanning: boolean
   error: string | null
+  liveConnected: boolean
+  lastEventAt: string | null
   reload: () => Promise<void>
   scan: () => Promise<void>
 }

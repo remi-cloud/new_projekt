@@ -1,16 +1,40 @@
+import asyncio
+import json
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.db.database import get_recent_opportunities, init_db
+from app.config import settings
+from app.db.database import (
+    get_alert_settings,
+    get_notification_log,
+    get_push_subscriptions,
+    get_recent_opportunities,
+    init_db,
+    save_push_subscription,
+    update_alert_settings,
+)
 from app.data.chart_data import CHART_PRESETS, fetch_chart
-from app.models.schemas import ChartResponse, DashboardResponse, MarketSummary, RegionalCycleSnapshot
-from app.scheduler.jobs import is_running, scheduled_scan, start_scheduler, stop_scheduler
+from app.models.schemas import (
+    AlertSettings,
+    ChartResponse,
+    DashboardResponse,
+    MarketSummary,
+    NotificationStatus,
+    PushSubscriptionRequest,
+    RegionalCycleSnapshot,
+)
+from app.notifications.alert_engine import alert_engine
+from app.notifications.push import get_vapid_public_key, vapid_configured
+from app.notifications.sms import twilio_configured
+from app.notifications.vapid_setup import ensure_vapid_keys
+from app.realtime.broadcaster import broadcaster
+from app.scheduler.jobs import is_running, scheduled_full_scan, start_scheduler, stop_scheduler
 from app.scanners.opportunity_scanner import scanner
 
 logging.basicConfig(level=logging.INFO)
@@ -22,9 +46,12 @@ STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    ensure_vapid_keys()
     start_scheduler()
     try:
-        await scheduled_scan()
+        await scheduled_full_scan()
+        if scanner.market_assessments:
+            alert_engine.reset(scanner.market_assessments)
     except Exception as exc:
         logger.warning("Initial scan failed (will retry on schedule): %s", exc)
     yield
@@ -33,8 +60,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Cyclical Trader",
-    description="Aplikacja tradingowa oparta na cyklu Bitcoin (364/1064 dni) i regionalnych cyklach makro",
-    version="1.2.0",
+    description="Aplikacja tradingowa — cykle rynkowe, śledzenie live, powiadomienia push/SMS",
+    version="1.3.0",
     lifespan=lifespan,
 )
 
@@ -49,7 +76,13 @@ app.add_middleware(
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "scanner_running": is_running(), "www": STATIC_DIR.exists()}
+    return {
+        "status": "ok",
+        "scanner_running": is_running(),
+        "live_mode": scanner.live_mode,
+        "price_poll_seconds": settings.price_poll_interval_seconds,
+        "www": STATIC_DIR.exists(),
+    }
 
 
 @app.get("/api/dashboard", response_model=DashboardResponse)
@@ -73,6 +106,8 @@ async def dashboard():
         market_assessments=scanner.market_assessments,
         market_summary=summary,
         last_scan_at=scanner.last_scan_at,
+        last_price_tick_at=scanner.last_price_tick_at,
+        live_mode=scanner.live_mode,
         scanner_running=is_running(),
     )
 
@@ -142,6 +177,79 @@ async def regional_cycles():
     if not scanner.regional_cycles:
         await scanner.scan()
     return scanner.regional_cycles
+
+
+@app.get("/api/notifications/status", response_model=NotificationStatus)
+async def notification_status():
+    settings_data = await get_alert_settings()
+    subs = await get_push_subscriptions()
+    return NotificationStatus(
+        push_configured=vapid_configured(),
+        sms_configured=twilio_configured(),
+        vapid_public_key=get_vapid_public_key(),
+        push_subscriptions=len(subs),
+        settings=AlertSettings(**settings_data),
+    )
+
+
+@app.get("/api/notifications/settings", response_model=AlertSettings)
+async def get_notifications_settings():
+    return AlertSettings(**await get_alert_settings())
+
+
+@app.put("/api/notifications/settings", response_model=AlertSettings)
+async def put_notifications_settings(body: AlertSettings):
+    updated = await update_alert_settings(body.model_dump())
+    return AlertSettings(**updated)
+
+
+@app.post("/api/notifications/push/subscribe")
+async def push_subscribe(body: PushSubscriptionRequest):
+    p256dh = body.keys.get("p256dh", "")
+    auth = body.keys.get("auth", "")
+    if not body.endpoint or not p256dh or not auth:
+        raise HTTPException(status_code=400, detail="Niepełna subskrypcja push")
+    await save_push_subscription(body.endpoint, p256dh, auth)
+    return {"subscribed": True}
+
+
+@app.get("/api/notifications/log")
+async def notification_log(limit: int = 30):
+    return await get_notification_log(limit)
+
+
+@app.websocket("/ws/live")
+async def websocket_live(ws: WebSocket):
+    await broadcaster.connect_ws(ws)
+    try:
+        while True:
+            await ws.receive_text()
+    except WebSocketDisconnect:
+        pass
+    finally:
+        await broadcaster.disconnect_ws(ws)
+
+
+@app.get("/api/live/stream")
+async def live_stream():
+    async def event_generator():
+        queue = broadcaster.connect_sse()
+        try:
+            yield f"data: {json.dumps({'type': 'connected', 'live_mode': scanner.live_mode})}\n\n"
+            while True:
+                try:
+                    msg = await asyncio.wait_for(queue.get(), timeout=25)
+                    yield f"data: {msg}\n\n"
+                except asyncio.TimeoutError:
+                    yield f"data: {json.dumps({'type': 'heartbeat'})}\n\n"
+        finally:
+            broadcaster.disconnect_sse(queue)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 # ── WWW: serwowanie frontendu SPA ──

@@ -104,7 +104,26 @@ export interface DashboardResponse {
   market_assessments: AssetCycleAssessment[]
   market_summary: MarketSummary
   last_scan_at: string | null
+  last_price_tick_at: string | null
+  live_mode: boolean
   scanner_running: boolean
+}
+
+export interface AlertSettings {
+  phone: string
+  sms_enabled: boolean
+  push_enabled: boolean
+  min_confidence: number
+  alert_on_signal_change: boolean
+  alert_on_new_opportunity: boolean
+}
+
+export interface NotificationStatus {
+  push_configured: boolean
+  sms_configured: boolean
+  vapid_public_key: string
+  push_subscriptions: number
+  settings: AlertSettings
 }
 
 export type { ChartPreset, ChartCandle, ChartResponse } from './types/chart'

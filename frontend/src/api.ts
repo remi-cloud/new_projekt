@@ -1,7 +1,7 @@
+import { AlertSettings, DashboardResponse, NotificationStatus } from './types'
 import { ChartPreset, ChartResponse } from './types/chart'
-import { DashboardResponse } from './types'
 
-const API_BASE = '/api'
+export const API_BASE = '/api'
 
 export async function fetchDashboard(): Promise<DashboardResponse> {
   const res = await fetch(`${API_BASE}/dashboard`)
@@ -12,6 +12,22 @@ export async function fetchDashboard(): Promise<DashboardResponse> {
 export async function triggerScan(): Promise<{ scanned: boolean; opportunities_count: number }> {
   const res = await fetch(`${API_BASE}/scan`, { method: 'POST' })
   if (!res.ok) throw new Error('Skanowanie nie powiodło się')
+  return res.json()
+}
+
+export async function fetchNotificationStatus(): Promise<NotificationStatus> {
+  const res = await fetch(`${API_BASE}/notifications/status`)
+  if (!res.ok) throw new Error('Nie udało się pobrać statusu powiadomień')
+  return res.json()
+}
+
+export async function saveAlertSettings(settings: AlertSettings): Promise<AlertSettings> {
+  const res = await fetch(`${API_BASE}/notifications/settings`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(settings),
+  })
+  if (!res.ok) throw new Error('Nie udało się zapisać ustawień')
   return res.json()
 }
 

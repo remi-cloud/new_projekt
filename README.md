@@ -90,7 +90,12 @@ scripts/      build-www.sh — buduje i pakuje frontend
 Dockerfile    Multi-stage: npm build → Python + static
 ```
 
-Skaner APScheduler działa co 15 min (konfiguracja: `CYCLICAL_SCAN_INTERVAL_MINUTES`).
+Skaner działa w trybie **real-time**:
+- **Ceny** — odświeżanie co 30 s (`CYCLICAL_PRICE_POLL_INTERVAL_SECONDS`)
+- **Pełna analiza** — co 5 min (`CYCLICAL_SCAN_INTERVAL_MINUTES`)
+- **Powiadomienia** — push (przeglądarka) + SMS (Twilio) przy zmianie sygnału
+
+Konfiguracja: `.env.example` (VAPID, Twilio, progi alertów).
 
 ## Disclaimer
 
