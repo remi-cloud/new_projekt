@@ -1,7 +1,7 @@
 export type AssetClass = 'crypto' | 'stock' | 'index' | 'bond' | 'commodity' | 'forex'
 export type SignalAction = 'buy' | 'sell' | 'hold' | 'watch'
 export type CyclePhase = 'bear' | 'accumulation' | 'bull' | 'distribution' | 'neutral'
-export type Region = 'global' | 'us' | 'eu' | 'asia' | 'em'
+export type Region = 'global' | 'us' | 'eu' | 'asia' | 'em' | 'pl'
 
 export interface BitcoinCycleStatus {
   last_ath_date: string

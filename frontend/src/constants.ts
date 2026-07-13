@@ -13,6 +13,7 @@ export const REGION_LABELS = {
   eu: 'Europa',
   asia: 'Azja',
   em: 'Emerging',
+  pl: 'Polska',
 } as const
 
 export const SIGNAL_LABELS = {
