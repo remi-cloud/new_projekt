@@ -848,3 +848,191 @@ body {
   position: relative;
   z-index: 101;
 }
+
+/* ── Professional price header (trading platform style) ── */
+
+.price-header {
+  margin-bottom: 8px;
+}
+
+.price-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.price-ticker {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--accent-cyan);
+  display: block;
+}
+
+.price-name {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  display: block;
+}
+
+.price-main-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.price-live {
+  font-family: var(--font-mono);
+  font-size: 1.65rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.price-header.compact .price-live {
+  font-size: 1.35rem;
+}
+
+.price-change-block {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  line-height: 1.3;
+}
+
+.price-change-block.up { color: var(--accent-green); }
+.price-change-block.down { color: var(--accent-red); }
+
+.price-change-abs { display: block; font-weight: 600; }
+.price-change-pct { display: block; font-size: 0.85rem; font-weight: 700; }
+
+.price-meta-row {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+
+.price-meta-row b {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* ── Trading chart ── */
+
+.instrument-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.instrument-panel.expanded {
+  cursor: default;
+  border-color: var(--accent-blue);
+}
+
+.instrument-panel:not(.expanded):active {
+  border-color: var(--accent-blue);
+  transform: scale(0.995);
+}
+
+.instrument-chart-wrap {
+  margin: 8px -4px 10px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(10, 14, 23, 0.5);
+}
+
+.trading-chart {
+  width: 100%;
+}
+
+.chart-empty, .chart-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+}
+
+.chart-loading-bar {
+  width: 60%;
+  height: 4px;
+  background: linear-gradient(90deg, transparent, var(--accent-blue), transparent);
+  border-radius: 2px;
+  animation: shimmer 1.2s infinite;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.chart-placeholder {
+  background: var(--bg-secondary);
+  border-radius: 8px;
+}
+
+.chart-timeframes {
+  display: flex;
+  gap: 4px;
+  padding: 8px 8px 4px;
+  overflow-x: auto;
+}
+
+.tf-btn {
+  flex-shrink: 0;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tf-btn.active {
+  background: var(--accent-blue);
+  border-color: var(--accent-blue);
+  color: white;
+}
+
+.instrument-footer {
+  margin-top: 4px;
+}
+
+.tap-hint {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  text-align: right;
+  margin: 4px 0;
+}
+
+.instrument-detail .back-btn {
+  background: none;
+  border: none;
+  color: var(--accent-blue);
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0 0 12px;
+  cursor: pointer;
+}
+
+.instrument-detail .instrument-panel {
+  cursor: default;
+}

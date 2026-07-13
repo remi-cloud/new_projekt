@@ -94,3 +94,5 @@ export interface DashboardResponse {
   last_scan_at: string | null
   scanner_running: boolean
 }
+
+export type { ChartPreset, ChartCandle, ChartResponse } from './types/chart'

@@ -8,6 +8,7 @@ import { DashboardPage } from './pages/DashboardPage'
 import { HomePage } from './pages/HomePage'
 import { MarketsPage } from './pages/MarketsPage'
 import { OpportunitiesPage } from './pages/OpportunitiesPage'
+import { InstrumentDetailPage } from './pages/InstrumentDetailPage'
 
 function AppShell() {
   const { data, loading, scanning, scan } = useDashboardContext()
@@ -36,6 +37,7 @@ export default function App() {
             <Route path="cykle" element={<CyclesPage />} />
             <Route path="okazje" element={<OpportunitiesPage />} />
             <Route path="rynki" element={<MarketsPage />} />
+            <Route path="instrument/:symbol" element={<InstrumentDetailPage />} />
             <Route path="o-aplikacji" element={<AboutPage />} />
           </Route>
         </Routes>
