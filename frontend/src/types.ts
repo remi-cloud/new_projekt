@@ -160,6 +160,7 @@ export interface PaperPosition {
   unrealized_pnl_pln: number
   unrealized_pnl_pct: number
   currency: string
+  opened_at?: string
 }
 
 export interface PaperTrade {

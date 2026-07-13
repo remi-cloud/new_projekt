@@ -5,6 +5,13 @@ import { ErrorState } from '../components/Loading'
 import { closePaperPosition, resetPaperPortfolio } from '../api'
 import { formatPln } from '../utils/format'
 
+function formatOpenedAt(iso?: string): string | null {
+  if (!iso) return null
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toLocaleString('pl-PL')
+}
+
 export function PortfolioPage() {
   const { portfolio, loading, error, reload } = usePaperPortfolio()
   const [resetting, setResetting] = useState(false)
@@ -72,6 +79,9 @@ export function PortfolioPage() {
                 <div className="position-main">
                   <strong>{p.symbol}</strong>
                   <span>{p.name}</span>
+                  {formatOpenedAt(p.opened_at) && (
+                    <span className="position-opened-at">Otwarto: {formatOpenedAt(p.opened_at)}</span>
+                  )}
                 </div>
                 <div className="position-stats">
                   <span>
@@ -86,9 +96,13 @@ export function PortfolioPage() {
               </Link>
               <button
                 type="button"
-                className="btn-close-position tap-target"
+                className="btn-close-position btn-close-position-prominent tap-target"
                 disabled={closingSymbol === p.symbol}
-                onClick={() => handleClosePosition(p.symbol, p.quantity, p.is_short)}
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  handleClosePosition(p.symbol, p.quantity, p.is_short)
+                }}
               >
                 {closingSymbol === p.symbol ? 'Zamykanie…' : 'Zamknij'}
               </button>

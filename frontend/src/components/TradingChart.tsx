@@ -5,9 +5,9 @@ import {
   createChart,
   UTCTimestamp,
 } from 'lightweight-charts'
-import { fetchChart, fetchPaperTrades } from '../api'
+import { fetchChart, fetchPaperPosition, fetchPaperTrades } from '../api'
 import { PaperTrade } from '../types'
-import { tradesToChartMarkers } from '../utils/chartMarkers'
+import { positionOpenMarker, tradesToChartMarkers } from '../utils/chartMarkers'
 import { ChartCandle, ChartPreset, ChartResponse } from '../types/chart'
 import type { SeriesMarker, Time } from 'lightweight-charts'
 
@@ -137,16 +137,22 @@ export function ChartLoader({
   const [loading, setLoading] = useState(false)
   const [positive, setPositive] = useState(true)
   const [trades, setTrades] = useState<PaperTrade[]>([])
+  const [positionOpenedAt, setPositionOpenedAt] = useState<string | null>(null)
 
   useEffect(() => {
     if (!enabled) return
     let cancelled = false
-    fetchPaperTrades(symbol)
-      .then((data) => {
-        if (!cancelled) setTrades(data)
+    Promise.all([fetchPaperTrades(symbol), fetchPaperPosition(symbol)])
+      .then(([tradeData, position]) => {
+        if (cancelled) return
+        setTrades(tradeData)
+        setPositionOpenedAt(position?.opened_at ?? null)
       })
       .catch(() => {
-        if (!cancelled) setTrades([])
+        if (!cancelled) {
+          setTrades([])
+          setPositionOpenedAt(null)
+        }
       })
     return () => {
       cancelled = true
@@ -196,13 +202,18 @@ export function ChartLoader({
     )
   }
 
+  const tradeMarkers = [
+    ...tradesToChartMarkers(trades, candles),
+    ...(positionOpenedAt ? positionOpenMarker(positionOpenedAt, candles) : []),
+  ]
+
   return (
     <TradingChart
       candles={candles}
       height={height}
       mode={mode}
       positive={positive}
-      tradeMarkers={tradesToChartMarkers(trades, candles)}
+      tradeMarkers={tradeMarkers}
     />
   )
 }

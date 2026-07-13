@@ -819,6 +819,19 @@ body {
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.btn-close-position-prominent {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  border-color: #ef4444;
+}
+
+.position-opened-at {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
 }
 
 .btn-close-position:hover:not(:disabled) {
@@ -1391,6 +1404,10 @@ body {
 
 .legend-sell {
   color: #ef4444;
+}
+
+.legend-open {
+  color: #3b82f6;
 }
 
 .instrument-footer {

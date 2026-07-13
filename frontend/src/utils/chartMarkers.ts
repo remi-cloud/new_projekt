@@ -31,3 +31,20 @@ export function tradesToChartMarkers(trades: PaperTrade[], candles: ChartCandle[
   markers.sort((a, b) => (a.time as number) - (b.time as number))
   return markers
 }
+
+export function positionOpenMarker(openedAt: string, candles: ChartCandle[]): SeriesMarker<Time>[] {
+  if (!openedAt || !candles.length) return []
+  const ts = Math.floor(new Date(openedAt).getTime() / 1000)
+  const minT = candles[0].time
+  const maxT = candles[candles.length - 1].time
+  if (ts < minT || ts > maxT) return []
+  return [
+    {
+      time: ts as UTCTimestamp,
+      position: 'belowBar',
+      color: '#3b82f6',
+      shape: 'circle',
+      text: 'OTW',
+    },
+  ]
+}

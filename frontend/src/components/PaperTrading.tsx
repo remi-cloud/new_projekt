@@ -9,6 +9,13 @@ import {
 import { PaperPortfolio as PaperPortfolioType, PaperPosition } from '../types'
 import { formatPln } from '../utils/format'
 
+function formatOpenedAt(iso?: string): string | null {
+  if (!iso) return null
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toLocaleString('pl-PL')
+}
+
 export function usePaperPortfolio(pollMs = 30_000) {
   const [portfolio, setPortfolio] = useState<PaperPortfolioType | null>(null)
   const [loading, setLoading] = useState(true)
@@ -54,7 +61,11 @@ export function TradePanel({ symbol, name, price, onTrade }: TradePanelProps) {
   const reloadPosition = useCallback(() => {
     fetchPaperPosition(symbol)
       .then(setPosition)
-      .catch(() => setPosition(null))
+      .catch(() => {
+        fetchPaperPortfolio()
+          .then((pf) => setPosition(pf.positions.find((p) => p.symbol === symbol) ?? null))
+          .catch(() => setPosition(null))
+      })
   }, [symbol])
 
   useEffect(() => {
@@ -118,9 +129,12 @@ export function TradePanel({ symbol, name, price, onTrade }: TradePanelProps) {
               {formatPln(position.unrealized_pnl_pln)} ({position.unrealized_pnl_pct}%)
             </span>
           </div>
+          {formatOpenedAt(position.opened_at) && (
+            <p className="position-opened-at">Otwarto: {formatOpenedAt(position.opened_at)}</p>
+          )}
           <button
             type="button"
-            className="btn-close-position tap-target"
+            className="btn-close-position btn-close-position-prominent tap-target"
             disabled={busy}
             onClick={handleClose}
           >

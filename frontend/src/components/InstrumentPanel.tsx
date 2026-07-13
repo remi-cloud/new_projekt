@@ -88,6 +88,7 @@ export function InstrumentPanel({ item, expanded = false }: InstrumentPanelProps
               <div className="chart-trade-legend">
                 <span className="legend-buy">▲ Kupno</span>
                 <span className="legend-sell">▼ Sprzedaż</span>
+                <span className="legend-open">● Otwarcie pozycji</span>
               </div>
             )}
           </>

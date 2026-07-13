@@ -45,6 +45,7 @@ def _position_to_view(pos: dict, usd_pln: float) -> dict:
         "unrealized_pnl_pln": round(unrealized, 2),
         "unrealized_pnl_pct": round(unrealized_pct, 2),
         "currency": currency,
+        "opened_at": pos.get("opened_at"),
     }
 
 

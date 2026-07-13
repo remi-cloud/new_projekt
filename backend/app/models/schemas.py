@@ -214,6 +214,7 @@ class PaperPositionView(BaseModel):
     name: str
     asset_class: AssetClass
     quantity: float
+    is_short: bool = False
     avg_price_native: float
     avg_price_pln: float
     current_price_native: float
@@ -223,6 +224,7 @@ class PaperPositionView(BaseModel):
     unrealized_pnl_pln: float
     unrealized_pnl_pct: float
     currency: str
+    opened_at: str | None = None
 
 
 class PaperTradeView(BaseModel):
