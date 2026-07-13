@@ -13,13 +13,12 @@ function AppShell() {
   const { data, loading, scanning, scan } = useDashboardContext()
 
   if (loading && !data) {
-    return <Loading message="Uruchamianie aplikacji WWW..." />
+    return <Loading message="Ładowanie..." />
   }
 
   return (
     <Layout
       scannerRunning={data?.scanner_running}
-      lastScanAt={data?.last_scan_at}
       onScan={scan}
       scanning={scanning}
     />

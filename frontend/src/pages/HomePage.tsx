@@ -25,8 +25,8 @@ export function HomePage() {
             dla krypto oraz cykl prezydencki USA dla akcji, obligacji, surowców i forex.
           </p>
           <div className="hero-actions">
-            <Link to="/dashboard" className="btn btn-primary btn-lg">Otwórz dashboard</Link>
-            <Link to="/okazje" className="btn btn-ghost btn-lg">Zobacz okazje ({data.opportunities.length})</Link>
+            <Link to="/dashboard" className="btn btn-primary btn-lg">Otwórz panel</Link>
+            <Link to="/okazje" className="btn btn-ghost">Okazje ({data.opportunities.length})</Link>
           </div>
         </div>
         <div className="hero-stats">

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { fetchDashboard, triggerScan } from '../api'
 import { DashboardResponse } from '../types'
 
-export function useDashboard(pollMs = 60_000) {
+export function useDashboard(pollMs = 90_000) {
   const [data, setData] = useState<DashboardResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [scanning, setScanning] = useState(false)
@@ -13,8 +13,8 @@ export function useDashboard(pollMs = 60_000) {
       const dashboard = await fetchDashboard()
       setData(dashboard)
       setError(null)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Błąd połączenia z API')
+    } catch {
+      setError('Brak połączenia — sprawdź internet')
     } finally {
       setLoading(false)
     }
@@ -31,8 +31,8 @@ export function useDashboard(pollMs = 60_000) {
     try {
       await triggerScan()
       await load()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Skanowanie nie powiodło się')
+    } catch {
+      setError('Skanowanie nie powiodło się')
     } finally {
       setScanning(false)
     }
