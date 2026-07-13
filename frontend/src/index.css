@@ -207,6 +207,17 @@ body {
 
 .cycle-card.bitcoin { border-top: 3px solid #f7931a; }
 .cycle-card.presidential { border-top: 3px solid var(--accent-blue); }
+.cycle-card.regional.polish { border-top: 3px solid #dc143c; }
+.cycle-card.regional.europe { border-top: 3px solid #003399; }
+.cycle-card.regional.asia { border-top: 3px solid #e63946; }
+.cycle-card.regional.em { border-top: 3px solid #2a9d8f; }
+.cycle-card.regional.global { border-top: 3px solid var(--accent-purple, #7c3aed); }
+
+.regional-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
 
 .cycle-card-header {
   display: flex;

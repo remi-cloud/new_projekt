@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.db.database import get_recent_opportunities, init_db
 from app.data.chart_data import CHART_PRESETS, fetch_chart
-from app.models.schemas import ChartResponse, DashboardResponse, MarketSummary
+from app.models.schemas import ChartResponse, DashboardResponse, MarketSummary, RegionalCycleSnapshot
 from app.scheduler.jobs import is_running, scheduled_scan, start_scheduler, stop_scheduler
 from app.scanners.opportunity_scanner import scanner
 
@@ -33,8 +33,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Cyclical Trader",
-    description="Aplikacja tradingowa oparta na cyklu Bitcoin (364/1064 dni) i cyklu prezydenckim USA",
-    version="1.1.0",
+    description="Aplikacja tradingowa oparta na cyklu Bitcoin (364/1064 dni) i regionalnych cyklach makro",
+    version="1.2.0",
     lifespan=lifespan,
 )
 
@@ -67,6 +67,7 @@ async def dashboard():
     return DashboardResponse(
         bitcoin_cycle=scanner.bitcoin_cycle,
         presidential_cycle=scanner.presidential_cycle,
+        regional_cycles=scanner.regional_cycles,
         opportunities=scanner.opportunities,
         monitored_assets=scanner.quotes,
         market_assessments=scanner.market_assessments,
@@ -134,6 +135,13 @@ async def presidential_cycle():
     if not scanner.presidential_cycle:
         await scanner.scan()
     return scanner.presidential_cycle
+
+
+@app.get("/api/cycles/regional", response_model=list[RegionalCycleSnapshot])
+async def regional_cycles():
+    if not scanner.regional_cycles:
+        await scanner.scan()
+    return scanner.regional_cycles
 
 
 # ── WWW: serwowanie frontendu SPA ──
