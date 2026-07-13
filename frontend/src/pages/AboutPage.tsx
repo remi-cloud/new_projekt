@@ -13,12 +13,12 @@ export function AboutPage() {
         <article className="about-card">
           <h3>Monitorowane rynki</h3>
           <ul>
-            <li>Krypto (BTC, ETH, SOL)</li>
-            <li>Indeksy USA (S&P 500, Dow, NASDAQ, Russell)</li>
-            <li>Akcje (AAPL, MSFT, NVDA, JPM)</li>
-            <li>Obligacje (TLT, IEF, LQD, HYG)</li>
-            <li>Surowce (złoto, srebro, ropa, gaz)</li>
-            <li>Forex (EUR/USD, GBP/USD, USD/JPY, DXY)</li>
+            <li>Krypto (BTC, ETH, SOL i inne)</li>
+            <li>Indeksy USA, Europa, Azja, Polska (WIG20, WIG, mWIG40, sWIG80)</li>
+            <li>Magnificent Seven (AAPL, MSFT, GOOGL, AMZN, NVDA, META, TSLA)</li>
+            <li>Ekosystem Muska (SpaceX proxy ARKX, Rocket Lab, łańcuch dostaw Tesla)</li>
+            <li>Polska — blue chips (PKO, Orlen, Dino, CD Projekt, Allegro…)</li>
+            <li>Obligacje, surowce, forex</li>
           </ul>
         </article>
         <article className="about-card">
