@@ -1,4 +1,4 @@
-import { AlertSettings, DashboardResponse, NotificationStatus, PaperOrderRequest, PaperPortfolio, TwilioConfig } from './types'
+import { AlertSettings, DashboardResponse, NotificationStatus, PaperOrderRequest, PaperPortfolio, PaperTrade, TwilioConfig } from './types'
 import { ChartPreset, ChartResponse, CHART_PRESETS } from './types/chart'
 
 export { CHART_PRESETS }
@@ -89,6 +89,13 @@ export async function placePaperOrder(order: PaperOrderRequest): Promise<unknown
 export async function resetPaperPortfolio(): Promise<PaperPortfolio> {
   const res = await fetch(`${API_BASE}/paper/reset`, { method: 'POST' })
   if (!res.ok) throw new Error('Reset nieudany')
+  return res.json()
+}
+
+export async function fetchPaperTrades(symbol: string): Promise<PaperTrade[]> {
+  const encoded = symbol.split('/').map(encodeURIComponent).join('/')
+  const res = await fetch(`${API_BASE}/paper/trades/${encoded}`)
+  if (!res.ok) return []
   return res.json()
 }
 

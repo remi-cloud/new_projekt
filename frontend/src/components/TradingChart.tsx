@@ -5,14 +5,18 @@ import {
   createChart,
   UTCTimestamp,
 } from 'lightweight-charts'
-import { fetchChart } from '../api'
+import { fetchChart, fetchPaperTrades } from '../api'
+import { PaperTrade } from '../types'
+import { tradesToChartMarkers } from '../utils/chartMarkers'
 import { ChartCandle, ChartPreset, ChartResponse } from '../types/chart'
+import type { SeriesMarker, Time } from 'lightweight-charts'
 
 interface TradingChartProps {
   candles: ChartCandle[]
   height?: number
   mode?: 'area' | 'candle'
   positive?: boolean
+  tradeMarkers?: SeriesMarker<Time>[]
 }
 
 export function TradingChart({
@@ -20,6 +24,7 @@ export function TradingChart({
   height = 140,
   mode = 'area',
   positive = true,
+  tradeMarkers = [],
 }: TradingChartProps) {
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -66,6 +71,9 @@ export function TradingChart({
           close: c.close,
         })),
       )
+      if (tradeMarkers.length) {
+        series.setMarkers(tradeMarkers)
+      }
     } else {
       const series = chart.addAreaSeries({
         lineColor,
@@ -79,6 +87,9 @@ export function TradingChart({
           value: c.close,
         })),
       )
+      if (tradeMarkers.length) {
+        series.setMarkers(tradeMarkers)
+      }
     }
 
     chart.timeScale().fitContent()
@@ -94,7 +105,7 @@ export function TradingChart({
       ro.disconnect()
       chart.remove()
     }
-  }, [candles, height, mode, positive])
+  }, [candles, height, mode, positive, tradeMarkers])
 
   if (!candles.length) {
     return <div className="chart-empty" style={{ height }}>Brak danych wykresu</div>
@@ -110,6 +121,7 @@ interface ChartLoaderProps {
   mode?: 'area' | 'candle'
   enabled?: boolean
   onData?: (data: ChartResponse) => void
+  tradesRevision?: number
 }
 
 export function ChartLoader({
@@ -119,10 +131,27 @@ export function ChartLoader({
   mode = 'area',
   enabled = true,
   onData,
+  tradesRevision = 0,
 }: ChartLoaderProps) {
   const [candles, setCandles] = useState<ChartCandle[]>([])
   const [loading, setLoading] = useState(false)
   const [positive, setPositive] = useState(true)
+  const [trades, setTrades] = useState<PaperTrade[]>([])
+
+  useEffect(() => {
+    if (!enabled) return
+    let cancelled = false
+    fetchPaperTrades(symbol)
+      .then((data) => {
+        if (!cancelled) setTrades(data)
+      })
+      .catch(() => {
+        if (!cancelled) setTrades([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [symbol, enabled, tradesRevision])
 
   useEffect(() => {
     if (!enabled) return
@@ -167,5 +196,13 @@ export function ChartLoader({
     )
   }
 
-  return <TradingChart candles={candles} height={height} mode={mode} positive={positive} />
+  return (
+    <TradingChart
+      candles={candles}
+      height={height}
+      mode={mode}
+      positive={positive}
+      tradeMarkers={tradesToChartMarkers(trades, candles)}
+    />
+  )
 }

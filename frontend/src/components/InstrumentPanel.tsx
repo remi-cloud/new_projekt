@@ -18,6 +18,7 @@ export function InstrumentPanel({ item, expanded = false }: InstrumentPanelProps
   const { ref, visible } = useLazyVisible()
   const [chartData, setChartData] = useState<ChartResponse | null>(null)
   const [preset, setPreset] = useState<ChartPreset>('3M')
+  const [tradesRevision, setTradesRevision] = useState(0)
 
   const openDetail = () => navigate(`/instrument/${encodeURIComponent(item.symbol)}`)
 
@@ -73,14 +74,23 @@ export function InstrumentPanel({ item, expanded = false }: InstrumentPanelProps
           </div>
         )}
         {(visible || expanded) && (
-          <ChartLoader
-            symbol={item.symbol}
-            preset={expanded ? preset : '3M'}
-            height={expanded ? 260 : 120}
-            mode={expanded ? 'candle' : 'area'}
-            enabled={visible || expanded}
-            onData={setChartData}
-          />
+          <>
+            <ChartLoader
+              symbol={item.symbol}
+              preset={expanded ? preset : '3M'}
+              height={expanded ? 260 : 120}
+              mode={expanded ? 'candle' : 'area'}
+              enabled={visible || expanded}
+              onData={setChartData}
+              tradesRevision={tradesRevision}
+            />
+            {expanded && (
+              <div className="chart-trade-legend">
+                <span className="legend-buy">▲ Kupno</span>
+                <span className="legend-sell">▼ Sprzedaż</span>
+              </div>
+            )}
+          </>
         )}
         {!visible && !expanded && <div className="chart-placeholder" style={{ height: 120 }} />}
       </div>
@@ -96,7 +106,12 @@ export function InstrumentPanel({ item, expanded = false }: InstrumentPanelProps
           <span className="tap-hint">Stuknij aby powiększyć →</span>
         )}
         {expanded && (
-          <TradePanel symbol={item.symbol} name={item.name} price={item.price} />
+          <TradePanel
+            symbol={item.symbol}
+            name={item.name}
+            price={item.price}
+            onTrade={() => setTradesRevision((n) => n + 1)}
+          />
         )}
         <p className="market-rationale">{item.rationale}</p>
       </div>

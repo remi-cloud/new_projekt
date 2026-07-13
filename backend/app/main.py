@@ -30,6 +30,7 @@ from app.models.schemas import (
     NotificationStatus,
     PaperOrderRequest,
     PaperPortfolio,
+    PaperTradeView,
     PushSubscriptionRequest,
     RegionalCycleSnapshot,
     TwilioConfigRequest,
@@ -299,6 +300,14 @@ async def paper_max_buy(symbol: str):
         await scanner.scan()
     qty = await max_buy_quantity(symbol)
     return {"symbol": symbol, "max_quantity": qty}
+
+
+@app.get("/api/paper/trades/{symbol:path}", response_model=list[PaperTradeView])
+async def paper_trades_for_symbol(symbol: str, limit: int = 200):
+    from app.paper.paper_db import get_trades_for_symbol
+
+    rows = await get_trades_for_symbol(symbol, limit=limit)
+    return [PaperTradeView(**r) for r in rows]
 
 
 @app.post("/api/paper/order")

@@ -111,6 +111,17 @@ async def get_trades(limit: int = 50) -> list[dict]:
         return [dict(r) for r in rows]
 
 
+async def get_trades_for_symbol(symbol: str, limit: int = 200) -> list[dict]:
+    async with portfolio_db_session() as db:
+        db.row_factory = aiosqlite.Row
+        rows = await (await db.execute(
+            """SELECT * FROM paper_trades WHERE symbol = ?
+               ORDER BY created_at ASC LIMIT ?""",
+            (symbol, limit),
+        )).fetchall()
+        return [dict(r) for r in rows]
+
+
 async def update_account_cash(cash_pln: float, realized_pnl_delta: float = 0.0) -> None:
     now = _now()
     async with portfolio_db_session() as db:

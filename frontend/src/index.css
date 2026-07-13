@@ -1322,6 +1322,22 @@ body {
   color: white;
 }
 
+.chart-trade-legend {
+  display: flex;
+  gap: 14px;
+  padding: 4px 10px 8px;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.legend-buy {
+  color: #10b981;
+}
+
+.legend-sell {
+  color: #ef4444;
+}
+
 .instrument-footer {
   margin-top: 4px;
 }
