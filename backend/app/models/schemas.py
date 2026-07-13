@@ -104,6 +104,30 @@ class MarketSummary(BaseModel):
     outlook_label: str
 
 
+class ChartCandle(BaseModel):
+    time: int
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: Optional[float] = None
+
+
+class ChartResponse(BaseModel):
+    symbol: str
+    name: str
+    interval: str
+    range: str
+    currency: str = "USD"
+    candles: list[ChartCandle]
+    current_price: float
+    change: float
+    change_pct: float
+    day_high: Optional[float] = None
+    day_low: Optional[float] = None
+    prev_close: Optional[float] = None
+
+
 class Opportunity(BaseModel):
     id: Optional[int] = None
     symbol: str

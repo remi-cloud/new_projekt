@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { FilterChips } from '../components/FilterChips'
-import { MarketAssessmentCard, MarketSummaryBanner } from '../components/MarketAssessmentCard'
+import { InstrumentPanel, MarketSummaryBanner } from '../components/MarketAssessmentCard'
 import { ErrorState } from '../components/Loading'
 import { ASSET_LABELS, REGION_LABELS, SIGNAL_LABELS } from '../constants'
 import { useDashboardContext } from '../context/DashboardContext'
@@ -70,7 +70,7 @@ export function MarketsPage() {
 
       <div className="markets-list">
         {filtered.map((item) => (
-          <MarketAssessmentCard key={item.symbol} item={item} />
+          <InstrumentPanel key={item.symbol} item={item} />
         ))}
       </div>
 

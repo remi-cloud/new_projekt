@@ -8,7 +8,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.db.database import get_recent_opportunities, init_db
-from app.models.schemas import DashboardResponse, MarketSummary
+from app.data.chart_data import CHART_PRESETS, fetch_chart
+from app.models.schemas import ChartResponse, DashboardResponse, MarketSummary
 from app.scheduler.jobs import is_running, scheduled_scan, start_scheduler, stop_scheduler
 from app.scanners.opportunity_scanner import scanner
 
@@ -91,6 +92,21 @@ async def market_assessments(
     if signal:
         results = [a for a in results if a.signal.value == signal]
     return results
+
+
+@app.get("/api/markets/chart/{symbol:path}", response_model=ChartResponse)
+async def market_chart(symbol: str, range: str = "3M"):
+    if range not in CHART_PRESETS:
+        range = "3M"
+    chart = await fetch_chart(symbol, range)
+    if not chart:
+        raise HTTPException(status_code=404, detail=f"Brak danych wykresu dla {symbol}")
+    return chart
+
+
+@app.get("/api/markets/chart-presets")
+async def chart_presets():
+    return list(CHART_PRESETS.keys())
 
 
 @app.post("/api/scan")
