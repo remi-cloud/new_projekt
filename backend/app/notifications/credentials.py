@@ -6,11 +6,11 @@ import json
 import logging
 from pathlib import Path
 
-from app.config import settings
+from app.db.paths import database_path
 
 logger = logging.getLogger(__name__)
 
-CREDENTIALS_PATH = Path(settings.database_path).parent / "credentials.local.json"
+CREDENTIALS_PATH = database_path().parent / "credentials.local.json"
 
 
 def _read() -> dict:

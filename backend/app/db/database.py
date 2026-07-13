@@ -2,18 +2,18 @@ import aiosqlite
 import logging
 import secrets
 from datetime import datetime
-from pathlib import Path
 
 from app.config import settings
+from app.db.paths import ensure_data_dir
+from app.db.sqlite import db_session
 from app.models.schemas import Opportunity
 
 logger = logging.getLogger(__name__)
 
 
 async def init_db() -> None:
-    db_path = Path(settings.database_path)
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    async with aiosqlite.connect(settings.database_path) as db:
+    ensure_data_dir()
+    async with db_session() as db:
         await db.execute("""
             CREATE TABLE IF NOT EXISTS opportunities (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -97,7 +97,7 @@ async def _migrate_alert_settings(db: aiosqlite.Connection) -> None:
 
 async def save_opportunities(opportunities: list[Opportunity]) -> None:
     now = datetime.utcnow().isoformat()
-    async with aiosqlite.connect(settings.database_path) as db:
+    async with db_session() as db:
         for opp in opportunities:
             await db.execute(
                 """INSERT INTO opportunities
@@ -118,7 +118,7 @@ async def save_opportunities(opportunities: list[Opportunity]) -> None:
 
 
 async def get_recent_opportunities(limit: int = 50) -> list[dict]:
-    async with aiosqlite.connect(settings.database_path) as db:
+    async with db_session() as db:
         db.row_factory = aiosqlite.Row
         cursor = await db.execute(
             "SELECT * FROM opportunities ORDER BY created_at DESC LIMIT ?",
@@ -130,7 +130,7 @@ async def get_recent_opportunities(limit: int = 50) -> list[dict]:
 
 async def save_push_subscription(endpoint: str, p256dh: str, auth: str) -> None:
     now = datetime.utcnow().isoformat()
-    async with aiosqlite.connect(settings.database_path) as db:
+    async with db_session() as db:
         await db.execute(
             """INSERT INTO push_subscriptions (endpoint, p256dh, auth, created_at)
                VALUES (?, ?, ?, ?)
@@ -141,13 +141,13 @@ async def save_push_subscription(endpoint: str, p256dh: str, auth: str) -> None:
 
 
 async def remove_push_subscription(endpoint: str) -> None:
-    async with aiosqlite.connect(settings.database_path) as db:
+    async with db_session() as db:
         await db.execute("DELETE FROM push_subscriptions WHERE endpoint = ?", (endpoint,))
         await db.commit()
 
 
 async def get_push_subscriptions() -> list[dict]:
-    async with aiosqlite.connect(settings.database_path) as db:
+    async with db_session() as db:
         db.row_factory = aiosqlite.Row
         cursor = await db.execute("SELECT endpoint, p256dh, auth FROM push_subscriptions")
         rows = await cursor.fetchall()
@@ -155,7 +155,7 @@ async def get_push_subscriptions() -> list[dict]:
 
 
 async def get_alert_settings() -> dict:
-    async with aiosqlite.connect(settings.database_path) as db:
+    async with db_session() as db:
         db.row_factory = aiosqlite.Row
         cursor = await db.execute("SELECT * FROM alert_settings WHERE id = 1")
         row = await cursor.fetchone()
@@ -184,7 +184,7 @@ async def get_alert_settings() -> dict:
 
 
 async def update_alert_settings(data: dict) -> dict:
-    async with aiosqlite.connect(settings.database_path) as db:
+    async with db_session() as db:
         await db.execute(
             """UPDATE alert_settings SET
                phone = ?,
@@ -211,7 +211,7 @@ async def update_alert_settings(data: dict) -> dict:
 
 async def log_notification(channel: str, symbol: str | None, message: str, success: bool) -> None:
     now = datetime.utcnow().isoformat()
-    async with aiosqlite.connect(settings.database_path) as db:
+    async with db_session() as db:
         await db.execute(
             """INSERT INTO notification_log (channel, symbol, message, success, created_at)
                VALUES (?, ?, ?, ?, ?)""",
@@ -221,7 +221,7 @@ async def log_notification(channel: str, symbol: str | None, message: str, succe
 
 
 async def get_notification_log(limit: int = 30) -> list[dict]:
-    async with aiosqlite.connect(settings.database_path) as db:
+    async with db_session() as db:
         db.row_factory = aiosqlite.Row
         cursor = await db.execute(
             "SELECT * FROM notification_log ORDER BY created_at DESC LIMIT ?",

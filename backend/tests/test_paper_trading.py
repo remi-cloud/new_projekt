@@ -11,7 +11,15 @@ from app.paper.executor import (
     _position_after_sell,
     place_order,
 )
-from app.paper.paper_db import get_account, get_position, init_paper_db, reset_account
+from app.paper.paper_db import (
+    get_account,
+    get_position,
+    get_positions,
+    init_paper_db,
+    reset_account,
+    update_account_cash,
+    upsert_position,
+)
 
 
 def test_native_currency_pl():
@@ -51,6 +59,40 @@ def test_position_after_buy_covers_short():
     qty, avg = _position_after_buy(-10.0, 100.0, 4.0, 90.0)
     assert qty == -6.0
     assert avg == 100.0
+
+
+def test_positions_persist_after_reinit():
+    """Simulates server restart — same absolute DB path, data survives."""
+
+    async def _run():
+        await init_paper_db()
+        await reset_account()
+        await upsert_position("PKO.WA", "PKO BP", "stock", 100.0, 45.5, "PLN")
+        await update_account_cash(950_000.0)
+        return await get_positions()
+
+    positions = asyncio.run(_run())
+    assert len(positions) == 1
+    assert positions[0]["symbol"] == "PKO.WA"
+    assert positions[0]["quantity"] == 100.0
+
+    async def _after_restart():
+        await init_paper_db()
+        return await get_positions(), await get_account()
+
+    positions2, account = asyncio.run(_after_restart())
+    assert len(positions2) == 1
+    assert positions2[0]["quantity"] == 100.0
+    assert account["cash_pln"] == 950_000.0
+
+
+def test_database_path_is_absolute():
+    from app.db.paths import database_path
+
+    path = database_path()
+    assert path.is_absolute()
+    assert path.name == "trader.db"
+    assert path.parent.name == "data"
 
 
 def test_short_sell_without_holding():

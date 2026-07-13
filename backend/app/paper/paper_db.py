@@ -3,19 +3,23 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 import aiosqlite
 
-from app.config import settings
+from app.db.sqlite import db_session
 
 logger = logging.getLogger(__name__)
 
 INITIAL_CASH_PLN = 1_000_000.0
 
 
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
 async def init_paper_db() -> None:
-    async with aiosqlite.connect(settings.database_path) as db:
+    async with db_session() as db:
         await db.execute("""
             CREATE TABLE IF NOT EXISTS paper_account (
                 id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -55,7 +59,7 @@ async def init_paper_db() -> None:
                 created_at TEXT NOT NULL
             )
         """)
-        now = datetime.utcnow().isoformat()
+        now = _now()
         await db.execute(
             """INSERT OR IGNORE INTO paper_account
                (id, cash_pln, initial_cash_pln, realized_pnl_pln, created_at, updated_at)
@@ -63,10 +67,11 @@ async def init_paper_db() -> None:
             (INITIAL_CASH_PLN, INITIAL_CASH_PLN, now, now),
         )
         await db.commit()
+        logger.info("Paper trading DB ready (positions persist across restarts)")
 
 
 async def get_account() -> dict:
-    async with aiosqlite.connect(settings.database_path) as db:
+    async with db_session() as db:
         db.row_factory = aiosqlite.Row
         row = await (await db.execute("SELECT * FROM paper_account WHERE id = 1")).fetchone()
         if not row:
@@ -76,7 +81,7 @@ async def get_account() -> dict:
 
 
 async def get_positions() -> list[dict]:
-    async with aiosqlite.connect(settings.database_path) as db:
+    async with db_session() as db:
         db.row_factory = aiosqlite.Row
         rows = await (await db.execute(
             "SELECT * FROM paper_positions ORDER BY symbol"
@@ -85,7 +90,7 @@ async def get_positions() -> list[dict]:
 
 
 async def get_position(symbol: str) -> dict | None:
-    async with aiosqlite.connect(settings.database_path) as db:
+    async with db_session() as db:
         db.row_factory = aiosqlite.Row
         row = await (await db.execute(
             "SELECT * FROM paper_positions WHERE symbol = ?", (symbol,)
@@ -94,7 +99,7 @@ async def get_position(symbol: str) -> dict | None:
 
 
 async def get_trades(limit: int = 50) -> list[dict]:
-    async with aiosqlite.connect(settings.database_path) as db:
+    async with db_session() as db:
         db.row_factory = aiosqlite.Row
         rows = await (await db.execute(
             "SELECT * FROM paper_trades ORDER BY created_at DESC LIMIT ?", (limit,)
@@ -103,8 +108,8 @@ async def get_trades(limit: int = 50) -> list[dict]:
 
 
 async def update_account_cash(cash_pln: float, realized_pnl_delta: float = 0.0) -> None:
-    now = datetime.utcnow().isoformat()
-    async with aiosqlite.connect(settings.database_path) as db:
+    now = _now()
+    async with db_session() as db:
         await db.execute(
             """UPDATE paper_account SET cash_pln = ?,
                realized_pnl_pln = realized_pnl_pln + ?,
@@ -122,9 +127,12 @@ async def upsert_position(
     avg_price_native: float,
     currency: str,
 ) -> None:
-    now = datetime.utcnow().isoformat()
-    async with aiosqlite.connect(settings.database_path) as db:
-        existing = await get_position(symbol)
+    now = _now()
+    async with db_session() as db:
+        db.row_factory = aiosqlite.Row
+        existing = await (await db.execute(
+            "SELECT symbol FROM paper_positions WHERE symbol = ?", (symbol,)
+        )).fetchone()
         if existing:
             await db.execute(
                 """UPDATE paper_positions SET quantity = ?, avg_price_native = ?,
@@ -142,13 +150,13 @@ async def upsert_position(
 
 
 async def delete_position(symbol: str) -> None:
-    async with aiosqlite.connect(settings.database_path) as db:
+    async with db_session() as db:
         await db.execute("DELETE FROM paper_positions WHERE symbol = ?", (symbol,))
         await db.commit()
 
 
 async def insert_trade(trade: dict) -> None:
-    async with aiosqlite.connect(settings.database_path) as db:
+    async with db_session() as db:
         await db.execute(
             """INSERT INTO paper_trades
                (symbol, name, asset_class, side, quantity, price_native, price_pln,
@@ -164,8 +172,8 @@ async def insert_trade(trade: dict) -> None:
 
 
 async def reset_account() -> dict:
-    now = datetime.utcnow().isoformat()
-    async with aiosqlite.connect(settings.database_path) as db:
+    now = _now()
+    async with db_session() as db:
         await db.execute("DELETE FROM paper_positions")
         await db.execute("DELETE FROM paper_trades")
         await db.execute(
