@@ -1,28 +1,37 @@
-import { Link, Outlet, useLocation } from 'react-router-dom'
-import { NAV_ITEMS } from '../constants'
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { useState } from 'react'
+import { MOBILE_NAV, NAV_ITEMS } from '../constants'
 
 interface LayoutProps {
   scannerRunning?: boolean
-  onScan?: () => void
+  onScan?: () => Promise<void>
   scanning?: boolean
 }
 
-const MOBILE_NAV = [
-  { path: '/', label: 'Start', icon: '⌂' },
-  { path: '/dashboard', label: 'Panel', icon: '◫' },
-  { path: '/okazje', label: 'Okazje', icon: '◎' },
-  { path: '/rynki', label: 'Rynki', icon: '▤' },
-  { path: '/cykle', label: 'Cykle', icon: '↻' },
-]
-
 export function Layout({ scannerRunning, onScan, scanning }: LayoutProps) {
   const location = useLocation()
+  const navigate = useNavigate()
+  const [toast, setToast] = useState<string | null>(null)
   const pageTitle = NAV_ITEMS.find((n) => n.path === location.pathname)?.label ?? 'Cyclical Trader'
+
+  const handleScan = async () => {
+    if (!onScan || scanning) return
+    try {
+      await onScan()
+      setToast('Skan zakończony ✓')
+      setTimeout(() => setToast(null), 2500)
+    } catch {
+      setToast('Błąd skanowania')
+      setTimeout(() => setToast(null), 2500)
+    }
+  }
 
   return (
     <div className="app-shell">
+      {toast && <div className="toast">{toast}</div>}
+
       <header className="mobile-header">
-        <div className="mobile-header-left">
+        <button type="button" className="mobile-header-left tap-target" onClick={() => navigate('/')}>
           <span className="mobile-logo">↻</span>
           <div>
             <div className="mobile-title">{pageTitle}</div>
@@ -30,9 +39,15 @@ export function Layout({ scannerRunning, onScan, scanning }: LayoutProps) {
               {scannerRunning ? '● Live 24/7' : '○ Offline'}
             </div>
           </div>
-        </div>
+        </button>
         {onScan && (
-          <button className="mobile-scan-btn" onClick={onScan} disabled={scanning}>
+          <button
+            type="button"
+            className="mobile-scan-btn tap-target"
+            onClick={handleScan}
+            disabled={scanning}
+            aria-label="Skanuj rynki"
+          >
             {scanning ? '…' : '↻'}
           </button>
         )}
@@ -42,12 +57,12 @@ export function Layout({ scannerRunning, onScan, scanning }: LayoutProps) {
         <Outlet />
       </main>
 
-      <nav className="bottom-nav">
+      <nav className="bottom-nav" aria-label="Nawigacja">
         {MOBILE_NAV.map((item) => (
           <Link
             key={item.path}
             to={item.path}
-            className={`bottom-nav-item ${location.pathname === item.path ? 'active' : ''}`}
+            className={`bottom-nav-item tap-target ${location.pathname === item.path ? 'active' : ''}`}
           >
             <span className="bottom-nav-icon">{item.icon}</span>
             <span className="bottom-nav-label">{item.label}</span>

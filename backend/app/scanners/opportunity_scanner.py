@@ -2,188 +2,82 @@ import logging
 from datetime import datetime, timezone
 
 from app.cycles.bitcoin_cycle import analyze_bitcoin_cycle
-from app.cycles.presidential_cycle import analyze_presidential_cycle, presidential_buy_weight
-from app.data.market_data import fetch_bitcoin_ath, fetch_quotes
+from app.cycles.presidential_cycle import analyze_presidential_cycle
+from app.data.assets import MONITORED_ASSETS
+from app.data.market_data import fetch_bitcoin_ath, fetch_quotes_with_stats
 from app.models.schemas import (
     AssetClass,
-    AssetQuote,
+    AssetCycleAssessment,
     BitcoinCycleStatus,
+    MarketSummary,
     Opportunity,
     PresidentialCycleStatus,
     SignalAction,
 )
+from app.scanners.asset_analyzer import analyzer, build_market_summary
 
 logger = logging.getLogger(__name__)
 
-SIGNAL_SCORE = {
-    SignalAction.BUY: 1.0,
-    SignalAction.WATCH: 0.4,
-    SignalAction.HOLD: 0.2,
-    SignalAction.SELL: -0.8,
-}
+ASSET_MAP = {a["symbol"]: a for a in MONITORED_ASSETS}
 
 
 class OpportunityScanner:
     def __init__(self) -> None:
         self.last_scan_at: datetime | None = None
         self.opportunities: list[Opportunity] = []
+        self.market_assessments: list[AssetCycleAssessment] = []
+        self.market_summary: MarketSummary | None = None
         self.bitcoin_cycle: BitcoinCycleStatus | None = None
         self.presidential_cycle: PresidentialCycleStatus | None = None
-        self.quotes: list[AssetQuote] = []
+        self.quotes: list = []
 
     async def scan(self) -> list[Opportunity]:
-        logger.info("Starting market scan...")
+        logger.info("Starting global market scan (%d assets)...", len(MONITORED_ASSETS))
         ath_date, ath_price, btc_price = await fetch_bitcoin_ath()
         self.bitcoin_cycle = analyze_bitcoin_cycle(ath_date, ath_price, btc_price)
         self.presidential_cycle = analyze_presidential_cycle()
-        self.quotes = await fetch_quotes()
+        self.quotes, price_stats = await fetch_quotes_with_stats()
 
-        pres_weight = presidential_buy_weight()
-        opportunities: list[Opportunity] = []
+        self.market_assessments = analyzer.assess_all(
+            self.quotes,
+            ASSET_MAP,
+            self.bitcoin_cycle,
+            self.presidential_cycle,
+            price_stats,
+        )
+
+        summary_dict = build_market_summary(self.market_assessments)
+        self.market_summary = MarketSummary(**summary_dict)
+
         now = datetime.now(timezone.utc)
+        self.opportunities = [
+            self._assessment_to_opportunity(a, now)
+            for a in self.market_assessments
+            if a.confidence >= 50
+        ]
+        self.opportunities.sort(key=lambda o: o.confidence, reverse=True)
 
-        for quote in self.quotes:
-            opp = self._evaluate_asset(quote, pres_weight, now)
-            if opp:
-                opportunities.append(opp)
-
-        opportunities.sort(key=lambda o: o.confidence, reverse=True)
-        self.opportunities = opportunities
         self.last_scan_at = now
-        logger.info("Scan complete: %d opportunities found", len(opportunities))
-        return opportunities
-
-    def _evaluate_asset(
-        self, quote: AssetQuote, pres_weight: float, now: datetime
-    ) -> Opportunity | None:
-        if quote.asset_class == AssetClass.CRYPTO:
-            return self._evaluate_crypto(quote, now)
-        return self._evaluate_traditional(quote, pres_weight, now)
-
-    def _evaluate_crypto(self, quote: AssetQuote, now: datetime) -> Opportunity | None:
-        if not self.bitcoin_cycle:
-            return None
-
-        cycle = self.bitcoin_cycle
-        base_confidence = 50.0
-
-        if cycle.phase.value in ("bear", "accumulation"):
-            if cycle.signal in (SignalAction.BUY, SignalAction.WATCH):
-                action = SignalAction.BUY if cycle.signal == SignalAction.BUY else SignalAction.WATCH
-                confidence = base_confidence + cycle.phase_progress_pct * 0.3
-                if quote.change_pct_7d and quote.change_pct_7d < -5:
-                    confidence += 10
-                rationale = (
-                    f"Cykl BTC: {cycle.phase.value} ({cycle.days_since_ath}d od ATH). "
-                    f"{cycle.rationale}"
-                )
-                return self._make_opp(quote, action, confidence, "bitcoin_cycle", cycle.phase.value, rationale, now)
-
-        elif cycle.phase.value == "bull":
-            if cycle.signal == SignalAction.BUY:
-                action = SignalAction.BUY
-                confidence = 65 + (100 - cycle.phase_progress_pct) * 0.2
-                rationale = f"Cykl BTC: fala wzrostowa. {cycle.rationale}"
-                return self._make_opp(quote, action, confidence, "bitcoin_cycle", "bull", rationale, now)
-            elif cycle.signal == SignalAction.HOLD:
-                return self._make_opp(
-                    quote, SignalAction.HOLD, 55, "bitcoin_cycle", "bull",
-                    f"Cykl BTC: utrzymuj pozycje. {cycle.rationale}", now,
-                )
-
-        elif cycle.phase.value == "distribution":
-            return self._make_opp(
-                quote, SignalAction.SELL, 70, "bitcoin_cycle", "distribution",
-                f"Cykl BTC: faza dystrybucji. {cycle.rationale}", now,
-            )
-
-        return None
-
-    def _evaluate_traditional(
-        self, quote: AssetQuote, pres_weight: float, now: datetime
-    ) -> Opportunity | None:
-        if not self.presidential_cycle:
-            return None
-
-        pres = self.presidential_cycle
-        year_key = pres.current_year.value
-
-        # Asset-class adjustments within presidential cycle
-        class_modifier = {
-            AssetClass.INDEX: 1.0,
-            AssetClass.STOCK: 0.95,
-            AssetClass.BOND: self._bond_modifier(pres.year_number),
-            AssetClass.COMMODITY: self._commodity_modifier(pres.year_number),
-            AssetClass.FOREX: 0.7,
-        }.get(quote.asset_class, 0.8)
-
-        confidence = 40 + pres_weight * 40 * class_modifier
-
-        if pres.signal == SignalAction.BUY:
-            action = SignalAction.BUY
-            if quote.change_pct_7d and quote.change_pct_7d < -3:
-                confidence += 8
-        elif pres.signal == SignalAction.WATCH:
-            action = SignalAction.WATCH
-            confidence -= 10
-        elif pres.signal == SignalAction.HOLD:
-            action = SignalAction.HOLD
-        else:
-            action = SignalAction.SELL
-            confidence -= 20
-
-        # Year 2 midterm: bonds often outperform — flip for bonds
-        if quote.asset_class == AssetClass.BOND and pres.year_number == 2:
-            action = SignalAction.BUY
-            confidence += 15
-
-        # Year 3: strongest for equities
-        if quote.asset_class in (AssetClass.STOCK, AssetClass.INDEX) and pres.year_number == 3:
-            confidence += 12
-
-        if confidence < 45:
-            return None
-
-        rationale = (
-            f"Cykl prezydencki: {year_key.replace('_', ' ')} ({pres.president}). "
-            f"{pres.historical_bias}."
+        logger.info(
+            "Scan complete: %d/%d assets, %d opportunities",
+            len(self.quotes),
+            len(MONITORED_ASSETS),
+            len(self.opportunities),
         )
-        if quote.change_pct_7d is not None:
-            rationale += f" Zmiana 7d: {quote.change_pct_7d:+.1f}%."
-
-        return self._make_opp(
-            quote, action, min(confidence, 95), "presidential_cycle", year_key, rationale, now
-        )
+        return self.opportunities
 
     @staticmethod
-    def _bond_modifier(year_number: int) -> float:
-        # Bonds tend to do well in year 2 (flight to safety) and year 1 weakness
-        return {1: 0.9, 2: 1.2, 3: 0.6, 4: 0.8}.get(year_number, 0.8)
-
-    @staticmethod
-    def _commodity_modifier(year_number: int) -> float:
-        return {1: 0.8, 2: 1.0, 3: 1.1, 4: 0.9}.get(year_number, 0.9)
-
-    @staticmethod
-    def _make_opp(
-        quote: AssetQuote,
-        action: SignalAction,
-        confidence: float,
-        cycle_source: str,
-        phase: str,
-        rationale: str,
-        now: datetime,
-    ) -> Opportunity:
+    def _assessment_to_opportunity(a: AssetCycleAssessment, now: datetime) -> Opportunity:
         return Opportunity(
-            symbol=quote.symbol,
-            name=quote.name,
-            asset_class=quote.asset_class,
-            action=action,
-            confidence=round(confidence, 1),
-            cycle_source=cycle_source,
-            phase=phase,
-            price=quote.price,
-            rationale=rationale,
+            symbol=a.symbol,
+            name=a.name,
+            asset_class=a.asset_class,
+            action=a.signal,
+            confidence=a.confidence,
+            cycle_source=a.macro_cycle,
+            phase=f"{a.macro_phase}/{a.price_phase}",
+            price=a.price,
+            rationale=a.rationale,
             created_at=now,
         )
 

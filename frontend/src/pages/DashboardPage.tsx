@@ -1,8 +1,9 @@
 import { CycleCardBitcoin } from '../components/CycleCardBitcoin'
 import { CycleCardPresidential } from '../components/CycleCardPresidential'
-import { AssetsTable } from '../components/AssetsTable'
+import { MarketSummaryBanner } from '../components/MarketAssessmentCard'
 import { OpportunityCard } from '../components/OpportunityCard'
 import { ErrorState } from '../components/Loading'
+import { SIGNAL_LABELS } from '../constants'
 import { useDashboardContext } from '../context/DashboardContext'
 
 export function DashboardPage() {
@@ -13,6 +14,8 @@ export function DashboardPage() {
 
   return (
     <>
+      {data.market_summary && <MarketSummaryBanner summary={data.market_summary} />}
+
       <div className="cycles-grid">
         <CycleCardBitcoin cycle={data.bitcoin_cycle} />
         <CycleCardPresidential cycle={data.presidential_cycle} />
@@ -33,10 +36,23 @@ export function DashboardPage() {
       )}
 
       <h2 className="section-title">
-        Notowania
-        <span className="count">{data.monitored_assets.length}</span>
+        Top rynki wg oceny
+        <span className="count">{Math.min(5, data.market_assessments?.length ?? 0)}</span>
       </h2>
-      <AssetsTable assets={data.monitored_assets.slice(0, 10)} />
+      <div className="markets-list">
+        {(data.market_assessments ?? []).slice(0, 5).map((item) => (
+          <div key={item.symbol} className="market-card">
+            <div className="market-card-top">
+              <div>
+                <div className="market-name">{item.name}</div>
+                <div className="market-symbol">{item.symbol}</div>
+              </div>
+              <span className={`signal-tag signal-${item.signal}`}>{SIGNAL_LABELS[item.signal]}</span>
+            </div>
+            <p className="market-rationale">{item.rationale}</p>
+          </div>
+        ))}
+      </div>
     </>
   )
 }

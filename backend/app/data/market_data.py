@@ -1,7 +1,8 @@
 import asyncio
 import logging
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from typing import Optional
+from urllib.parse import quote as url_quote
 
 import httpx
 
@@ -15,15 +16,13 @@ YAHOO_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
 }
 
-COINGECKO_IDS = {
-    "BTC-USD": "bitcoin",
-    "ETH-USD": "ethereum",
-    "SOL-USD": "solana",
-}
+FETCH_SEMAPHORE = asyncio.Semaphore(12)
 
 
-async def fetch_bitcoin_ath() -> tuple[date, float, float]:
+async def fetch_bitcoin_ath() -> tuple:
     """Return (ath_date, ath_price, current_price) via CoinGecko."""
+    from datetime import date
+
     url = f"{settings.coingecko_base_url}/coins/bitcoin"
     params = {
         "localization": "false",
@@ -44,106 +43,91 @@ async def fetch_bitcoin_ath() -> tuple[date, float, float]:
     return ath_date, ath_price, current_price
 
 
-async def fetch_quotes() -> list[AssetQuote]:
+async def fetch_quotes_with_stats() -> tuple[list[AssetQuote], dict[str, dict]]:
+    """Fetch quotes and 52-week price stats for all monitored assets."""
     now = datetime.now(timezone.utc)
     quotes: list[AssetQuote] = []
+    price_stats: dict[str, dict] = {}
 
-    async with httpx.AsyncClient(timeout=20, headers=YAHOO_HEADERS) as client:
-        tasks = [_fetch_single_quote(client, asset, now) for asset in MONITORED_ASSETS]
+    async with httpx.AsyncClient(timeout=25, headers=YAHOO_HEADERS) as client:
+        tasks = [_fetch_asset(client, asset, now) for asset in MONITORED_ASSETS]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
     for result in results:
-        if isinstance(result, AssetQuote):
-            quotes.append(result)
+        if isinstance(result, tuple):
+            asset_quote, stats = result
+            if asset_quote:
+                quotes.append(asset_quote)
+                if stats:
+                    price_stats[asset_quote.symbol] = stats
         elif isinstance(result, Exception):
-            logger.warning("Quote fetch error: %s", result)
+            logger.warning("Asset fetch error: %s", result)
 
+    return quotes, price_stats
+
+
+async def fetch_quotes() -> list[AssetQuote]:
+    quotes, _ = await fetch_quotes_with_stats()
     return quotes
 
 
-async def _fetch_single_quote(
+async def _fetch_asset(
     client: httpx.AsyncClient, asset: dict, now: datetime
-) -> Optional[AssetQuote]:
+) -> tuple[Optional[AssetQuote], dict]:
+    async with FETCH_SEMAPHORE:
+        return await _fetch_yahoo_asset(client, asset, now)
+
+
+async def _fetch_yahoo_asset(
+    client: httpx.AsyncClient, asset: dict, now: datetime
+) -> tuple[Optional[AssetQuote], dict]:
     symbol = asset["symbol"]
-    if symbol in COINGECKO_IDS:
-        return await _fetch_coingecko_quote(client, asset, now)
-    return await _fetch_yahoo_quote(client, asset, now)
+    encoded = url_quote(symbol, safe="")
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{encoded}"
+    params = {"range": "1y", "interval": "1d"}
+    stats: dict = {}
 
-
-async def _fetch_coingecko_quote(
-    client: httpx.AsyncClient, asset: dict, now: datetime
-) -> Optional[AssetQuote]:
-    coin_id = COINGECKO_IDS[asset["symbol"]]
-    url = f"{settings.coingecko_base_url}/coins/{coin_id}/market_chart"
-    params = {"vs_currency": "usd", "days": "7"}
-    try:
-        resp = await client.get(url, params=params)
-        resp.raise_for_status()
-        prices = resp.json().get("prices", [])
-        if not prices:
-            return None
-
-        closes = [p[1] for p in prices]
-        price = float(closes[-1])
-        change_24h = None
-        change_7d = None
-        if len(closes) >= 2:
-            change_24h = round(((price - closes[-2]) / closes[-2]) * 100, 2)
-        if len(closes) >= 2:
-            change_7d = round(((price - closes[0]) / closes[0]) * 100, 2)
-
-        return AssetQuote(
-            symbol=asset["symbol"],
-            name=asset["name"],
-            asset_class=AssetClass(asset["asset_class"]),
-            price=round(price, 4),
-            change_pct_24h=change_24h,
-            change_pct_7d=change_7d,
-            updated_at=now,
-        )
-    except Exception as exc:
-        logger.warning("CoinGecko quote failed for %s: %s", asset["symbol"], exc)
-        return None
-
-
-async def _fetch_yahoo_quote(
-    client: httpx.AsyncClient, asset: dict, now: datetime
-) -> Optional[AssetQuote]:
-    symbol = asset["symbol"]
-    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
-    params = {"range": "5d", "interval": "1d"}
     try:
         resp = await client.get(url, params=params)
         resp.raise_for_status()
         result = resp.json()["chart"]["result"]
         if not result:
-            return None
+            return None, stats
 
         meta = result[0]["meta"]
-        closes = [
-            c for c in result[0]["indicators"]["quote"][0]["close"] if c is not None
-        ]
+        highs = [h for h in result[0]["indicators"]["quote"][0].get("high", []) if h]
+        lows = [l for l in result[0]["indicators"]["quote"][0].get("low", []) if l]
+        closes = [c for c in result[0]["indicators"]["quote"][0]["close"] if c is not None]
+
+        high_52w = float(meta.get("fiftyTwoWeekHigh") or (max(highs) if highs else 0)) or None
+        low_52w = float(meta.get("fiftyTwoWeekLow") or (min(lows) if lows else 0)) or None
+
+        if high_52w:
+            stats = {"high_52w": high_52w, "low_52w": low_52w}
+
         if not closes:
             price = float(meta.get("regularMarketPrice", 0))
             if not price:
-                return None
+                return None, stats
             return AssetQuote(
                 symbol=symbol,
                 name=asset["name"],
                 asset_class=AssetClass(asset["asset_class"]),
                 price=round(price, 4),
                 updated_at=now,
-            )
+            ), stats
 
         price = float(closes[-1])
         change_24h = None
         change_7d = None
         if len(closes) >= 2:
             change_24h = round(((price - closes[-2]) / closes[-2]) * 100, 2)
-        if len(closes) >= 2:
+        if len(closes) >= 6:
+            change_7d = round(((price - closes[-6]) / closes[-6]) * 100, 2)
+        elif len(closes) >= 2:
             change_7d = round(((price - closes[0]) / closes[0]) * 100, 2)
 
-        return AssetQuote(
+        asset_quote = AssetQuote(
             symbol=symbol,
             name=asset["name"],
             asset_class=AssetClass(asset["asset_class"]),
@@ -152,19 +136,8 @@ async def _fetch_yahoo_quote(
             change_pct_7d=change_7d,
             updated_at=now,
         )
-    except Exception as exc:
-        logger.warning("Yahoo quote failed for %s: %s", symbol, exc)
-        return None
+        return asset_quote, stats
 
-
-async def fetch_coingecko_price(coin_id: str = "bitcoin") -> Optional[float]:
-    url = f"{settings.coingecko_base_url}/simple/price"
-    params = {"ids": coin_id, "vs_currencies": "usd"}
-    try:
-        async with httpx.AsyncClient(timeout=15) as client:
-            resp = await client.get(url, params=params)
-            resp.raise_for_status()
-            return float(resp.json()[coin_id]["usd"])
     except Exception as exc:
-        logger.warning("CoinGecko fetch failed: %s", exc)
-        return None
+        logger.warning("Yahoo fetch failed for %s: %s", symbol, exc)
+        return None, stats
