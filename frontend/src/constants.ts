@@ -1,6 +1,7 @@
 export const ASSET_LABELS = {
   crypto: 'Krypto',
   stock: 'Akcje',
+  etf: 'ETF',
   index: 'Indeksy',
   bond: 'Obligacje',
   commodity: 'Surowce',

@@ -148,6 +148,7 @@ class AssetAnalyzer:
         class_mod = {
             AssetClass.INDEX: 1.0,
             AssetClass.STOCK: 0.95,
+            AssetClass.ETF: 0.95,
             AssetClass.BOND: {1: 0.9, 2: 1.2, 3: 0.6, 4: 0.8}.get(pres.year_number, 0.8),
             AssetClass.COMMODITY: {1: 0.8, 2: 1.0, 3: 1.1, 4: 0.9}.get(pres.year_number, 0.9),
             AssetClass.FOREX: 0.7,
@@ -160,7 +161,7 @@ class AssetAnalyzer:
         if quote.asset_class == AssetClass.BOND and pres.year_number == 2:
             macro_sig = SignalAction.BUY
             macro_conf += 12
-        if quote.asset_class in (AssetClass.INDEX, AssetClass.STOCK) and pres.year_number == 3:
+        if quote.asset_class in (AssetClass.INDEX, AssetClass.STOCK, AssetClass.ETF) and pres.year_number == 3:
             macro_conf += 10
 
         # VIX inverse logic

@@ -1,4 +1,4 @@
-export type AssetClass = 'crypto' | 'stock' | 'index' | 'bond' | 'commodity' | 'forex'
+export type AssetClass = 'crypto' | 'stock' | 'etf' | 'index' | 'bond' | 'commodity' | 'forex'
 export type SignalAction = 'buy' | 'sell' | 'hold' | 'watch'
 export type CyclePhase = 'bear' | 'accumulation' | 'bull' | 'distribution' | 'neutral'
 export type Region = 'global' | 'us' | 'eu' | 'asia' | 'em' | 'pl'

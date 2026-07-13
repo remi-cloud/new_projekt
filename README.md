@@ -65,9 +65,9 @@ ATH ──► [364 dni SPADKI] ──► [1064 dni WZROST] ──► [dystrybucj
 | Rok 3 (pre-election) | **Najsilniejszy** | KUPUJ |
 | Rok 4 (wybory) | Umiarkowany | TRZYMAJ |
 
-## Monitorowane instrumenty (127)
+## Monitorowane instrumenty (246)
 
-Krypto · Indeksy (USA, Europa, Azja, **Polska**) · Magnificent Seven · Ekosystem Muska (SpaceX proxy, łańcuch dostaw) · Akcje PL (WIG20) · Obligacje · Surowce · Forex
+Krypto · Indeksy globalne · **Top 10 akcji / ETF / obligacji** per rynek (USA, Europa, Azja, EM, Polska) · Mag7 · Ekosystem Muska
 
 ## API
 
