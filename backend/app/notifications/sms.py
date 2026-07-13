@@ -8,21 +8,19 @@ import httpx
 
 from app.config import settings
 from app.db.database import get_alert_settings
+from app.notifications.credentials import get_twilio_credentials, twilio_is_configured
 from app.notifications.alert_engine import AlertEvent
 
 logger = logging.getLogger(__name__)
 
 
 def twilio_configured() -> bool:
-    return bool(
-        settings.twilio_account_sid
-        and settings.twilio_auth_token
-        and settings.twilio_from_number
-    )
+    return twilio_is_configured()
 
 
 async def send_sms_alerts(events: list[AlertEvent]) -> int:
-    if not settings.notifications_enabled or not twilio_configured() or not events:
+    creds = get_twilio_credentials()
+    if not settings.notifications_enabled or not creds or not events:
         return 0
 
     alert_settings = await get_alert_settings()
@@ -36,7 +34,7 @@ async def send_sms_alerts(events: list[AlertEvent]) -> int:
 
     url = (
         f"https://api.twilio.com/2010-04-01/Accounts/"
-        f"{settings.twilio_account_sid}/Messages.json"
+        f"{creds['account_sid']}/Messages.json"
     )
     sent = 0
 
@@ -53,8 +51,8 @@ async def send_sms_alerts(events: list[AlertEvent]) -> int:
             try:
                 resp = await client.post(
                     url,
-                    auth=(settings.twilio_account_sid, settings.twilio_auth_token),
-                    data={"To": to_number, "From": settings.twilio_from_number, "Body": body[:1500]},
+                    auth=(creds["account_sid"], creds["auth_token"]),
+                    data={"To": to_number, "From": creds["from_number"], "Body": body[:1500]},
                 )
                 if resp.is_success:
                     sent += 1

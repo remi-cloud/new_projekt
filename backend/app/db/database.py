@@ -1,5 +1,6 @@
 import aiosqlite
 import logging
+import secrets
 from datetime import datetime
 from pathlib import Path
 
@@ -65,19 +66,33 @@ async def init_db() -> None:
                 created_at TEXT NOT NULL
             )
         """)
+        await _migrate_alert_settings(db)
         default_phone = settings.alert_phone_number or "+393515891766"
+        ntfy_topic = f"cyclical-{secrets.token_hex(8)}"
         await db.execute("""
-            INSERT OR IGNORE INTO alert_settings (id, phone, sms_enabled, push_enabled, min_confidence)
-            VALUES (1, ?, 1, 1, ?)
-        """, (default_phone, settings.alert_min_confidence))
+            INSERT OR IGNORE INTO alert_settings
+            (id, phone, sms_enabled, push_enabled, min_confidence, ntfy_enabled, ntfy_topic)
+            VALUES (1, ?, 1, 1, ?, 1, ?)
+        """, (default_phone, settings.alert_min_confidence, ntfy_topic))
         await db.execute(
             """UPDATE alert_settings SET
                phone = CASE WHEN phone = '' OR phone IS NULL THEN ? ELSE phone END,
-               sms_enabled = 1
+               sms_enabled = 1,
+               ntfy_enabled = COALESCE(ntfy_enabled, 1),
+               ntfy_topic = CASE WHEN ntfy_topic = '' OR ntfy_topic IS NULL THEN ? ELSE ntfy_topic END
                WHERE id = 1""",
-            (default_phone,),
+            (default_phone, ntfy_topic),
         )
         await db.commit()
+
+
+async def _migrate_alert_settings(db: aiosqlite.Connection) -> None:
+    cursor = await db.execute("PRAGMA table_info(alert_settings)")
+    cols = {row[1] for row in await cursor.fetchall()}
+    if "ntfy_topic" not in cols:
+        await db.execute("ALTER TABLE alert_settings ADD COLUMN ntfy_topic TEXT DEFAULT ''")
+    if "ntfy_enabled" not in cols:
+        await db.execute("ALTER TABLE alert_settings ADD COLUMN ntfy_enabled INTEGER DEFAULT 1")
 
 
 async def save_opportunities(opportunities: list[Opportunity]) -> None:
@@ -146,17 +161,22 @@ async def get_alert_settings() -> dict:
         row = await cursor.fetchone()
         if not row:
             return {
-                "phone": "",
-                "sms_enabled": False,
+                "phone": settings.alert_phone_number,
+                "sms_enabled": True,
                 "push_enabled": True,
+                "ntfy_enabled": True,
+                "ntfy_topic": "",
                 "min_confidence": settings.alert_min_confidence,
                 "alert_on_signal_change": True,
                 "alert_on_new_opportunity": True,
             }
+        keys = row.keys() if hasattr(row, "keys") else []
         return {
-            "phone": row["phone"] or "",
+            "phone": row["phone"] or settings.alert_phone_number,
             "sms_enabled": bool(row["sms_enabled"]),
             "push_enabled": bool(row["push_enabled"]),
+            "ntfy_enabled": bool(row["ntfy_enabled"]) if "ntfy_enabled" in keys else True,
+            "ntfy_topic": (row["ntfy_topic"] or "") if "ntfy_topic" in keys else "",
             "min_confidence": float(row["min_confidence"]),
             "alert_on_signal_change": bool(row["alert_on_signal_change"]),
             "alert_on_new_opportunity": bool(row["alert_on_new_opportunity"]),
@@ -170,6 +190,7 @@ async def update_alert_settings(data: dict) -> dict:
                phone = ?,
                sms_enabled = ?,
                push_enabled = ?,
+               ntfy_enabled = ?,
                min_confidence = ?,
                alert_on_signal_change = ?,
                alert_on_new_opportunity = ?
@@ -178,6 +199,7 @@ async def update_alert_settings(data: dict) -> dict:
                 data.get("phone", ""),
                 1 if data.get("sms_enabled") else 0,
                 1 if data.get("push_enabled", True) else 0,
+                1 if data.get("ntfy_enabled", True) else 0,
                 float(data.get("min_confidence", settings.alert_min_confidence)),
                 1 if data.get("alert_on_signal_change", True) else 0,
                 1 if data.get("alert_on_new_opportunity", True) else 0,

@@ -1,4 +1,4 @@
-import { AlertSettings, DashboardResponse, NotificationStatus } from './types'
+import { AlertSettings, DashboardResponse, NotificationStatus, TwilioConfig } from './types'
 import { ChartPreset, ChartResponse } from './types/chart'
 
 export const API_BASE = '/api'
@@ -28,6 +28,25 @@ export async function saveAlertSettings(settings: AlertSettings): Promise<AlertS
     body: JSON.stringify(settings),
   })
   if (!res.ok) throw new Error('Nie udało się zapisać ustawień')
+  return res.json()
+}
+
+export async function saveTwilioConfig(config: TwilioConfig): Promise<{ saved: boolean }> {
+  const res = await fetch(`${API_BASE}/notifications/twilio`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(config),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { detail?: string }).detail || 'Nie udało się zapisać Twilio')
+  }
+  return res.json()
+}
+
+export async function testNotifications(): Promise<Record<string, unknown>> {
+  const res = await fetch(`${API_BASE}/notifications/test`, { method: 'POST' })
+  if (!res.ok) throw new Error('Test powiadomień nie powiódł się')
   return res.json()
 }
 
