@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""
     twilio_from_number: str = ""
-    alert_phone_number: str = ""
+    alert_phone_number: str = "+393515891766"
 
     class Config:
         env_prefix = "CYCLICAL_"
