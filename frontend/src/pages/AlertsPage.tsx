@@ -129,11 +129,11 @@ export function AlertsPage() {
       </section>
 
       <section className="settings-card">
-        <h3>SMS — Twilio (+39…)</h3>
+        <h3>SMS — Twilio</h3>
         <p className="settings-hint">
           {status.sms_configured
             ? 'Twilio skonfigurowane ✓'
-            : 'Załóż konto na twilio.com/try-twilio (Włochy obsługiwane), zweryfikuj , wklej dane poniżej:'}
+            : 'Załóż konto na twilio.com/try-twilio, zweryfikuj swój numer telefonu i wklej dane poniżej:'}
         </p>
         <label className="field-label">
           Account SID (AC…)

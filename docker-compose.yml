@@ -8,7 +8,8 @@ services:
     environment:
       - CYCLICAL_SCAN_INTERVAL_MINUTES=5
       - CYCLICAL_PRICE_POLL_INTERVAL_SECONDS=30
-      - CYCLICAL_ALERT_PHONE_NUMBER=
+      # Ustaw w .env — nie commituj prawdziwego numeru
+      - CYCLICAL_ALERT_PHONE_NUMBER=${CYCLICAL_ALERT_PHONE_NUMBER:-}
     volumes:
       - trader-data:/app/data
       - portfolio-data:/app/data/baza_portfela
