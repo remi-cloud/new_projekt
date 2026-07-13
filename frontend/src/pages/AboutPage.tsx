@@ -17,7 +17,7 @@ export function AboutPage() {
             <li>Indeksy USA, Europa, Azja, Polska (WIG20, WIG, mWIG40, sWIG80)</li>
             <li>Magnificent Seven (AAPL, MSFT, GOOGL, AMZN, NVDA, META, TSLA)</li>
             <li>Ekosystem Muska (SpaceX proxy ARKX, Rocket Lab, łańcuch dostaw Tesla)</li>
-            <li>Polska — blue chips (PKO, Orlen, Dino, CD Projekt, Allegro…)</li>
+            <li>Polska — blue chips (PKO, Orlen, Dino, CD Projekt, Allegro…) via Investing.com</li>
             <li>Obligacje, surowce, forex</li>
           </ul>
         </article>

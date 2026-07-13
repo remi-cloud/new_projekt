@@ -8,6 +8,7 @@ import httpx
 
 from app.config import settings
 from app.data.assets import MONITORED_ASSETS
+from app.data.investing_com import fetch_investing_quote, uses_investing
 from app.models.schemas import AssetClass, AssetQuote
 
 logger = logging.getLogger(__name__)
@@ -17,6 +18,7 @@ YAHOO_HEADERS = {
 }
 
 FETCH_SEMAPHORE = asyncio.Semaphore(12)
+INVESTING_SEMAPHORE = asyncio.Semaphore(2)
 
 
 async def fetch_bitcoin_ath() -> tuple:
@@ -74,6 +76,13 @@ async def fetch_quotes() -> list[AssetQuote]:
 async def _fetch_asset(
     client: httpx.AsyncClient, asset: dict, now: datetime
 ) -> tuple[Optional[AssetQuote], dict]:
+    if uses_investing(asset["symbol"], asset.get("region")):
+        async with INVESTING_SEMAPHORE:
+            quote, stats = await fetch_investing_quote(asset, now)
+            if quote:
+                return quote, stats
+            logger.warning("Investing.com fallback to Yahoo for %s", asset["symbol"])
+
     async with FETCH_SEMAPHORE:
         return await _fetch_yahoo_asset(client, asset, now)
 
