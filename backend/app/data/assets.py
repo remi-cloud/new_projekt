@@ -1,6 +1,21 @@
 """Global markets universe — symbols tradeable via Yahoo Finance / CoinGecko."""
 
-MONITORED_ASSETS = [
+from app.data.regional_universe import REGIONAL_UNIVERSE
+
+
+def _dedupe_assets(assets: list[dict]) -> list[dict]:
+    seen: set[str] = set()
+    out: list[dict] = []
+    for item in assets:
+        sym = item["symbol"]
+        if sym in seen:
+            continue
+        seen.add(sym)
+        out.append(item)
+    return out
+
+
+_BASE_ASSETS = [
     # ── CRYPTO ──
     {"symbol": "BTC-USD", "name": "Bitcoin", "asset_class": "crypto", "region": "global"},
     {"symbol": "ETH-USD", "name": "Ethereum", "asset_class": "crypto", "region": "global"},
@@ -144,6 +159,8 @@ MONITORED_ASSETS = [
     {"symbol": "EURGBP=X", "name": "EUR/GBP", "asset_class": "forex", "region": "global"},
     {"symbol": "DX-Y.NYB", "name": "US Dollar Index", "asset_class": "forex", "region": "global"},
 ]
+
+MONITORED_ASSETS = _dedupe_assets(_BASE_ASSETS + REGIONAL_UNIVERSE)
 
 REGIONS = {
     "global": "Globalny",

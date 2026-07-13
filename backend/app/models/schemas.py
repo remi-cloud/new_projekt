@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 class AssetClass(str, Enum):
     CRYPTO = "crypto"
     STOCK = "stock"
+    ETF = "etf"
     INDEX = "index"
     BOND = "bond"
     COMMODITY = "commodity"
