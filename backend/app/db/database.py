@@ -65,10 +65,18 @@ async def init_db() -> None:
                 created_at TEXT NOT NULL
             )
         """)
+        default_phone = settings.alert_phone_number or ""
         await db.execute("""
             INSERT OR IGNORE INTO alert_settings (id, phone, sms_enabled, push_enabled, min_confidence)
-            VALUES (1, '', 0, 1, ?)
-        """, (settings.alert_min_confidence,))
+            VALUES (1, ?, 1, 1, ?)
+        """, (default_phone, settings.alert_min_confidence))
+        await db.execute(
+            """UPDATE alert_settings SET
+               phone = CASE WHEN phone = '' OR phone IS NULL THEN ? ELSE phone END,
+               sms_enabled = 1
+               WHERE id = 1""",
+            (default_phone,),
+        )
         await db.commit()
 
 

@@ -6,7 +6,9 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - CYCLICAL_SCAN_INTERVAL_MINUTES=15
+      - CYCLICAL_SCAN_INTERVAL_MINUTES=5
+      - CYCLICAL_PRICE_POLL_INTERVAL_SECONDS=30
+      - CYCLICAL_ALERT_PHONE_NUMBER=
     volumes:
       - trader-data:/app/data
     restart: unless-stopped
