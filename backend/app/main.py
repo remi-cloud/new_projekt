@@ -20,6 +20,7 @@ from app.db.database import (
     update_alert_settings,
 )
 from app.paper.paper_db import init_paper_db
+from app.paper.portfolio_agent import sync_after_trade, sync_on_startup
 from app.data.chart_data import CHART_PRESETS, fetch_chart
 from app.models.schemas import (
     AlertSettings,
@@ -56,6 +57,7 @@ STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 async def lifespan(app: FastAPI):
     await init_db()
     await init_paper_db()
+    await sync_on_startup()
     ensure_vapid_keys()
     start_scheduler()
 
@@ -316,6 +318,7 @@ async def paper_order(body: PaperOrderRequest):
 @app.post("/api/paper/reset")
 async def paper_reset():
     await reset_account()
+    await sync_after_trade()
     return await build_portfolio()
 
 

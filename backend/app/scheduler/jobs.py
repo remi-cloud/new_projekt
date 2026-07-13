@@ -32,8 +32,22 @@ async def scheduled_price_tick() -> None:
         if result.get("updated", 0) > 0:
             await _maybe_notify()
             await _broadcast_state("price_tick")
+            await _maybe_refresh_portfolio_snapshot()
     except Exception as exc:
         logger.exception("Price tick failed: %s", exc)
+
+
+async def _maybe_refresh_portfolio_snapshot() -> None:
+    from app.paper import paper_db
+    from app.paper.portfolio_agent import refresh_snapshot
+
+    positions = await paper_db.get_positions()
+    if not positions:
+        return
+    try:
+        await refresh_snapshot()
+    except Exception as exc:
+        logger.debug("Portfolio snapshot refresh skipped: %s", exc)
 
 
 async def _maybe_notify() -> None:

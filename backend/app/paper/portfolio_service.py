@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from app.paper import paper_db
 from app.paper.currency import get_usd_pln_rate, native_currency, to_pln
-from app.paper.executor import _get_live_price
+from app.paper.pricing import get_live_price
 from app.scanners.opportunity_scanner import scanner
 
 
@@ -29,7 +29,7 @@ async def build_portfolio() -> dict:
         currency = pos["currency"] or native_currency(symbol)
 
         try:
-            current_native, _ = _get_live_price(symbol)
+            current_native, _ = get_live_price(symbol)
         except Exception:
             current_native = avg_native
 

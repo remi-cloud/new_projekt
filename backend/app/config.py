@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     price_poll_interval_seconds: int = 30
 
     database_path: str = "data/trader.db"
+    portfolio_database_path: str = "data/baza_portfela/portfolio.db"
     coingecko_base_url: str = "https://api.coingecko.com/api/v3"
 
     btc_bear_phase_days: int = 364

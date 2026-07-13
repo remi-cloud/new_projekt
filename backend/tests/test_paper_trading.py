@@ -87,12 +87,16 @@ def test_positions_persist_after_reinit():
 
 
 def test_database_path_is_absolute():
-    from app.db.paths import database_path
+    from app.db.paths import database_path, portfolio_database_path, portfolio_dir
 
     path = database_path()
     assert path.is_absolute()
     assert path.name == "trader.db"
-    assert path.parent.name == "data"
+
+    pf = portfolio_database_path()
+    assert pf.is_absolute()
+    assert pf.parent == portfolio_dir()
+    assert pf.parent.name == "baza_portfela"
 
 
 def test_short_sell_without_holding():
@@ -110,7 +114,7 @@ def test_short_sell_without_holding():
     async def _run():
         await init_paper_db()
         await reset_account()
-        with patch("app.paper.executor.scanner") as mock_scanner, patch(
+        with patch("app.paper.pricing.scanner") as mock_scanner, patch(
             "app.paper.executor.get_usd_pln_rate", return_value=4.0
         ):
             mock_scanner.quotes = [quote]

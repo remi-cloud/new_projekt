@@ -11,7 +11,9 @@ services:
       - CYCLICAL_ALERT_PHONE_NUMBER=
     volumes:
       - trader-data:/app/data
+      - portfolio-data:/app/data/baza_portfela
     restart: unless-stopped
 
 volumes:
   trader-data:
+  portfolio-data:
