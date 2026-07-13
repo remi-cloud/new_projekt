@@ -6,6 +6,7 @@ from urllib.parse import quote as url_quote
 import httpx
 
 from app.data.assets import MONITORED_ASSETS
+from app.data.investing_com import fetch_investing_chart, uses_investing
 from app.models.schemas import ChartCandle, ChartResponse
 
 logger = logging.getLogger(__name__)
@@ -32,6 +33,12 @@ async def fetch_chart(symbol: str, preset: str = "3M") -> ChartResponse | None:
         preset = "3M"
     yahoo_range, interval = CHART_PRESETS[preset]
     meta = ASSET_MAP.get(symbol, {"name": symbol, "symbol": symbol})
+
+    if uses_investing(symbol, meta.get("region")):
+        investing_chart = await fetch_investing_chart(symbol, preset, meta)
+        if investing_chart:
+            return investing_chart
+        logger.warning("Investing.com chart fallback to Yahoo for %s", symbol)
 
     encoded = url_quote(symbol, safe="")
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{encoded}"
