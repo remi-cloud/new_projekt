@@ -4,6 +4,7 @@ import { ASSET_LABELS, PHASE_LABELS, REGION_LABELS, SIGNAL_LABELS } from '../con
 import { useLazyVisible } from '../hooks/useLazyVisible'
 import { AssetCycleAssessment } from '../types'
 import { ChartPreset, ChartResponse } from '../types/chart'
+import { TradePanel } from './PaperTrading'
 import { ChartLoader } from './TradingChart'
 import { PriceHeader } from './PriceHeader'
 
@@ -79,6 +80,9 @@ export function InstrumentPanel({ item, expanded = false }: InstrumentPanelProps
         </div>
         {!expanded && (
           <span className="tap-hint">Stuknij aby powiększyć →</span>
+        )}
+        {expanded && (
+          <TradePanel symbol={item.symbol} name={item.name} price={item.price} />
         )}
         <p className="market-rationale">{item.rationale}</p>
       </div>

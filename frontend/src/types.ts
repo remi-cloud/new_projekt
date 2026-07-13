@@ -137,4 +137,58 @@ export interface TwilioConfig {
   from_number: string
 }
 
+export interface PaperOrderRequest {
+  symbol: string
+  side: 'buy' | 'sell'
+  quantity?: number
+  amount_pln?: number
+}
+
+export interface PaperPosition {
+  symbol: string
+  name: string
+  asset_class: AssetClass
+  quantity: number
+  avg_price_native: number
+  avg_price_pln: number
+  current_price_native: number
+  current_price_pln: number
+  market_value_pln: number
+  cost_basis_pln: number
+  unrealized_pnl_pln: number
+  unrealized_pnl_pct: number
+  currency: string
+}
+
+export interface PaperTrade {
+  id: number
+  symbol: string
+  name: string
+  asset_class: string
+  side: string
+  quantity: number
+  price_native: number
+  price_pln: number
+  total_pln: number
+  fee_pln: number
+  currency: string
+  created_at: string
+}
+
+export interface PaperPortfolio {
+  cash_pln: number
+  initial_cash_pln: number
+  positions_value_pln: number
+  total_equity_pln: number
+  unrealized_pnl_pln: number
+  realized_pnl_pln: number
+  total_pnl_pln: number
+  total_pnl_pct: number
+  usd_pln_rate: number
+  positions_count: number
+  positions: PaperPosition[]
+  recent_trades: PaperTrade[]
+  quotes_available: number
+}
+
 export type { ChartPreset, ChartCandle, ChartResponse } from './types/chart'

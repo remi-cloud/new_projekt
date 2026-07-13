@@ -9,6 +9,7 @@ import { DashboardPage } from './pages/DashboardPage'
 import { HomePage } from './pages/HomePage'
 import { MarketsPage } from './pages/MarketsPage'
 import { OpportunitiesPage } from './pages/OpportunitiesPage'
+import { PortfolioPage } from './pages/PortfolioPage'
 import { InstrumentDetailPage } from './pages/InstrumentDetailPage'
 
 function AppShell() {
@@ -39,6 +40,7 @@ export default function App() {
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="cykle" element={<CyclesPage />} />
             <Route path="okazje" element={<OpportunitiesPage />} />
+            <Route path="portfel" element={<PortfolioPage />} />
             <Route path="rynki" element={<MarketsPage />} />
             <Route path="instrument/:symbol" element={<InstrumentDetailPage />} />
             <Route path="o-aplikacji" element={<AboutPage />} />

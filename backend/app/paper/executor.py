@@ -1,0 +1,155 @@
+"""Paper trade execution at live scanner prices."""
+
+from __future__ import annotations
+
+import logging
+from datetime import datetime, timezone
+
+from app.data.assets import MONITORED_ASSETS
+from app.paper import paper_db
+from app.paper.currency import get_usd_pln_rate, native_currency, to_pln
+from app.scanners.opportunity_scanner import scanner
+
+logger = logging.getLogger(__name__)
+
+ASSET_MAP = {a["symbol"]: a for a in MONITORED_ASSETS}
+TRADE_FEE_RATE = 0.001  # 0.1%
+
+
+class PaperTradeError(Exception):
+    def __init__(self, message: str, code: str = "trade_error"):
+        self.message = message
+        self.code = code
+        super().__init__(message)
+
+
+def _get_live_price(symbol: str) -> tuple[float, str]:
+    for q in scanner.quotes:
+        if q.symbol == symbol:
+            return q.price, native_currency(symbol)
+    raise PaperTradeError(f"Brak ceny na żywo dla {symbol}", "no_price")
+
+
+def _round_qty(qty: float, asset_class: str) -> float:
+    if asset_class == "crypto":
+        return round(qty, 6)
+    if asset_class in ("stock", "etf", "index", "bond"):
+        return round(qty, 4)
+    return round(qty, 2)
+
+
+async def place_order(
+    symbol: str, side: str, quantity: float | None = None, amount_pln: float | None = None
+) -> dict:
+    if symbol not in ASSET_MAP:
+        raise PaperTradeError(f"Instrument {symbol} nie jest monitorowany", "invalid_symbol")
+    if side not in ("buy", "sell"):
+        raise PaperTradeError("Strona musi być buy lub sell", "invalid_side")
+    if quantity is not None and quantity <= 0:
+        raise PaperTradeError("Ilość musi być > 0", "invalid_quantity")
+
+    meta = ASSET_MAP[symbol]
+    asset_class = meta["asset_class"]
+
+    if amount_pln is not None and side == "buy":
+        price_native, currency = _get_live_price(symbol)
+        usd_pln = await get_usd_pln_rate()
+        price_pln = to_pln(price_native, currency, usd_pln)
+        denom = price_pln * (1 + TRADE_FEE_RATE)
+        if denom <= 0:
+            raise PaperTradeError("Nieprawidłowa cena", "no_price")
+        quantity = amount_pln / denom
+
+    if quantity is None:
+        raise PaperTradeError("Podaj quantity lub amount_pln", "invalid_quantity")
+
+    quantity = _round_qty(quantity, asset_class)
+    if quantity <= 0:
+        raise PaperTradeError("Ilość za mała po zaokrągleniu", "invalid_quantity")
+
+    price_native, currency = _get_live_price(symbol)
+    usd_pln = await get_usd_pln_rate()
+    price_pln = to_pln(price_native, currency, usd_pln)
+    gross_pln = price_pln * quantity
+    fee_pln = gross_pln * TRADE_FEE_RATE
+    total_pln = gross_pln + fee_pln if side == "buy" else gross_pln - fee_pln
+
+    account = await paper_db.get_account()
+    cash = float(account["cash_pln"])
+    position = await paper_db.get_position(symbol)
+    now = datetime.now(timezone.utc).isoformat()
+
+    if side == "buy":
+        if total_pln > cash + 0.01:
+            max_qty = (cash * 0.999) / (price_pln * (1 + TRADE_FEE_RATE))
+            raise PaperTradeError(
+                f"Za mało środków. Masz {cash:,.0f} PLN, koszt {total_pln:,.0f} PLN. "
+                f"Max ilość: {_round_qty(max_qty, asset_class)}",
+                "insufficient_cash",
+            )
+        new_cash = cash - total_pln
+        old_qty = float(position["quantity"]) if position else 0.0
+        old_avg = float(position["avg_price_native"]) if position else 0.0
+        new_qty = old_qty + quantity
+        new_avg = (
+            ((old_qty * old_avg) + (quantity * price_native)) / new_qty if new_qty > 0 else price_native
+        )
+        await paper_db.update_account_cash(new_cash)
+        await paper_db.upsert_position(
+            symbol, meta["name"], asset_class, new_qty, new_avg, currency
+        )
+    else:
+        held = float(position["quantity"]) if position else 0.0
+        if quantity > held + 1e-9:
+            raise PaperTradeError(
+                f"Za mało {symbol}. Posiadasz {held}, próbujesz sprzedać {quantity}",
+                "insufficient_shares",
+            )
+        proceeds = gross_pln - fee_pln
+        cost_basis_pln = to_pln(float(position["avg_price_native"]), currency, usd_pln) * quantity
+        realized = proceeds - cost_basis_pln
+        new_cash = cash + proceeds
+        new_qty = held - quantity
+        await paper_db.update_account_cash(new_cash, realized_pnl_delta=realized)
+        if new_qty <= 1e-9:
+            await paper_db.delete_position(symbol)
+        else:
+            await paper_db.upsert_position(
+                symbol, meta["name"], asset_class, new_qty,
+                float(position["avg_price_native"]), currency,
+            )
+
+    trade = {
+        "symbol": symbol,
+        "name": meta["name"],
+        "asset_class": asset_class,
+        "side": side,
+        "quantity": quantity,
+        "price_native": price_native,
+        "price_pln": round(price_pln, 4),
+        "total_pln": round(total_pln if side == "buy" else gross_pln - fee_pln, 2),
+        "fee_pln": round(fee_pln, 2),
+        "currency": currency,
+        "created_at": now,
+    }
+    await paper_db.insert_trade(trade)
+    logger.info("Paper %s %s x %s @ %s PLN", side, quantity, symbol, price_pln)
+    return trade
+
+
+async def max_buy_quantity(symbol: str) -> float:
+    meta = ASSET_MAP.get(symbol)
+    if not meta:
+        return 0.0
+    try:
+        price_native, currency = _get_live_price(symbol)
+    except PaperTradeError:
+        return 0.0
+    usd_pln = await get_usd_pln_rate()
+    price_pln = to_pln(price_native, currency, usd_pln)
+    account = await paper_db.get_account()
+    cash = float(account["cash_pln"])
+    if price_pln <= 0:
+        return 0.0
+    qty = (cash * 0.999) / (price_pln * (1 + TRADE_FEE_RATE))
+    return _round_qty(qty, meta["asset_class"])

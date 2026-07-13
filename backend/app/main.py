@@ -19,6 +19,7 @@ from app.db.database import (
     save_push_subscription,
     update_alert_settings,
 )
+from app.paper.paper_db import init_paper_db
 from app.data.chart_data import CHART_PRESETS, fetch_chart
 from app.models.schemas import (
     AlertSettings,
@@ -26,6 +27,8 @@ from app.models.schemas import (
     DashboardResponse,
     MarketSummary,
     NotificationStatus,
+    PaperOrderRequest,
+    PaperPortfolio,
     PushSubscriptionRequest,
     RegionalCycleSnapshot,
     TwilioConfigRequest,
@@ -38,6 +41,9 @@ from app.notifications.push import get_vapid_public_key, vapid_configured
 from app.notifications.vapid_setup import ensure_vapid_keys
 from app.realtime.broadcaster import broadcaster
 from app.scheduler.jobs import is_running, scheduled_full_scan, start_scheduler, stop_scheduler
+from app.paper.executor import PaperTradeError, max_buy_quantity, place_order
+from app.paper.paper_db import reset_account
+from app.paper.portfolio_service import build_portfolio
 from app.scanners.opportunity_scanner import scanner
 
 logging.basicConfig(level=logging.INFO)
@@ -49,6 +55,7 @@ STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    await init_paper_db()
     ensure_vapid_keys()
     start_scheduler()
     try:
@@ -249,6 +256,42 @@ async def test_notifications():
     results["sms"] = {"ok": sms_ok, "message": sms_msg}
 
     return results
+
+
+@app.get("/api/paper/portfolio", response_model=PaperPortfolio)
+async def paper_portfolio():
+    if not scanner.quotes:
+        await scanner.scan()
+    data = await build_portfolio()
+    return PaperPortfolio(**data)
+
+
+@app.get("/api/paper/max-buy/{symbol:path}")
+async def paper_max_buy(symbol: str):
+    if not scanner.quotes:
+        await scanner.scan()
+    qty = await max_buy_quantity(symbol)
+    return {"symbol": symbol, "max_quantity": qty}
+
+
+@app.post("/api/paper/order")
+async def paper_order(body: PaperOrderRequest):
+    if not scanner.quotes:
+        await scanner.scan()
+    try:
+        trade = await place_order(
+            body.symbol, body.side, quantity=body.quantity, amount_pln=body.amount_pln
+        )
+        portfolio = await build_portfolio()
+        return {"trade": trade, "portfolio": portfolio}
+    except PaperTradeError as exc:
+        raise HTTPException(status_code=400, detail={"message": exc.message, "code": exc.code})
+
+
+@app.post("/api/paper/reset")
+async def paper_reset():
+    await reset_account()
+    return await build_portfolio()
 
 
 @app.websocket("/ws/live")

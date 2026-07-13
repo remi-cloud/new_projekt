@@ -48,7 +48,7 @@ export const NAV_ITEMS = [
 export const MOBILE_NAV = [
   { path: '/', label: 'Start', icon: '⌂' },
   { path: '/dashboard', label: 'Panel', icon: '◫' },
+  { path: '/portfel', label: 'Portfel', icon: '₿' },
   { path: '/rynki', label: 'Rynki', icon: '▤' },
   { path: '/okazje', label: 'Okazje', icon: '◎' },
-  { path: '/powiadomienia', label: 'Alerty', icon: '🔔' },
 ]

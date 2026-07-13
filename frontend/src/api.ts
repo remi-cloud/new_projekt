@@ -1,4 +1,4 @@
-import { AlertSettings, DashboardResponse, NotificationStatus, TwilioConfig } from './types'
+import { AlertSettings, DashboardResponse, NotificationStatus, PaperOrderRequest, PaperPortfolio, TwilioConfig } from './types'
 import { ChartPreset, ChartResponse } from './types/chart'
 
 export const API_BASE = '/api'
@@ -47,6 +47,40 @@ export async function saveTwilioConfig(config: TwilioConfig): Promise<{ saved: b
 export async function testNotifications(): Promise<Record<string, unknown>> {
   const res = await fetch(`${API_BASE}/notifications/test`, { method: 'POST' })
   if (!res.ok) throw new Error('Test powiadomień nie powiódł się')
+  return res.json()
+}
+
+export async function fetchPaperPortfolio(): Promise<PaperPortfolio> {
+  const res = await fetch(`${API_BASE}/paper/portfolio`)
+  if (!res.ok) throw new Error('Nie udało się pobrać portfela')
+  return res.json()
+}
+
+export async function fetchPaperMaxBuy(symbol: string): Promise<{ max_quantity: number }> {
+  const encoded = symbol.split('/').map(encodeURIComponent).join('/')
+  const res = await fetch(`${API_BASE}/paper/max-buy/${encoded}`)
+  if (!res.ok) throw new Error('Brak danych')
+  return res.json()
+}
+
+export async function placePaperOrder(order: PaperOrderRequest): Promise<unknown> {
+  const res = await fetch(`${API_BASE}/paper/order`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(order),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    const detail = (err as { detail?: { message?: string } | string }).detail
+    const msg = typeof detail === 'object' && detail?.message ? detail.message : String(detail || 'Transakcja nieudana')
+    throw new Error(msg)
+  }
+  return res.json()
+}
+
+export async function resetPaperPortfolio(): Promise<PaperPortfolio> {
+  const res = await fetch(`${API_BASE}/paper/reset`, { method: 'POST' })
+  if (!res.ok) throw new Error('Reset nieudany')
   return res.json()
 }
 

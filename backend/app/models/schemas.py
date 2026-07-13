@@ -199,3 +199,57 @@ class NotificationStatus(BaseModel):
     vapid_public_key: str
     push_subscriptions: int
     settings: AlertSettings
+
+
+class PaperOrderRequest(BaseModel):
+    symbol: str
+    side: str = Field(pattern="^(buy|sell)$")
+    quantity: float | None = Field(default=None, gt=0)
+    amount_pln: float | None = Field(default=None, gt=0)
+
+
+class PaperPositionView(BaseModel):
+    symbol: str
+    name: str
+    asset_class: AssetClass
+    quantity: float
+    avg_price_native: float
+    avg_price_pln: float
+    current_price_native: float
+    current_price_pln: float
+    market_value_pln: float
+    cost_basis_pln: float
+    unrealized_pnl_pln: float
+    unrealized_pnl_pct: float
+    currency: str
+
+
+class PaperTradeView(BaseModel):
+    id: int
+    symbol: str
+    name: str
+    asset_class: str
+    side: str
+    quantity: float
+    price_native: float
+    price_pln: float
+    total_pln: float
+    fee_pln: float
+    currency: str
+    created_at: str
+
+
+class PaperPortfolio(BaseModel):
+    cash_pln: float
+    initial_cash_pln: float
+    positions_value_pln: float
+    total_equity_pln: float
+    unrealized_pnl_pln: float
+    realized_pnl_pln: float
+    total_pnl_pln: float
+    total_pnl_pct: float
+    usd_pln_rate: float
+    positions_count: int
+    positions: list[PaperPositionView]
+    recent_trades: list[PaperTradeView]
+    quotes_available: int
