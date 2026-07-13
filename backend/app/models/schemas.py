@@ -143,9 +143,21 @@ class Opportunity(BaseModel):
     created_at: datetime
 
 
+class RegionalCycleSnapshot(BaseModel):
+    region: str
+    region_label: str
+    cycle_id: str
+    phase: str
+    signal: SignalAction
+    buy_weight: float
+    bias: str
+    rationale: str
+
+
 class DashboardResponse(BaseModel):
     bitcoin_cycle: BitcoinCycleStatus
     presidential_cycle: PresidentialCycleStatus
+    regional_cycles: list[RegionalCycleSnapshot]
     opportunities: list[Opportunity]
     monitored_assets: list[AssetQuote]
     market_assessments: list[AssetCycleAssessment]

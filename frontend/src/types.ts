@@ -84,9 +84,21 @@ export interface Opportunity {
   created_at: string
 }
 
+export interface RegionalCycleSnapshot {
+  region: string
+  region_label: string
+  cycle_id: string
+  phase: string
+  signal: SignalAction
+  buy_weight: number
+  bias: string
+  rationale: string
+}
+
 export interface DashboardResponse {
   bitcoin_cycle: BitcoinCycleStatus
   presidential_cycle: PresidentialCycleStatus
+  regional_cycles: RegionalCycleSnapshot[]
   opportunities: Opportunity[]
   monitored_assets: AssetQuote[]
   market_assessments: AssetCycleAssessment[]
