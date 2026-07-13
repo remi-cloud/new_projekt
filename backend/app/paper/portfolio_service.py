@@ -12,6 +12,50 @@ class PaperTradeError(Exception):
     pass
 
 
+def _position_to_view(pos: dict, usd_pln: float) -> dict:
+    symbol = pos["symbol"]
+    qty = float(pos["quantity"])
+    avg_native = float(pos["avg_price_native"])
+    currency = pos["currency"] or native_currency(symbol)
+
+    try:
+        current_native, _ = get_live_price(symbol)
+    except Exception:
+        current_native = avg_native
+
+    current_pln = to_pln(current_native, currency, usd_pln)
+    avg_pln = to_pln(avg_native, currency, usd_pln)
+    market_value = current_pln * qty
+    cost_basis = avg_pln * qty
+    unrealized = market_value - cost_basis
+    unrealized_pct = (unrealized / cost_basis * 100) if cost_basis > 0 else 0.0
+
+    return {
+        "symbol": symbol,
+        "name": pos["name"],
+        "asset_class": pos["asset_class"],
+        "quantity": qty,
+        "is_short": qty < 0,
+        "avg_price_native": avg_native,
+        "avg_price_pln": round(avg_pln, 4),
+        "current_price_native": current_native,
+        "current_price_pln": round(current_pln, 4),
+        "market_value_pln": round(market_value, 2),
+        "cost_basis_pln": round(cost_basis, 2),
+        "unrealized_pnl_pln": round(unrealized, 2),
+        "unrealized_pnl_pct": round(unrealized_pct, 2),
+        "currency": currency,
+    }
+
+
+async def get_position_for_symbol(symbol: str) -> dict | None:
+    pos = await paper_db.get_position(symbol)
+    if not pos or abs(float(pos["quantity"])) < 1e-9:
+        return None
+    usd_pln = await get_usd_pln_rate()
+    return _position_to_view(pos, usd_pln)
+
+
 async def build_portfolio() -> dict:
     account = await paper_db.get_account()
     positions_raw = await paper_db.get_positions()
@@ -23,42 +67,11 @@ async def build_portfolio() -> dict:
     unrealized_total = 0.0
 
     for pos in positions_raw:
-        symbol = pos["symbol"]
-        qty = float(pos["quantity"])
-        avg_native = float(pos["avg_price_native"])
-        currency = pos["currency"] or native_currency(symbol)
-
-        try:
-            current_native, _ = get_live_price(symbol)
-        except Exception:
-            current_native = avg_native
-
-        current_pln = to_pln(current_native, currency, usd_pln)
-        avg_pln = to_pln(avg_native, currency, usd_pln)
-        market_value = current_pln * qty
-        cost_basis = avg_pln * qty
-        unrealized = market_value - cost_basis
-        unrealized_pct = (unrealized / cost_basis * 100) if cost_basis > 0 else 0.0
-
-        positions_value += market_value
-        unrealized_total += unrealized
-
-        positions.append({
-            "symbol": symbol,
-            "name": pos["name"],
-            "asset_class": pos["asset_class"],
-            "quantity": qty,
-            "is_short": qty < 0,
-            "avg_price_native": avg_native,
-            "avg_price_pln": round(avg_pln, 4),
-            "current_price_native": current_native,
-            "current_price_pln": round(current_pln, 4),
-            "market_value_pln": round(market_value, 2),
-            "cost_basis_pln": round(cost_basis, 2),
-            "unrealized_pnl_pln": round(unrealized, 2),
-            "unrealized_pnl_pct": round(unrealized_pct, 2),
-            "currency": currency,
-        })
+        view = _position_to_view(pos, usd_pln)
+        qty = view["quantity"]
+        positions_value += view["market_value_pln"]
+        unrealized_total += view["unrealized_pnl_pln"]
+        positions.append(view)
 
     cash = float(account["cash_pln"])
     initial = float(account["initial_cash_pln"])

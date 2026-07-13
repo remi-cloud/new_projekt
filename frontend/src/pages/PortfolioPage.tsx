@@ -2,12 +2,27 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { PortfolioSummary, usePaperPortfolio } from '../components/PaperTrading'
 import { ErrorState } from '../components/Loading'
-import { resetPaperPortfolio } from '../api'
+import { closePaperPosition, resetPaperPortfolio } from '../api'
 import { formatPln } from '../utils/format'
 
 export function PortfolioPage() {
   const { portfolio, loading, error, reload } = usePaperPortfolio()
   const [resetting, setResetting] = useState(false)
+  const [closingSymbol, setClosingSymbol] = useState<string | null>(null)
+
+  const handleClosePosition = async (symbol: string, quantity: number, isShort?: boolean) => {
+    const label = isShort ? 'short' : 'long'
+    if (!confirm(`Zamknąć całą pozycję ${label} na ${symbol} (${Math.abs(quantity)} szt.)?`)) return
+    setClosingSymbol(symbol)
+    try {
+      await closePaperPosition(symbol)
+      await reload()
+    } catch (e) {
+      alert((e as Error).message || 'Nie udało się zamknąć pozycji')
+    } finally {
+      setClosingSymbol(null)
+    }
+  }
 
   const handleReset = async () => {
     if (!confirm('Reset portfela do 1 000 000 PLN?')) return
@@ -49,26 +64,35 @@ export function PortfolioPage() {
       ) : (
         <div className="positions-list">
           {portfolio.positions.map((p) => (
-            <Link
-              key={p.symbol}
-              to={`/instrument/${encodeURIComponent(p.symbol)}`}
-              className="position-row tap-target"
-            >
-              <div className="position-main">
-                <strong>{p.symbol}</strong>
-                <span>{p.name}</span>
-              </div>
-              <div className="position-stats">
-                <span>
-                  {p.is_short ? `SHORT ${Math.abs(p.quantity)} szt.` : `${p.quantity} szt.`}
-                </span>
-                <span>{formatPln(p.market_value_pln)}</span>
-                <span className={p.unrealized_pnl_pln >= 0 ? 'positive' : 'negative'}>
-                  {p.unrealized_pnl_pln >= 0 ? '+' : ''}
-                  {formatPln(p.unrealized_pnl_pln)} ({p.unrealized_pnl_pct}%)
-                </span>
-              </div>
-            </Link>
+            <div key={p.symbol} className="position-row">
+              <Link
+                to={`/instrument/${encodeURIComponent(p.symbol)}`}
+                className="position-row-link tap-target"
+              >
+                <div className="position-main">
+                  <strong>{p.symbol}</strong>
+                  <span>{p.name}</span>
+                </div>
+                <div className="position-stats">
+                  <span>
+                    {p.is_short ? `SHORT ${Math.abs(p.quantity)} szt.` : `${p.quantity} szt.`}
+                  </span>
+                  <span>{formatPln(p.market_value_pln)}</span>
+                  <span className={p.unrealized_pnl_pln >= 0 ? 'positive' : 'negative'}>
+                    {p.unrealized_pnl_pln >= 0 ? '+' : ''}
+                    {formatPln(p.unrealized_pnl_pln)} ({p.unrealized_pnl_pct}%)
+                  </span>
+                </div>
+              </Link>
+              <button
+                type="button"
+                className="btn-close-position tap-target"
+                disabled={closingSymbol === p.symbol}
+                onClick={() => handleClosePosition(p.symbol, p.quantity, p.is_short)}
+              >
+                {closingSymbol === p.symbol ? 'Zamykanie…' : 'Zamknij'}
+              </button>
+            </div>
           ))}
         </div>
       )}

@@ -9,8 +9,10 @@ from app.paper.currency import native_currency, to_pln
 from app.paper.executor import (
     _position_after_buy,
     _position_after_sell,
+    close_position,
     place_order,
 )
+from app.paper.pricing import PaperTradeError
 from app.paper.paper_db import (
     get_account,
     get_position,
@@ -127,3 +129,78 @@ def test_short_sell_without_holding():
     assert pos is not None
     assert pos["quantity"] == -2.0
     assert acc["cash_pln"] > 1_000_000.0
+
+
+def test_close_long_position():
+    quote = AssetQuote(
+        symbol="PKO.WA",
+        name="PKO BP",
+        asset_class=AssetClass.STOCK,
+        price=45.0,
+        change_pct_24h=0.0,
+        change_pct_7d=0.0,
+        currency="PLN",
+        updated_at=datetime.now(timezone.utc),
+    )
+
+    async def _run():
+        await init_paper_db()
+        await reset_account()
+        with patch("app.paper.pricing.scanner") as mock_scanner, patch(
+            "app.paper.executor.get_usd_pln_rate", return_value=4.0
+        ):
+            mock_scanner.quotes = [quote]
+            await place_order("PKO.WA", "buy", quantity=10.0)
+            trade = await close_position("PKO.WA")
+            pos = await get_position("PKO.WA")
+            return trade, pos
+
+    trade, pos = asyncio.run(_run())
+    assert trade["side"] == "sell"
+    assert trade["quantity"] == 10.0
+    assert pos is None
+
+
+def test_close_short_position():
+    quote = AssetQuote(
+        symbol="AAPL",
+        name="Apple",
+        asset_class=AssetClass.STOCK,
+        price=150.0,
+        change_pct_24h=0.0,
+        change_pct_7d=0.0,
+        currency="USD",
+        updated_at=datetime.now(timezone.utc),
+    )
+
+    async def _run():
+        await init_paper_db()
+        await reset_account()
+        with patch("app.paper.pricing.scanner") as mock_scanner, patch(
+            "app.paper.executor.get_usd_pln_rate", return_value=4.0
+        ):
+            mock_scanner.quotes = [quote]
+            await place_order("AAPL", "sell", quantity=3.0)
+            trade = await close_position("AAPL")
+            pos = await get_position("AAPL")
+            return trade, pos
+
+    trade, pos = asyncio.run(_run())
+    assert trade["side"] == "buy"
+    assert trade["quantity"] == 3.0
+    assert pos is None
+
+
+def test_close_position_without_holding_raises():
+    async def _run():
+        await init_paper_db()
+        await reset_account()
+        with patch("app.paper.pricing.scanner") as mock_scanner:
+            mock_scanner.quotes = []
+            try:
+                await close_position("PKO.WA")
+                return False
+            except PaperTradeError as exc:
+                return exc.code == "no_position"
+
+    assert asyncio.run(_run()) is True

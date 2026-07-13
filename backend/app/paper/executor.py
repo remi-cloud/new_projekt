@@ -207,3 +207,19 @@ async def max_buy_quantity(symbol: str) -> float:
         return 0.0
     qty = (cash * 0.999) / (price_pln * (1 + TRADE_FEE_RATE))
     return _round_qty(qty, meta["asset_class"])
+
+
+async def close_position(symbol: str) -> dict:
+    """Close entire long (sell) or short (buy/cover) position."""
+    if symbol not in ASSET_MAP:
+        raise PaperTradeError(f"Instrument {symbol} nie jest monitorowany", "invalid_symbol")
+    position = await paper_db.get_position(symbol)
+    if not position:
+        raise PaperTradeError(f"Brak otwartej pozycji na {symbol}", "no_position")
+    qty = float(position["quantity"])
+    if abs(qty) < 1e-9:
+        raise PaperTradeError(f"Brak otwartej pozycji na {symbol}", "no_position")
+    meta = ASSET_MAP[symbol]
+    abs_qty = _round_qty(abs(qty), meta["asset_class"])
+    side = "sell" if qty > 0 else "buy"
+    return await place_order(symbol, side, quantity=abs_qty)

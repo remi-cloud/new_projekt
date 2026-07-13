@@ -774,10 +774,65 @@ body {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 10px;
+  color: inherit;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.position-row-link {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
   text-decoration: none;
   color: inherit;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.position-open {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.position-open-main {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+.btn-close-position {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-close-position:hover:not(:disabled) {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.btn-close-position:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.trade-panel .btn-close-position {
+  width: 100%;
 }
 
 .position-main {

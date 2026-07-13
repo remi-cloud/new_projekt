@@ -30,6 +30,7 @@ from app.models.schemas import (
     NotificationStatus,
     PaperOrderRequest,
     PaperPortfolio,
+    PaperPositionView,
     PaperTradeView,
     PushSubscriptionRequest,
     RegionalCycleSnapshot,
@@ -43,9 +44,9 @@ from app.notifications.push import get_vapid_public_key, vapid_configured
 from app.notifications.vapid_setup import ensure_vapid_keys
 from app.realtime.broadcaster import broadcaster
 from app.scheduler.jobs import is_running, scheduled_full_scan, start_scheduler, stop_scheduler
-from app.paper.executor import PaperTradeError, max_buy_quantity, place_order
+from app.paper.executor import PaperTradeError, close_position, max_buy_quantity, place_order
 from app.paper.paper_db import reset_account
-from app.paper.portfolio_service import build_portfolio
+from app.paper.portfolio_service import build_portfolio, get_position_for_symbol
 from app.scanners.opportunity_scanner import scanner
 
 logging.basicConfig(level=logging.INFO)
@@ -308,6 +309,26 @@ async def paper_trades_for_symbol(symbol: str, limit: int = 200):
 
     rows = await get_trades_for_symbol(symbol, limit=limit)
     return [PaperTradeView(**r) for r in rows]
+
+
+@app.get("/api/paper/position/{symbol:path}", response_model=PaperPositionView)
+async def paper_position(symbol: str):
+    pos = await get_position_for_symbol(symbol)
+    if not pos:
+        raise HTTPException(status_code=404, detail="Brak otwartej pozycji")
+    return PaperPositionView(**pos)
+
+
+@app.post("/api/paper/close/{symbol:path}")
+async def paper_close_position(symbol: str):
+    if not scanner.quotes:
+        await scanner.scan()
+    try:
+        trade = await close_position(symbol)
+        portfolio = await build_portfolio()
+        return {"trade": trade, "portfolio": portfolio}
+    except PaperTradeError as exc:
+        raise HTTPException(status_code=400, detail={"message": exc.message, "code": exc.code})
 
 
 @app.post("/api/paper/order")

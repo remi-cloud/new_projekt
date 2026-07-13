@@ -1,4 +1,13 @@
-import { AlertSettings, DashboardResponse, NotificationStatus, PaperOrderRequest, PaperPortfolio, PaperTrade, TwilioConfig } from './types'
+import {
+  AlertSettings,
+  DashboardResponse,
+  NotificationStatus,
+  PaperOrderRequest,
+  PaperPortfolio,
+  PaperPosition,
+  PaperTrade,
+  TwilioConfig,
+} from './types'
 import { ChartPreset, ChartResponse, CHART_PRESETS } from './types/chart'
 
 export { CHART_PRESETS }
@@ -89,6 +98,31 @@ export async function placePaperOrder(order: PaperOrderRequest): Promise<unknown
 export async function resetPaperPortfolio(): Promise<PaperPortfolio> {
   const res = await fetch(`${API_BASE}/paper/reset`, { method: 'POST' })
   if (!res.ok) throw new Error('Reset nieudany')
+  return res.json()
+}
+
+export async function fetchPaperPosition(symbol: string): Promise<PaperPosition | null> {
+  const encoded = symbol.split('/').map(encodeURIComponent).join('/')
+  const res = await fetch(`${API_BASE}/paper/position/${encoded}`)
+  if (res.status === 404) return null
+  if (!res.ok) throw new Error('Nie udało się pobrać pozycji')
+  return res.json()
+}
+
+export async function closePaperPosition(
+  symbol: string,
+): Promise<{ trade: PaperTrade; portfolio: PaperPortfolio }> {
+  const encoded = symbol.split('/').map(encodeURIComponent).join('/')
+  const res = await fetch(`${API_BASE}/paper/close/${encoded}`, { method: 'POST' })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    const detail = (err as { detail?: { message?: string } | string }).detail
+    const msg =
+      typeof detail === 'object' && detail?.message
+        ? detail.message
+        : String(detail || 'Nie udało się zamknąć pozycji')
+    throw new Error(msg)
+  }
   return res.json()
 }
 

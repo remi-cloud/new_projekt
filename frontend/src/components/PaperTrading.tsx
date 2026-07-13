@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
-import { fetchPaperMaxBuy, fetchPaperPortfolio, placePaperOrder } from '../api'
-import { PaperPortfolio as PaperPortfolioType } from '../types'
+import {
+  closePaperPosition,
+  fetchPaperMaxBuy,
+  fetchPaperPortfolio,
+  fetchPaperPosition,
+  placePaperOrder,
+} from '../api'
+import { PaperPortfolio as PaperPortfolioType, PaperPosition } from '../types'
 import { formatPln } from '../utils/format'
 
 export function usePaperPortfolio(pollMs = 30_000) {
@@ -41,12 +47,20 @@ export function TradePanel({ symbol, name, price, onTrade }: TradePanelProps) {
   const [quantity, setQuantity] = useState('')
   const [amountPln, setAmountPln] = useState('50000')
   const [maxQty, setMaxQty] = useState<number | null>(null)
+  const [position, setPosition] = useState<PaperPosition | null>(null)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
 
+  const reloadPosition = useCallback(() => {
+    fetchPaperPosition(symbol)
+      .then(setPosition)
+      .catch(() => setPosition(null))
+  }, [symbol])
+
   useEffect(() => {
     fetchPaperMaxBuy(symbol).then((r) => setMaxQty(r.max_quantity)).catch(() => {})
-  }, [symbol])
+    reloadPosition()
+  }, [symbol, reloadPosition])
 
   const submit = async (side: 'buy' | 'sell') => {
     setBusy(true)
@@ -58,6 +72,7 @@ export function TradePanel({ symbol, name, price, onTrade }: TradePanelProps) {
           : { symbol, side, quantity: parseFloat(quantity) }
       await placePaperOrder(body)
       setMsg(side === 'buy' ? 'Kupiono ✓' : 'Sprzedano ✓')
+      reloadPosition()
       onTrade?.()
     } catch (e) {
       const err = e as Error
@@ -67,10 +82,52 @@ export function TradePanel({ symbol, name, price, onTrade }: TradePanelProps) {
     }
   }
 
+  const handleClose = async () => {
+    if (!position) return
+    const label = position.is_short ? 'short' : 'long'
+    if (!confirm(`Zamknąć całą pozycję ${label} (${Math.abs(position.quantity)} szt.)?`)) return
+    setBusy(true)
+    setMsg(null)
+    try {
+      await closePaperPosition(symbol)
+      setMsg('Pozycja zamknięta ✓')
+      setPosition(null)
+      onTrade?.()
+    } catch (e) {
+      const err = e as Error
+      setMsg(err.message || 'Nie udało się zamknąć pozycji')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div className="trade-panel" onClick={(e) => e.stopPropagation()}>
       <h4>Paper trading — {name}</h4>
       <p className="trade-price-hint">Cena live: {price}</p>
+
+      {position && (
+        <div className="position-open">
+          <div className="position-open-main">
+            <span className={position.is_short ? 'side-sell' : 'side-buy'}>
+              {position.is_short ? 'SHORT' : 'LONG'}
+            </span>
+            <span>{Math.abs(position.quantity)} szt.</span>
+            <span className={position.unrealized_pnl_pln >= 0 ? 'positive' : 'negative'}>
+              {position.unrealized_pnl_pln >= 0 ? '+' : ''}
+              {formatPln(position.unrealized_pnl_pln)} ({position.unrealized_pnl_pct}%)
+            </span>
+          </div>
+          <button
+            type="button"
+            className="btn-close-position tap-target"
+            disabled={busy}
+            onClick={handleClose}
+          >
+            Zamknij pozycję
+          </button>
+        </div>
+      )}
 
       <div className="trade-mode-tabs">
         <button type="button" className={mode === 'pln' ? 'active' : ''} onClick={() => setMode('pln')}>
