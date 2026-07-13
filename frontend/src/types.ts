@@ -149,6 +149,7 @@ export interface PaperPosition {
   name: string
   asset_class: AssetClass
   quantity: number
+  is_short?: boolean
   avg_price_native: number
   avg_price_pln: number
   current_price_native: number

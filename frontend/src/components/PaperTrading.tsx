@@ -49,15 +49,11 @@ export function TradePanel({ symbol, name, price, onTrade }: TradePanelProps) {
   }, [symbol])
 
   const submit = async (side: 'buy' | 'sell') => {
-    if (side === 'sell' && mode === 'pln') {
-      setMsg('Sprzedaż: przełącz na zakładkę Ilość')
-      return
-    }
     setBusy(true)
     setMsg(null)
     try {
       const body =
-        side === 'buy' && mode === 'pln'
+        mode === 'pln'
           ? { symbol, side, amount_pln: parseFloat(amountPln) }
           : { symbol, side, quantity: parseFloat(quantity) }
       await placePaperOrder(body)
@@ -87,7 +83,7 @@ export function TradePanel({ symbol, name, price, onTrade }: TradePanelProps) {
 
       {mode === 'pln' ? (
         <label className="field-label">
-          Kwota (PLN) — tylko kupno
+          Kwota (PLN)
           <input
             className="field-input"
             type="number"

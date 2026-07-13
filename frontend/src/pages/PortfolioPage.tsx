@@ -30,7 +30,8 @@ export function PortfolioPage() {
         <h2>Paper trading</h2>
         <p>
           Wirtualne konto startowe <strong>1 000 000 PLN</strong>. Kupuj i sprzedawaj wszystkie 246
-          instrumentów po cenach live. Prowizja 0,1%. Handel symulowany — bez realnych pieniędzy.
+          instrumentów po cenach live. Prowizja 0,1%. Możesz sprzedawać bez posiadania akcji (short).
+          Handel symulowany — bez realnych pieniędzy.
         </p>
       </div>
 
@@ -58,7 +59,9 @@ export function PortfolioPage() {
                 <span>{p.name}</span>
               </div>
               <div className="position-stats">
-                <span>{p.quantity} szt.</span>
+                <span>
+                  {p.is_short ? `SHORT ${Math.abs(p.quantity)} szt.` : `${p.quantity} szt.`}
+                </span>
                 <span>{formatPln(p.market_value_pln)}</span>
                 <span className={p.unrealized_pnl_pln >= 0 ? 'positive' : 'negative'}>
                   {p.unrealized_pnl_pln >= 0 ? '+' : ''}

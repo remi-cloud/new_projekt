@@ -38,6 +38,55 @@ def _round_qty(qty: float, asset_class: str) -> float:
     return round(qty, 2)
 
 
+def _realized_on_close_long(
+    avg_native: float, close_qty: float, close_proceeds_pln: float, currency: str, usd_pln: float
+) -> float:
+    cost_basis_pln = to_pln(avg_native, currency, usd_pln) * close_qty
+    return close_proceeds_pln - cost_basis_pln
+
+
+def _realized_on_cover_short(
+    avg_native: float, cover_qty: float, cover_cost_pln: float, currency: str, usd_pln: float
+) -> float:
+    entry_pln = to_pln(avg_native, currency, usd_pln) * cover_qty
+    return entry_pln - cover_cost_pln
+
+
+def _new_avg_short(old_qty: float, old_avg: float, add_qty: float, price: float) -> float:
+    old_abs = abs(old_qty)
+    return (old_abs * old_avg + add_qty * price) / (old_abs + add_qty)
+
+
+def _position_after_sell(
+    held: float, avg_native: float, quantity: float, price_native: float
+) -> tuple[float, float]:
+    new_qty = held - quantity
+    if abs(new_qty) < 1e-9:
+        return 0.0, price_native
+    if new_qty > 0:
+        return new_qty, avg_native
+    if held > 0:
+        return new_qty, price_native
+    if held < 0:
+        return new_qty, _new_avg_short(held, avg_native, quantity, price_native)
+    return new_qty, price_native
+
+
+def _position_after_buy(
+    held: float, avg_native: float, quantity: float, price_native: float
+) -> tuple[float, float]:
+    new_qty = held + quantity
+    if abs(new_qty) < 1e-9:
+        return 0.0, price_native
+    if new_qty < 0:
+        return new_qty, avg_native
+    if held < 0:
+        return new_qty, price_native
+    if held > 0:
+        return new_qty, ((held * avg_native) + (quantity * price_native)) / new_qty
+    return new_qty, price_native
+
+
 async def place_order(
     symbol: str, side: str, quantity: float | None = None, amount_pln: float | None = None
 ) -> dict:
@@ -51,14 +100,17 @@ async def place_order(
     meta = ASSET_MAP[symbol]
     asset_class = meta["asset_class"]
 
-    if amount_pln is not None and side == "buy":
+    if amount_pln is not None:
         price_native, currency = _get_live_price(symbol)
         usd_pln = await get_usd_pln_rate()
         price_pln = to_pln(price_native, currency, usd_pln)
-        denom = price_pln * (1 + TRADE_FEE_RATE)
-        if denom <= 0:
+        if price_pln <= 0:
             raise PaperTradeError("Nieprawidłowa cena", "no_price")
-        quantity = amount_pln / denom
+        if side == "buy":
+            denom = price_pln * (1 + TRADE_FEE_RATE)
+            quantity = amount_pln / denom
+        else:
+            quantity = amount_pln / price_pln
 
     if quantity is None:
         raise PaperTradeError("Podaj quantity lub amount_pln", "invalid_quantity")
@@ -87,36 +139,44 @@ async def place_order(
                 f"Max ilość: {_round_qty(max_qty, asset_class)}",
                 "insufficient_cash",
             )
-        new_cash = cash - total_pln
-        old_qty = float(position["quantity"]) if position else 0.0
-        old_avg = float(position["avg_price_native"]) if position else 0.0
-        new_qty = old_qty + quantity
-        new_avg = (
-            ((old_qty * old_avg) + (quantity * price_native)) / new_qty if new_qty > 0 else price_native
-        )
-        await paper_db.update_account_cash(new_cash)
-        await paper_db.upsert_position(
-            symbol, meta["name"], asset_class, new_qty, new_avg, currency
-        )
-    else:
         held = float(position["quantity"]) if position else 0.0
-        if quantity > held + 1e-9:
-            raise PaperTradeError(
-                f"Za mało {symbol}. Posiadasz {held}, próbujesz sprzedać {quantity}",
-                "insufficient_shares",
-            )
-        proceeds = gross_pln - fee_pln
-        cost_basis_pln = to_pln(float(position["avg_price_native"]), currency, usd_pln) * quantity
-        realized = proceeds - cost_basis_pln
-        new_cash = cash + proceeds
-        new_qty = held - quantity
+        old_avg = float(position["avg_price_native"]) if position else price_native
+
+        realized = 0.0
+        if held < 0:
+            cover_qty = min(abs(held), quantity)
+            if cover_qty > 0:
+                cover_cost_pln = total_pln * (cover_qty / quantity)
+                realized = _realized_on_cover_short(old_avg, cover_qty, cover_cost_pln, currency, usd_pln)
+
+        new_cash = cash - total_pln
+        new_qty, new_avg = _position_after_buy(held, old_avg, quantity, price_native)
         await paper_db.update_account_cash(new_cash, realized_pnl_delta=realized)
-        if new_qty <= 1e-9:
+        if abs(new_qty) < 1e-9:
             await paper_db.delete_position(symbol)
         else:
             await paper_db.upsert_position(
-                symbol, meta["name"], asset_class, new_qty,
-                float(position["avg_price_native"]), currency,
+                symbol, meta["name"], asset_class, new_qty, new_avg, currency
+            )
+    else:
+        held = float(position["quantity"]) if position else 0.0
+        old_avg = float(position["avg_price_native"]) if position else price_native
+        proceeds = gross_pln - fee_pln
+
+        close_long_qty = min(max(held, 0.0), quantity)
+        realized = 0.0
+        if close_long_qty > 0:
+            close_proceeds = proceeds * (close_long_qty / quantity)
+            realized = _realized_on_close_long(old_avg, close_long_qty, close_proceeds, currency, usd_pln)
+
+        new_cash = cash + proceeds
+        new_qty, new_avg = _position_after_sell(held, old_avg, quantity, price_native)
+        await paper_db.update_account_cash(new_cash, realized_pnl_delta=realized)
+        if abs(new_qty) < 1e-9:
+            await paper_db.delete_position(symbol)
+        else:
+            await paper_db.upsert_position(
+                symbol, meta["name"], asset_class, new_qty, new_avg, currency
             )
 
     trade = {

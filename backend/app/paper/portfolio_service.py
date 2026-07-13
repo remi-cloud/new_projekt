@@ -48,6 +48,7 @@ async def build_portfolio() -> dict:
             "name": pos["name"],
             "asset_class": pos["asset_class"],
             "quantity": qty,
+            "is_short": qty < 0,
             "avg_price_native": avg_native,
             "avg_price_pln": round(avg_pln, 4),
             "current_price_native": current_native,
