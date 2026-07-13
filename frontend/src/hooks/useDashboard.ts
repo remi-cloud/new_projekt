@@ -36,8 +36,21 @@ export function useDashboard(pollMs = 30_000) {
   const scan = useCallback(async () => {
     setScanning(true)
     try {
-      await triggerScan()
+      const result = await triggerScan()
       await load()
+      if (result.already_running) return
+      void (async () => {
+        for (let i = 0; i < 40; i++) {
+          await new Promise((r) => setTimeout(r, 3000))
+          try {
+            const dashboard = await fetchDashboard()
+            setData(dashboard)
+            if (!dashboard.scan_in_progress) break
+          } catch {
+            break
+          }
+        }
+      })()
     } catch {
       setError('Skanowanie nie powiodło się')
       throw new Error('scan failed')

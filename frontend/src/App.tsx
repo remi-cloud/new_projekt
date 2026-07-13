@@ -22,6 +22,7 @@ function AppShell() {
   return (
     <Layout
       scannerRunning={data?.scanner_running}
+      scanInProgress={data?.scan_in_progress}
       liveMode={data?.live_mode}
       liveConnected={liveConnected}
       onScan={scan}

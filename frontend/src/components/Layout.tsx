@@ -4,13 +4,14 @@ import { MOBILE_NAV, NAV_ITEMS } from '../constants'
 
 interface LayoutProps {
   scannerRunning?: boolean
+  scanInProgress?: boolean
   liveMode?: boolean
   liveConnected?: boolean
   onScan?: () => Promise<void>
   scanning?: boolean
 }
 
-export function Layout({ scannerRunning, liveMode, liveConnected, onScan, scanning }: LayoutProps) {
+export function Layout({ scannerRunning, scanInProgress, liveMode, liveConnected, onScan, scanning }: LayoutProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const [toast, setToast] = useState<string | null>(null)
@@ -20,11 +21,11 @@ export function Layout({ scannerRunning, liveMode, liveConnected, onScan, scanni
     if (!onScan || scanning) return
     try {
       await onScan()
-      setToast('Skan zakończony ✓')
-      setTimeout(() => setToast(null), 2500)
+      setToast('Skan w tle — dane odświeżą się za chwilę ✓')
+      setTimeout(() => setToast(null), 3500)
     } catch {
-      setToast('Błąd skanowania')
-      setTimeout(() => setToast(null), 2500)
+      setToast('Błąd skanowania — spróbuj za chwilę')
+      setTimeout(() => setToast(null), 3500)
     }
   }
 
@@ -38,11 +39,13 @@ export function Layout({ scannerRunning, liveMode, liveConnected, onScan, scanni
           <div>
             <div className="mobile-title">{pageTitle}</div>
             <div className="mobile-subtitle">
-              {liveMode && liveConnected
-                ? '● Live realtime'
-                : scannerRunning
-                  ? '● Live 24/7'
-                  : '○ Offline'}
+              {scanInProgress
+                ? '◐ Skanowanie…'
+                : liveMode && liveConnected
+                  ? '● Live realtime'
+                  : scannerRunning
+                    ? '● Live 24/7'
+                    : '○ Offline'}
             </div>
           </div>
         </button>

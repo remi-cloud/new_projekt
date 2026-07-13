@@ -138,7 +138,22 @@ export function ChartLoader({
         setLoading(false)
       })
       .catch(() => {
-        if (!cancelled) setLoading(false)
+        if (cancelled) return
+        // Retry once — charts often fail when server is busy scanning.
+        setTimeout(() => {
+          if (cancelled) return
+          fetchChart(symbol, preset)
+            .then((data) => {
+              if (cancelled) return
+              setCandles(data.candles)
+              setPositive(data.change_pct >= 0)
+              onData?.(data)
+            })
+            .catch(() => {})
+            .finally(() => {
+              if (!cancelled) setLoading(false)
+            })
+        }, 2000)
       })
 
     return () => { cancelled = true }

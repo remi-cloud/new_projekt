@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from datetime import datetime, timezone
 
@@ -37,8 +38,22 @@ class OpportunityScanner:
         self.regional_cycles: list[RegionalCycleSnapshot] = []
         self.quotes: list[AssetQuote] = []
         self._price_stats: dict[str, dict] = {}
+        self.scan_in_progress: bool = False
+        self._scan_lock = asyncio.Lock()
 
     async def scan(self) -> list[Opportunity]:
+        if self._scan_lock.locked():
+            logger.info("Full scan already in progress — skipping duplicate request")
+            return self.opportunities
+
+        async with self._scan_lock:
+            self.scan_in_progress = True
+            try:
+                return await self._run_scan()
+            finally:
+                self.scan_in_progress = False
+
+    async def _run_scan(self) -> list[Opportunity]:
         logger.info("Starting full market scan (%d assets)...", len(MONITORED_ASSETS))
         ath_date, ath_price, btc_price = await fetch_bitcoin_ath()
         self.bitcoin_cycle = analyze_bitcoin_cycle(ath_date, ath_price, btc_price)

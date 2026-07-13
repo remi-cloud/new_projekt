@@ -166,6 +166,7 @@ class DashboardResponse(BaseModel):
     last_price_tick_at: Optional[datetime] = None
     live_mode: bool = False
     scanner_running: bool
+    scan_in_progress: bool = False
 
 
 class AlertSettings(BaseModel):

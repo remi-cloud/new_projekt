@@ -4,7 +4,7 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import BackgroundTasks, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -119,6 +119,7 @@ async def dashboard():
         last_price_tick_at=scanner.last_price_tick_at,
         live_mode=scanner.live_mode,
         scanner_running=is_running(),
+        scan_in_progress=scanner.scan_in_progress,
     )
 
 
@@ -156,11 +157,31 @@ async def chart_presets():
 
 
 @app.post("/api/scan")
-async def trigger_scan():
-    opportunities = await scanner.scan()
-    from app.db.database import save_opportunities
-    await save_opportunities(opportunities)
-    return {"scanned": True, "opportunities_count": len(opportunities)}
+async def trigger_scan(background_tasks: BackgroundTasks):
+    if scanner.scan_in_progress:
+        return {
+            "scanned": False,
+            "background": True,
+            "already_running": True,
+            "opportunities_count": len(scanner.opportunities),
+        }
+
+    async def _run_scan() -> None:
+        try:
+            opportunities = await scanner.scan()
+            from app.db.database import save_opportunities
+
+            await save_opportunities(opportunities)
+        except Exception as exc:
+            logger.exception("Background scan failed: %s", exc)
+
+    background_tasks.add_task(_run_scan)
+    return {
+        "scanned": True,
+        "background": True,
+        "already_running": False,
+        "opportunities_count": len(scanner.opportunities),
+    }
 
 
 @app.get("/api/opportunities/history")

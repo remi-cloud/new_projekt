@@ -107,6 +107,7 @@ export interface DashboardResponse {
   last_price_tick_at: string | null
   live_mode: boolean
   scanner_running: boolean
+  scan_in_progress?: boolean
 }
 
 export interface AlertSettings {
