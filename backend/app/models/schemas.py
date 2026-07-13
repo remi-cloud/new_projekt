@@ -172,6 +172,8 @@ class AlertSettings(BaseModel):
     phone: str = ""
     sms_enabled: bool = False
     push_enabled: bool = True
+    ntfy_enabled: bool = True
+    ntfy_topic: str = ""
     min_confidence: float = Field(default=60, ge=40, le=95)
     alert_on_signal_change: bool = True
     alert_on_new_opportunity: bool = True
@@ -185,6 +187,9 @@ class PushSubscriptionRequest(BaseModel):
 class NotificationStatus(BaseModel):
     push_configured: bool
     sms_configured: bool
+    ntfy_configured: bool
+    ntfy_subscribe_url: str
+    ntfy_app_url: str
     vapid_public_key: str
     push_subscriptions: int
     settings: AlertSettings

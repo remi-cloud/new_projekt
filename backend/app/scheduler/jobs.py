@@ -40,7 +40,7 @@ async def _maybe_notify() -> None:
     if not settings.notifications_enabled or not scanner.market_assessments:
         return
     alert_settings = await get_alert_settings()
-    if not alert_settings.get("push_enabled") and not alert_settings.get("sms_enabled"):
+    if not alert_settings.get("push_enabled") and not alert_settings.get("sms_enabled") and not alert_settings.get("ntfy_enabled"):
         return
     events = alert_engine.diff(
         scanner.market_assessments,

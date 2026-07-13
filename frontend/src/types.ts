@@ -113,6 +113,8 @@ export interface AlertSettings {
   phone: string
   sms_enabled: boolean
   push_enabled: boolean
+  ntfy_enabled: boolean
+  ntfy_topic: string
   min_confidence: number
   alert_on_signal_change: boolean
   alert_on_new_opportunity: boolean
@@ -121,9 +123,18 @@ export interface AlertSettings {
 export interface NotificationStatus {
   push_configured: boolean
   sms_configured: boolean
+  ntfy_configured: boolean
+  ntfy_subscribe_url: string
+  ntfy_app_url: string
   vapid_public_key: string
   push_subscriptions: number
   settings: AlertSettings
+}
+
+export interface TwilioConfig {
+  account_sid: string
+  auth_token: string
+  from_number: string
 }
 
 export type { ChartPreset, ChartCandle, ChartResponse } from './types/chart'
