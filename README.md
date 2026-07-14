@@ -6,13 +6,16 @@ Aplikacja webowa do **tradingu cyklicznego** — monitoruje rynki 24/7 i wyszuku
 
 ### Mac (Terminal) — zalecane lokalnie
 
+Od folderów do działającej apki: **[`docs/MAC-SETUP.md`](docs/MAC-SETUP.md)**
+
 ```bash
-brew install python@3.12 node   # raz
-git checkout cursor/paper-trading-21d6 && git pull
+mkdir -p ~/Projects && cd ~/Projects
+git clone --branch cursor/paper-trading-21d6 https://github.com/remi-cloud/new_projekt.git
+cd new_projekt && ./scripts/mac-bootstrap.sh
 ./scripts/mac-start.sh         # http://localhost:8080
 ```
 
-Szczegóły: [`docs/MAC.md`](docs/MAC.md) · Deploy online: [`docs/DEPLOY-AWS.md`](docs/DEPLOY-AWS.md)
+Szczegóły: [`docs/MAC.md`](docs/MAC.md) · Deploy: [`docs/DEPLOY-AWS.md`](docs/DEPLOY-AWS.md)
 
 ### Docker
 

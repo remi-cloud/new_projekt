@@ -13,18 +13,21 @@ git pull
 
 ## 1) Mac — Terminal (teraz)
 
-Wymagania: `brew install python@3.12 node`
+**Od zera (foldery → instalacja → dysk):** [`docs/MAC-SETUP.md`](MAC-SETUP.md)
 
 ```bash
+mkdir -p ~/Projects && cd ~/Projects
+# … potem clone / mac-bootstrap — patrz MAC-SETUP.md
+
+cd ~/Projects/new_projekt
 chmod +x scripts/*.sh
-./scripts/mac-start.sh
+./scripts/mac-bootstrap.sh   # raz: narzędzia + zależności
+./scripts/mac-start.sh       # codziennie
 ```
 
-→ **http://localhost:8080** (przeglądarka otworzy się sama)
+→ **http://localhost:8080**
 
 Zatrzymaj: `Ctrl+C` albo `./scripts/mac-stop.sh`
-
-Pełna instrukcja: [`docs/MAC.md`](MAC.md)
 
 ## 2) Online — AWS później
 
