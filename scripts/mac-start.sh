@@ -5,6 +5,12 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+# shellcheck source=_mac_python.sh
+source "$ROOT/scripts/_mac_python.sh"
+ensure_brew_path || true
+resolve_mac_python || { echo "Brak Python 3 — brew install python@3.12"; exit 1; }
+check_python_version || { echo "Python ≥ 3.11 wymagany (masz $($PYTHON_BIN --version)) — brew install python@3.12"; exit 1; }
+
 PORT="${PORT:-8080}"
 OPEN_BROWSER="${OPEN_BROWSER:-1}"
 
@@ -30,17 +36,10 @@ need_cmd() {
   fi
 }
 
-need_cmd python3 "brew install python"
 need_cmd node    "brew install node"
 need_cmd npm     "brew install node"
 
-PY_VER="$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
-PY_MAJOR="$(echo "$PY_VER" | cut -d. -f1)"
-PY_MINOR="$(echo "$PY_VER" | cut -d. -f2)"
-if [ "$PY_MAJOR" -lt 3 ] || { [ "$PY_MAJOR" -eq 3 ] && [ "$PY_MINOR" -lt 11 ]; }; then
-  fail "Potrzebny Python ≥ 3.11 (masz $PY_VER).: brew install python@3.12"
-fi
-ok "Python $PY_VER"
+ok "Python $($PYTHON_BIN --version | awk '{print $2}')"
 ok "Node $(node -v) / npm $(npm -v)"
 
 # ── Port zajęty? ────────────────────────────────────────────
@@ -74,12 +73,17 @@ fi
 cd "$ROOT/backend"
 if [ ! -d ".venv" ]; then
   info "Tworzenie środowiska Python (.venv)…"
-  python3 -m venv .venv
+  "$PYTHON_BIN" -m venv .venv
 fi
 # shellcheck disable=SC1091
 source .venv/bin/activate
 info "Instalacja zależności…"
-pip install -q -r requirements.txt
+pip install -q --upgrade pip
+if ! pip install -q -r requirements.txt; then
+  warn "pip install nieudany — często pomaga: brew install curl openssl@3"
+  warn "Potem: rm -rf .venv && ./scripts/mac-start.sh"
+  fail "Nie udało się zainstalować zależności Python"
+fi
 ok "Backend gotowy"
 
 # ── Backup portfela (pierwszy start) ────────────────────────

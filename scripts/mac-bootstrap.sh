@@ -69,20 +69,16 @@ else
 fi
 
 # ── 4. Python + Node ────────────────────────────────────────
-step "4/6  Python 3.12 + Node.js"
+step "4/6  Python 3.12 + Node.js + curl (dla curl_cffi)"
+ensure_brew_path || true
 brew list python@3.12 >/dev/null 2>&1 || brew install python@3.12
 brew list node >/dev/null 2>&1 || brew install node
+brew list curl >/dev/null 2>&1 || brew install curl
 
-# Prefer python3.12 if available
-if command -v python3.12 >/dev/null 2>&1; then
-  PYTHON_BIN="$(command -v python3.12)"
-elif [ -x /opt/homebrew/opt/python@3.12/bin/python3.12 ]; then
-  PYTHON_BIN="/opt/homebrew/opt/python@3.12/bin/python3.12"
-elif [ -x /usr/local/opt/python@3.12/bin/python3.12 ]; then
-  PYTHON_BIN="/usr/local/opt/python@3.12/bin/python3.12"
-else
-  PYTHON_BIN="$(command -v python3)"
-fi
+# shellcheck source=_mac_python.sh
+source "$(dirname "$0")/_mac_python.sh"
+resolve_mac_python || fail "Brak Python — brew install python@3.12"
+check_python_version || fail "Python ≥ 3.11 wymagany"
 
 ok "Python: $($PYTHON_BIN --version)  ($PYTHON_BIN)"
 ok "Node:   $(node -v)  / npm $(npm -v)"
@@ -121,7 +117,12 @@ fi
 # shellcheck disable=SC1091
 source .venv/bin/activate
 pip install -q --upgrade pip
-pip install -q -r requirements.txt
+if ! pip install -q -r requirements.txt; then
+  warn "pip install nieudany. Spróbuj:"
+  warn "  brew install curl openssl@3"
+  warn "  rm -rf backend/.venv && ./scripts/mac-bootstrap.sh"
+  fail "Instalacja Python dependencies"
+fi
 ok "Python venv + requirements"
 
 mkdir -p data/baza_portfela

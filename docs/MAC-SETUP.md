@@ -137,6 +137,15 @@ git pull
 | Objaw | Co zrobić |
 |-------|-----------|
 | `brew: command not found` | Zamknij Terminal, otwórz nowy; na M1/M2: `eval "$(/opt/homebrew/bin/brew shellenv)"` |
-| `xcode-select` | Dokończ instalację CLT, potem powtórz |
+| `Permission denied` na skrypt | `chmod +x scripts/*.sh` |
+| `pip install` / `curl_cffi` error | `brew install curl openssl@3` potem `rm -rf backend/.venv && ./scripts/mac-bootstrap.sh` |
 | Port 8080 zajęty | `./scripts/mac-stop.sh` albo `PORT=8090 ./scripts/mac-start.sh` |
 | Brak przycisku Zamknij | `./scripts/build-www.sh` potem restart |
+| Nie wiesz co jest nie tak | `./scripts/mac-doctor.sh` — wklej output |
+
+### Diagnostyka (wklej wynik jeśli dalej nie działa)
+
+```bash
+cd ~/Projects/new_projekt
+./scripts/mac-doctor.sh
+```
