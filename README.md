@@ -4,7 +4,17 @@ Aplikacja webowa do **tradingu cyklicznego** — monitoruje rynki 24/7 i wyszuku
 
 ## Wersja WWW — szybki start
 
-Jeden adres, pełna aplikacja w przeglądarce:
+### Mac (Terminal) — zalecane lokalnie
+
+```bash
+brew install python@3.12 node   # raz
+git checkout cursor/paper-trading-21d6 && git pull
+./scripts/mac-start.sh         # http://localhost:8080
+```
+
+Szczegóły: [`docs/MAC.md`](docs/MAC.md) · Deploy online: [`docs/DEPLOY-AWS.md`](docs/DEPLOY-AWS.md)
+
+### Docker
 
 ```bash
 docker compose up --build
@@ -12,25 +22,16 @@ docker compose up --build
 
 Otwórz: **http://localhost:8080**
 
-### Lokalnie (dev)
+### Lokalnie (dev ręcznie)
 
 ```bash
-# 1. Zbuduj frontend i skopiuj do backend/static
 ./scripts/build-www.sh
-
-# 2. Uruchom serwer WWW (API + frontend na jednym porcie)
-cd backend
-python3 -m venv .venv && source .venv/bin/activate
+cd backend && python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8080
 ```
 
-Frontend dev z hot-reload (osobny port):
-
-```bash
-cd frontend && npm install && npm run dev
-# http://localhost:5173 — proxy API na :8000 lub :8080
-```
+Frontend hot-reload: `cd frontend && npm install && npm run dev` → http://localhost:5173
 
 ## Strony aplikacji WWW
 
@@ -41,6 +42,8 @@ cd frontend && npm install && npm run dev
 | Cykle | `/cykle` | Szczegóły cykli BTC i prezydenckiego |
 | Okazje | `/okazje` | Sygnały z filtrami (klasa, akcja) |
 | Rynki | `/rynki` | Tabela instrumentów z filtrami |
+| Portfel | `/portfel` | Paper trading |
+| Powiadomienia | `/powiadomienia` | Alerty / ntfy / SMS |
 | O aplikacji | `/o-aplikacji` | Informacje i disclaimer |
 
 ## Cykle rynkowe

@@ -1,8 +1,6 @@
-# Kontynuacja pracy — 13.07.2026
+# Kontynuacja pracy — Mac + Terminal → AWS
 
-Zapis stanu projektu, żeby jutro na laptopie nic nie zginęło.
-
-## Git — co pobrać
+## Branch
 
 ```bash
 git clone https://github.com/remi-cloud/new_projekt.git
@@ -11,66 +9,60 @@ git checkout cursor/paper-trading-21d6
 git pull
 ```
 
-**Pull Request (cała praca paper trading):**  
-https://github.com/remi-cloud/new_projekt/pull/4
+**PR:** https://github.com/remi-cloud/new_projekt/pull/4
 
-**Ostatni commit:** `fffec39` — zamknięcie pozycji, data otwarcia, markery na wykresie
+## 1) Mac — Terminal (teraz)
 
-## Uruchomienie na laptopie
+Wymagania: `brew install python@3.12 node`
 
 ```bash
-./scripts/build-www.sh          # WAŻNE: kopiuje frontend do backend/static
-cd backend
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --host 0.0.0.0 --port 8080
+chmod +x scripts/*.sh
+./scripts/mac-start.sh
 ```
 
-Otwórz: **http://localhost:8080**
+→ **http://localhost:8080** (przeglądarka otworzy się sama)
 
-> Bez `./scripts/build-www.sh` nie zobaczysz przycisku **Zamknij pozycję** — serwer serwuje pliki z `backend/static`, nie z `frontend/dist`.
+Zatrzymaj: `Ctrl+C` albo `./scripts/mac-stop.sh`
 
-## Portfel paper trading — nie stracisz pozycji
+Pełna instrukcja: [`docs/MAC.md`](MAC.md)
 
-Stan konta zapisany w repozytorium:
+## 2) Online — AWS później
+
+Najprościej: **Lightsail + Docker** (~\$5/mies.)
+
+Patrz: [`docs/DEPLOY-AWS.md`](DEPLOY-AWS.md)
+
+```bash
+# na serwerze Ubuntu
+docker compose up --build -d
+# http://<IP>:8080
+```
+
+## Portfel
 
 | Plik | Zawartość |
 |------|-----------|
-| `backups/portfolio_latest.sqlite` | Baza SQLite (pozycje, transakcje, gotówka) |
-| `backups/portfolio_snapshot_latest.json` | Podgląd JSON (tylko do odczytu) |
+| `backups/portfolio_latest.sqlite` | Backup pozycji |
+| `backups/portfolio_snapshot_latest.json` | Podgląd JSON |
 
-**Przy pierwszym starcie** na pustym laptopie agent portfela automatycznie skopiuje backup do  
-`backend/data/baza_portfela/portfolio.db`.
+`mac-start.sh` przy pierwszym starcie kopiuje backup do  
+`backend/data/baza_portfela/portfolio.db` (jeśli brak lokalnej bazy).
 
-Stan z momentu zapisu (13.07.2026 ~16:43 UTC):
+## Co działa
 
-- Gotówka: **990 000 PLN**
-- Pozycje: **BTC-USD** (0,040625 szt.) + **PKO.WA** (50 szt.)
-- Wartość portfela: **~1 005 580 PLN** (+0,56%)
-
-## Co już działa
-
-- Paper trading: 1 000 000 PLN start, short selling, prowizja 0,1%
-- Persystencja portfela w `baza_portfela/`
-- **Zamknij pozycję** — Portfel + panel instrumentu
-- **Otwarto: data/godzina** przy każdej pozycji
-- Markery na wykresie: ▲ kupno, ▼ sprzedaż, ● OTW (otwarcie pozycji)
-- Presety wykresu intraday: 1m, 5m, 15m, 30m, 1H, 4H
-
-## Tunel Cloudflare (opcjonalnie)
-
-Quick tunnels **wygasają** po restarcie — błąd 1033 to normalne.
-
-```bash
-/tmp/cloudflared tunnel --url http://127.0.0.1:8080
-# Skopiuj nowy URL z konsoli (https://....trycloudflare.com)
-```
-
-Na laptopie zwykle wystarczy `localhost:8080`.
+- Paper trading (1M PLN, short, zamknij pozycję, otwarto: data)
+- Wykresy + markery transakcji
+- Persystencja portfela
+- Alerty ntfy / opcjonalnie Twilio (numer tylko w `.env` lokalnie)
 
 ## Testy
 
 ```bash
 cd backend && source .venv/bin/activate && pytest -q
-# 39 testów powinno przejść
 ```
+
+## Plan na sesję
+
+1. Odpal na Macu (`mac-start.sh`)
+2. Sprawdź Portfel / Zamknij / wykresy
+3. Jak działa — idziemy w Lightsail (Deploy-AWS)

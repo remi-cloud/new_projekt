@@ -1,29 +1,34 @@
 #!/usr/bin/env bash
-# Prosty skrypt startowy — uruchamia aplikację WWW na http://localhost:8080
+# Uniwersalny start — na Macu przekierowuje do mac-start.sh
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+if [ "$(uname -s)" = "Darwin" ]; then
+  exec "$ROOT/scripts/mac-start.sh" "$@"
+fi
+
+# Linux / CI
 cd "$ROOT"
+PORT="${PORT:-8080}"
 
-echo "=== Cyclical Trader — start ==="
-
-# Frontend
 if [ ! -d "backend/static" ] || [ -z "$(ls -A backend/static 2>/dev/null)" ]; then
-  echo "Budowanie frontendu (pierwsze uruchomienie)..."
+  echo "Budowanie frontendu…"
   ./scripts/build-www.sh
 fi
 
-# Backend venv
 cd backend
 if [ ! -d ".venv" ]; then
-  echo "Tworzenie środowiska Python..."
   python3 -m venv .venv
 fi
+# shellcheck disable=SC1091
 source .venv/bin/activate
 pip install -q -r requirements.txt
 
-echo ""
-echo "Aplikacja dostępna pod: http://localhost:8080"
-echo "Naciśnij Ctrl+C aby zatrzymać"
-echo ""
+mkdir -p data/baza_portfela
+if [ ! -f data/baza_portfela/portfolio.db ] && [ -f "$ROOT/backups/portfolio_latest.sqlite" ]; then
+  cp "$ROOT/backups/portfolio_latest.sqlite" data/baza_portfela/portfolio.db
+  echo "Przywrócono portfel z backupu."
+fi
 
-uvicorn app.main:app --host 0.0.0.0 --port 8080
+echo "Aplikacja: http://localhost:${PORT}"
+exec uvicorn app.main:app --host 0.0.0.0 --port "$PORT"
