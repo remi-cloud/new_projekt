@@ -1,8 +1,15 @@
 # Cyclical Trader — wersja WWW
 
-Aplikacja webowa do **tradingu cyklicznego** — monitoruje rynki 24/7 i wyszukuje okazje kupna/sprzedaży na podstawie dwóch fundamentalnych cykli. Nie skalping, nie HFT.
+Aplikacja webowa do **tradingu cyklicznego** — monitoruje rynki 24/7 i wyszukuje okazje kupna/sprzedaży na podstawie cykli. Nie skalping, nie HFT.
 
-## Wersja WWW — szybki start
+## Filozofia
+
+| Klasa aktywów | Cykl odniesienia | Logika |
+|---|---|---|
+| **Krypto** | Cykl Bitcoin | 364 dni spadków od ATH → 1064 dni fali wzrostowej |
+| **Akcje, indeksy, obligacje, surowce, forex** | Cykl prezydencki USA + makro regionalne | Lata 1–4 kadencji + bias regionu |
+
+## Szybki start
 
 ### Mac (Terminal) — zalecane lokalnie
 
@@ -17,7 +24,7 @@ cd new_projekt && ./scripts/mac-bootstrap.sh
 
 Szczegóły: [`docs/MAC.md`](docs/MAC.md) · Deploy: [`docs/DEPLOY-AWS.md`](docs/DEPLOY-AWS.md)
 
-### Docker
+### Docker (jeden kontener WWW)
 
 ```bash
 docker compose up --build
@@ -52,6 +59,7 @@ Frontend hot-reload: `cd frontend && npm install && npm run dev` → http://loca
 ## Cykle rynkowe
 
 ### Krypto — cykl Bitcoin (364 / 1064 dni)
+
 ```
 ATH ──► [364 dni SPADKI] ──► [1064 dni WZROST] ──► [dystrybucja] ──► nowe ATH
 ```
@@ -92,7 +100,7 @@ Dokumentacja API: http://localhost:8080/docs
 ```
 frontend/     React SPA (React Router, TypeScript, Vite)
 backend/      FastAPI — API + serwowanie static SPA
-scripts/      build-www.sh — buduje i pakuje frontend
+scripts/      mac-bootstrap / build-www / start
 Dockerfile    Multi-stage: npm build → Python + static
 ```
 
@@ -105,4 +113,4 @@ Konfiguracja: `.env.example` (VAPID, Twilio, progi alertów).
 
 ## Disclaimer
 
-Aplikacja edukacyjno-analityczna — nie stanowi porady inwestycyjnej.
+Aplikacja edukacyjno-analityczna — nie stanowi porady inwestycyjnej. Trading wiąże się z ryzykiem utraty kapitału.
