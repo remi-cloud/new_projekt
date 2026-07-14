@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { ConfidenceGuide } from '../components/ConfidenceGuide'
 import { FilterChips } from '../components/FilterChips'
 import { InstrumentPanel, MarketSummaryBanner } from '../components/MarketAssessmentCard'
 import { ErrorState } from '../components/Loading'
@@ -67,6 +68,8 @@ export function MarketsPage() {
       </div>
 
       <div className="filter-count-bar">{filtered.length} instrumentów</div>
+
+      <ConfidenceGuide />
 
       <div className="markets-list">
         {filtered.map((item) => (

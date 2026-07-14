@@ -57,3 +57,8 @@ def test_presidential_year_3_is_strongest():
     result = analyze_presidential_cycle(date(2027, 6, 1))
     assert result.year_number == 3
     assert result.signal == SignalAction.BUY
+    assert len(result.year_returns) == 4
+    year3 = next(y for y in result.year_returns if y.year_number == 3)
+    assert year3.avg_return_pct == 16.0
+    assert year3.is_current is True
+    assert result.current_year_expected_return_pct == 16.0

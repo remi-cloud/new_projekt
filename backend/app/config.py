@@ -4,8 +4,8 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     # Full analysis scan (52w stats + signals)
     scan_interval_minutes: int = 5
-    # Lightweight price refresh (batch quotes)
-    price_poll_interval_seconds: int = 30
+    # Lightweight price refresh (batch quotes) — co minutę
+    price_poll_interval_seconds: int = 60
 
     database_path: str = "data/trader.db"
     portfolio_database_path: str = "data/baza_portfela/portfolio.db"

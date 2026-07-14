@@ -1,33 +1,58 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { PortfolioSummary, usePaperPortfolio } from '../components/PaperTrading'
+import { OpenOrdersPanel } from '../components/OpenOrdersPanel'
+import { PositionsSection } from '../components/PositionsSection'
 import { ErrorState } from '../components/Loading'
-import { closePaperPosition, resetPaperPortfolio } from '../api'
+import { resetPaperPortfolio, cancelPaperOrder, cancelAllPaperOrders } from '../api'
 import { formatPln } from '../utils/format'
 
-function formatOpenedAt(iso?: string): string | null {
-  if (!iso) return null
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return null
-  return d.toLocaleString('pl-PL')
-}
-
 export function PortfolioPage() {
+  const location = useLocation()
   const { portfolio, loading, error, reload } = usePaperPortfolio()
-  const [resetting, setResetting] = useState(false)
-  const [closingSymbol, setClosingSymbol] = useState<string | null>(null)
+  const [positionsTab, setPositionsTab] = useState<'open' | 'closed'>('open')
 
-  const handleClosePosition = async (symbol: string, quantity: number, isShort?: boolean) => {
-    const label = isShort ? 'short' : 'long'
-    if (!confirm(`Zamknąć całą pozycję ${label} na ${symbol} (${Math.abs(quantity)} szt.)?`)) return
-    setClosingSymbol(symbol)
+  useEffect(() => {
+    if (location.pathname === '/portfel') reload()
+  }, [location.pathname, reload])
+
+  const [resetting, setResetting] = useState(false)
+  const [tradingSymbol, setTradingSymbol] = useState<string | null>(null)
+  const [cancellingId, setCancellingId] = useState<number | null>(null)
+  const [cancellingAll, setCancellingAll] = useState(false)
+
+  const handleTradeComplete = async (symbol: string) => {
+    setTradingSymbol(symbol)
     try {
-      await closePaperPosition(symbol)
+      await reload()
+    } finally {
+      setTradingSymbol(null)
+    }
+  }
+
+  const handleCancelOrder = async (orderId: number) => {
+    if (!confirm('Anulować zlecenie?')) return
+    setCancellingId(orderId)
+    try {
+      await cancelPaperOrder(orderId)
       await reload()
     } catch (e) {
-      alert((e as Error).message || 'Nie udało się zamknąć pozycji')
+      alert((e as Error).message || 'Nie udało się anulować zlecenia')
     } finally {
-      setClosingSymbol(null)
+      setCancellingId(null)
+    }
+  }
+
+  const handleCancelAll = async () => {
+    if (!confirm('Anulować wszystkie otwarte zlecenia?')) return
+    setCancellingAll(true)
+    try {
+      await cancelAllPaperOrders()
+      await reload()
+    } catch (e) {
+      alert((e as Error).message || 'Nie udało się anulować zleceń')
+    } finally {
+      setCancellingAll(false)
     }
   }
 
@@ -46,87 +71,90 @@ export function PortfolioPage() {
   if (error && !portfolio) return <ErrorState message={error} onRetry={reload} />
   if (!portfolio) return null
 
+  const openOrders = portfolio.limit_orders ?? []
+  const closedPositions = portfolio.closed_positions ?? []
+
   return (
-    <div className="portfolio-page">
-      <div className="info-banner">
-        <h2>Paper trading</h2>
-        <p>
-          Wirtualne konto startowe <strong>1 000 000 PLN</strong>. Kupuj i sprzedawaj wszystkie 246
-          instrumentów po cenach live. Prowizja 0,1%. Możesz sprzedawać bez posiadania akcji (short).
-          Handel symulowany — bez realnych pieniędzy.
+    <div className="portfolio-page institutional-page">
+      <header className="page-intro">
+        <span className="page-eyebrow">Paper Trading · Simulated Account</span>
+        <h2 className="page-headline">Portfel</h2>
+        <p className="page-lead">
+          Wirtualne konto startowe <strong>1 000 000 PLN</strong>. Otwarte i zamknięte pozycje, zlecenia limit/stop/TP
+          oraz anulowanie (cancel) w każdej chwili.
         </p>
-      </div>
+      </header>
 
       <PortfolioSummary portfolio={portfolio} />
 
-      <div className="section-header">
-        <h3>Pozycje ({portfolio.positions_count})</h3>
+      <section className="portfolio-section portfolio-actions-bar">
         <button type="button" className="btn-link tap-target" onClick={handleReset} disabled={resetting}>
           Reset konta
         </button>
-      </div>
+      </section>
 
-      {portfolio.positions.length === 0 ? (
-        <p className="empty-state">Brak otwartych pozycji. Kup instrument na stronie Rynki.</p>
-      ) : (
-        <div className="positions-list">
-          {portfolio.positions.map((p) => (
-            <div key={p.symbol} className="position-row">
-              <Link
-                to={`/instrument/${encodeURIComponent(p.symbol)}`}
-                className="position-row-link tap-target"
-              >
-                <div className="position-main">
-                  <strong>{p.symbol}</strong>
-                  <span>{p.name}</span>
-                  {formatOpenedAt(p.opened_at) && (
-                    <span className="position-opened-at">Otwarto: {formatOpenedAt(p.opened_at)}</span>
-                  )}
-                </div>
-                <div className="position-stats">
-                  <span>
-                    {p.is_short ? `SHORT ${Math.abs(p.quantity)} szt.` : `${p.quantity} szt.`}
-                  </span>
-                  <span>{formatPln(p.market_value_pln)}</span>
-                  <span className={p.unrealized_pnl_pln >= 0 ? 'positive' : 'negative'}>
-                    {p.unrealized_pnl_pln >= 0 ? '+' : ''}
-                    {formatPln(p.unrealized_pnl_pln)} ({p.unrealized_pnl_pct}%)
-                  </span>
-                </div>
-              </Link>
-              <button
-                type="button"
-                className="btn-close-position btn-close-position-prominent tap-target"
-                disabled={closingSymbol === p.symbol}
-                onClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  handleClosePosition(p.symbol, p.quantity, p.is_short)
-                }}
-              >
-                {closingSymbol === p.symbol ? 'Zamykanie…' : 'Zamknij'}
-              </button>
-            </div>
-          ))}
+      <section className="portfolio-section">
+        <div className="section-header">
+          <div className="section-header-left">
+            <h3 className="section-title">Otwarte zlecenia</h3>
+            <span className="section-badge">{openOrders.length}</span>
+          </div>
         </div>
-      )}
+        {openOrders.length === 0 ? (
+          <p className="empty-state">Brak oczekujących zleceń. Ułóż limit, stop lub take profit przy pozycji.</p>
+        ) : (
+          <OpenOrdersPanel
+            orders={openOrders}
+            onCancel={handleCancelOrder}
+            onCancelAll={handleCancelAll}
+            cancellingId={cancellingId}
+            cancellingAll={cancellingAll}
+          />
+        )}
+      </section>
 
-      <h3 className="section-title">Ostatnie transakcje</h3>
-      {portfolio.recent_trades.length === 0 ? (
-        <p className="empty-state">Brak transakcji.</p>
-      ) : (
-        <div className="trades-list">
-          {portfolio.recent_trades.map((t) => (
-            <div key={t.id} className="trade-row">
-              <span className={`side-${t.side}`}>{t.side === 'buy' ? 'KUP' : 'SPRZEDAJ'}</span>
-              <span>{t.symbol}</span>
-              <span>{t.quantity}</span>
-              <span>{formatPln(t.total_pln)}</span>
-              <span className="trade-time">{new Date(t.created_at).toLocaleString('pl-PL')}</span>
-            </div>
-          ))}
+      <PositionsSection
+        tab={positionsTab}
+        onTabChange={setPositionsTab}
+        openCount={portfolio.positions_count}
+        closedCount={portfolio.closed_positions_count ?? closedPositions.length}
+        positions={portfolio.positions}
+        closedPositions={closedPositions}
+        openOrders={openOrders}
+        tradingSymbol={tradingSymbol}
+        onTradeComplete={handleTradeComplete}
+      />
+
+      <section className="portfolio-section">
+        <div className="section-header">
+          <div className="section-header-left">
+            <h3 className="section-title">Historia transakcji</h3>
+            <span className="section-badge">{portfolio.recent_trades.length}</span>
+          </div>
         </div>
-      )}
+        {portfolio.recent_trades.length === 0 ? (
+          <p className="empty-state">Brak transakcji.</p>
+        ) : (
+          <div className="data-table trades-table">
+            <div className="data-table-head">
+              <span>Strona</span>
+              <span>Symbol</span>
+              <span>Ilość</span>
+              <span>Kwota</span>
+              <span>Czas</span>
+            </div>
+            {portfolio.recent_trades.map((t) => (
+              <div key={t.id} className="data-table-row trade-row">
+                <span className={`side-${t.side}`}>{t.side === 'buy' ? 'KUP' : 'SPRZEDAJ'}</span>
+                <span className="trade-symbol">{t.symbol}</span>
+                <span className="tabular">{t.quantity}</span>
+                <span className="tabular">{formatPln(t.total_pln)}</span>
+                <span className="trade-time">{new Date(t.created_at).toLocaleString('pl-PL')}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   )
 }

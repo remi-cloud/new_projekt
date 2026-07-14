@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from app.paper import paper_db
 from app.paper.currency import get_usd_pln_rate, native_currency, to_pln
-from app.paper.pricing import get_live_price
+from app.paper.limit_orders import limit_orders_for_portfolio
+from app.paper.pricing import get_live_price_async, refresh_quotes_for_symbols
 from app.scanners.opportunity_scanner import scanner
 
 
@@ -12,14 +13,14 @@ class PaperTradeError(Exception):
     pass
 
 
-def _position_to_view(pos: dict, usd_pln: float) -> dict:
+async def _position_to_view(pos: dict, usd_pln: float) -> dict:
     symbol = pos["symbol"]
     qty = float(pos["quantity"])
     avg_native = float(pos["avg_price_native"])
     currency = pos["currency"] or native_currency(symbol)
 
     try:
-        current_native, _ = get_live_price(symbol)
+        current_native, _ = await get_live_price_async(symbol)
     except Exception:
         current_native = avg_native
 
@@ -53,22 +54,32 @@ async def get_position_for_symbol(symbol: str) -> dict | None:
     pos = await paper_db.get_position(symbol)
     if not pos or abs(float(pos["quantity"])) < 1e-9:
         return None
+    await refresh_quotes_for_symbols([symbol])
     usd_pln = await get_usd_pln_rate()
-    return _position_to_view(pos, usd_pln)
+    view = await _position_to_view(pos, usd_pln)
+    limits = await limit_orders_for_portfolio()
+    view["pending_limit_orders"] = [lo for lo in limits if lo["symbol"] == symbol]
+    return view
 
 
 async def build_portfolio() -> dict:
     account = await paper_db.get_account()
     positions_raw = await paper_db.get_positions()
     trades = await paper_db.get_trades(limit=30)
+    closed_raw = await paper_db.get_closed_positions(limit=50)
+    limit_orders = await limit_orders_for_portfolio()
     usd_pln = await get_usd_pln_rate()
+    limits_by_symbol: dict[str, list] = {}
+    for lo in limit_orders:
+        limits_by_symbol.setdefault(lo["symbol"], []).append(lo)
 
     positions = []
     positions_value = 0.0
     unrealized_total = 0.0
 
     for pos in positions_raw:
-        view = _position_to_view(pos, usd_pln)
+        view = await _position_to_view(pos, usd_pln)
+        view["pending_limit_orders"] = limits_by_symbol.get(view["symbol"], [])
         qty = view["quantity"]
         positions_value += view["market_value_pln"]
         unrealized_total += view["unrealized_pnl_pln"]
@@ -78,6 +89,29 @@ async def build_portfolio() -> dict:
     initial = float(account["initial_cash_pln"])
     realized = float(account.get("realized_pnl_pln") or 0)
     total_equity = cash + positions_value
+
+    closed_positions = [
+        {
+            "id": c["id"],
+            "symbol": c["symbol"],
+            "name": c["name"],
+            "asset_class": c["asset_class"],
+            "quantity": c["quantity"],
+            "is_short": c["is_short"],
+            "entry_price_native": c["entry_price_native"],
+            "exit_price_native": c["exit_price_native"],
+            "entry_price_pln": c["entry_price_pln"],
+            "exit_price_pln": c["exit_price_pln"],
+            "cost_basis_pln": c["cost_basis_pln"],
+            "proceeds_pln": c["proceeds_pln"],
+            "realized_pnl_pln": c["realized_pnl_pln"],
+            "realized_pnl_pct": c["realized_pnl_pct"],
+            "currency": c["currency"],
+            "opened_at": c["opened_at"],
+            "closed_at": c["closed_at"],
+        }
+        for c in closed_raw
+    ]
 
     return {
         "cash_pln": round(cash, 2),
@@ -91,6 +125,9 @@ async def build_portfolio() -> dict:
         "usd_pln_rate": round(usd_pln, 4),
         "positions_count": len(positions),
         "positions": sorted(positions, key=lambda p: p["market_value_pln"], reverse=True),
+        "closed_positions_count": len(closed_positions),
+        "closed_positions": closed_positions,
+        "limit_orders": limit_orders,
         "recent_trades": trades,
         "quotes_available": len(scanner.quotes),
     }

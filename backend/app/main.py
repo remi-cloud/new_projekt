@@ -19,8 +19,10 @@ from app.db.database import (
     save_push_subscription,
     update_alert_settings,
 )
-from app.paper.paper_db import init_paper_db
+from app.paper.paper_db import init_paper_db, get_positions as get_paper_positions
 from app.paper.portfolio_agent import sync_after_trade, sync_on_startup
+from app.cycles.signal_history import compute_cycle_markers
+from app.data.assets import MONITORED_ASSETS
 from app.data.chart_data import CHART_PRESETS, fetch_chart
 from app.models.schemas import (
     AlertSettings,
@@ -29,6 +31,7 @@ from app.models.schemas import (
     MarketSummary,
     NotificationStatus,
     PaperOrderRequest,
+    PaperCloseRequest,
     PaperPortfolio,
     PaperPositionView,
     PaperTradeView,
@@ -44,13 +47,18 @@ from app.notifications.push import get_vapid_public_key, vapid_configured
 from app.notifications.vapid_setup import ensure_vapid_keys
 from app.realtime.broadcaster import broadcaster
 from app.scheduler.jobs import is_running, scheduled_full_scan, start_scheduler, stop_scheduler
-from app.paper.executor import PaperTradeError, close_position, max_buy_quantity, place_order
+from app.paper.currency import native_currency
+from app.paper.pricing import PaperTradeError, get_live_price_async, refresh_quotes_for_symbols
+from app.paper.limit_orders import cancel_all_pending_orders, cancel_limit_order, place_open_order
+from app.paper.executor import close_position, max_buy_quantity, place_order
 from app.paper.paper_db import reset_account
 from app.paper.portfolio_service import build_portfolio, get_position_for_symbol
 from app.scanners.opportunity_scanner import scanner
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+ASSET_MAP = {a["symbol"]: a for a in MONITORED_ASSETS}
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
@@ -156,7 +164,38 @@ async def market_chart(symbol: str, range: str = "3M"):
     chart = await fetch_chart(symbol, range)
     if not chart:
         raise HTTPException(status_code=404, detail=f"Brak danych wykresu dla {symbol}")
-    return chart
+
+    meta = ASSET_MAP.get(symbol, {})
+    btc = scanner.bitcoin_cycle
+    markers = compute_cycle_markers(
+        chart.candles,
+        preset=range,
+        asset_class=meta.get("asset_class", "stock"),
+        region=meta.get("region", "global"),
+        symbol=symbol,
+        btc_ath_date=btc.last_ath_date if btc else None,
+        btc_ath_price=btc.last_ath_price if btc else None,
+    )
+    return chart.model_copy(update={"cycle_markers": markers})
+
+
+@app.get("/api/markets/quote/{symbol:path}")
+async def market_quote(symbol: str):
+    """Fresh live price (Yahoo v7 quote) — bypasses chart candle cache."""
+    if symbol not in ASSET_MAP:
+        raise HTTPException(status_code=404, detail=f"Nieznany instrument: {symbol}")
+    try:
+        price, currency = await get_live_price_async(symbol)
+    except PaperTradeError as exc:
+        raise HTTPException(status_code=404, detail=exc.message)
+    q = next((x for x in scanner.quotes if x.symbol == symbol), None)
+    return {
+        "symbol": symbol,
+        "price": price,
+        "currency": currency,
+        "change_pct_24h": q.change_pct_24h if q else None,
+        "updated_at": q.updated_at.isoformat() if q and q.updated_at else None,
+    }
 
 
 @app.get("/api/markets/chart-presets")
@@ -289,7 +328,14 @@ async def test_notifications():
 
 @app.get("/api/paper/portfolio", response_model=PaperPortfolio)
 async def paper_portfolio():
-    if not scanner.quotes:
+    from app.paper import paper_db
+
+    positions = await get_paper_positions()
+    pending = await paper_db.get_pending_limit_orders()
+    symbols = {p["symbol"] for p in positions} | {o["symbol"] for o in pending}
+    if symbols:
+        await refresh_quotes_for_symbols(list(symbols))
+    elif not scanner.quotes:
         await scanner.scan()
     data = await build_portfolio()
     return PaperPortfolio(**data)
@@ -320,11 +366,12 @@ async def paper_position(symbol: str):
 
 
 @app.post("/api/paper/close/{symbol:path}")
-async def paper_close_position(symbol: str):
+async def paper_close_position(symbol: str, body: PaperCloseRequest | None = None):
     if not scanner.quotes:
         await scanner.scan()
+    percent = body.percent if body else 100.0
     try:
-        trade = await close_position(symbol)
+        trade = await close_position(symbol, percent=percent)
         portfolio = await build_portfolio()
         return {"trade": trade, "portfolio": portfolio}
     except PaperTradeError as exc:
@@ -336,11 +383,50 @@ async def paper_order(body: PaperOrderRequest):
     if not scanner.quotes:
         await scanner.scan()
     try:
+        if body.order_type in ("limit", "stop", "take_profit"):
+            if body.limit_price_native is None:
+                raise PaperTradeError("Podaj limit_price_native (cena trigger)", "invalid_limit_price")
+            result = await place_open_order(
+                body.symbol,
+                body.side,
+                body.order_type,
+                body.limit_price_native,
+                amount_pln=body.amount_pln,
+                quantity=body.quantity,
+            )
+            portfolio = await build_portfolio()
+            return {**result, "portfolio": portfolio}
+
         trade = await place_order(
             body.symbol, body.side, quantity=body.quantity, amount_pln=body.amount_pln
         )
         portfolio = await build_portfolio()
-        return {"trade": trade, "portfolio": portfolio}
+        return {"status": "filled", "order_type": "market", "trade": trade, "portfolio": portfolio}
+    except PaperTradeError as exc:
+        raise HTTPException(status_code=400, detail={"message": exc.message, "code": exc.code})
+
+
+@app.delete("/api/paper/limit/{order_id}")
+async def paper_cancel_limit(order_id: int):
+    try:
+        await cancel_limit_order(order_id)
+        portfolio = await build_portfolio()
+        return {"status": "cancelled", "portfolio": portfolio}
+    except PaperTradeError as exc:
+        raise HTTPException(status_code=400, detail={"message": exc.message, "code": exc.code})
+
+
+@app.delete("/api/paper/orders/{order_id}")
+async def paper_cancel_order(order_id: int):
+    return await paper_cancel_limit(order_id)
+
+
+@app.post("/api/paper/orders/cancel-all")
+async def paper_cancel_all_orders(symbol: str | None = None):
+    try:
+        count = await cancel_all_pending_orders(symbol)
+        portfolio = await build_portfolio()
+        return {"status": "cancelled", "count": count, "portfolio": portfolio}
     except PaperTradeError as exc:
         raise HTTPException(status_code=400, detail={"message": exc.message, "code": exc.code})
 

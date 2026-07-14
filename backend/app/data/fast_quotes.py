@@ -57,6 +57,15 @@ async def fetch_fast_quotes(
             if isinstance(batch_result, dict):
                 quotes.update(batch_result)
 
+        # Yahoo v7 quote API often returns 401 — fallback to v8 chart spot
+        missing_yahoo = [s for s in yahoo_symbols if s not in quotes]
+        if missing_yahoo:
+            v8_tasks = [_fetch_yahoo_v8_spot(client, sym, now) for sym in missing_yahoo]
+            v8_results = await asyncio.gather(*v8_tasks, return_exceptions=True)
+            for sym, result in zip(missing_yahoo, v8_results):
+                if isinstance(result, AssetQuote):
+                    quotes[sym] = result
+
         inv_results = await asyncio.gather(*investing_tasks, return_exceptions=True)
         for sym, result in zip(investing_symbols, inv_results):
             if isinstance(result, AssetQuote):
@@ -107,6 +116,51 @@ async def _fetch_yahoo_batch(
             updated_at=now,
         )
     return out
+
+
+async def _fetch_yahoo_v8_spot(
+    client: httpx.AsyncClient,
+    symbol: str,
+    now: datetime,
+) -> AssetQuote | None:
+    """Spot price via Yahoo v8 chart API (works when v7 quote returns 401)."""
+    meta = ASSET_BY_SYMBOL.get(symbol)
+    if not meta:
+        return None
+
+    async with FETCH_SEMAPHORE:
+        encoded = url_quote(symbol, safe="")
+        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{encoded}"
+        try:
+            resp = await client.get(url, params={"range": "1d", "interval": "1m"})
+            resp.raise_for_status()
+            result = resp.json().get("chart", {}).get("result")
+            if not result:
+                return None
+            r = result[0]
+            ymeta = r.get("meta") or {}
+            price = ymeta.get("regularMarketPrice")
+            if price is None:
+                q = (r.get("indicators") or {}).get("quote", [{}])[0]
+                closes = [c for c in (q.get("close") or []) if c is not None]
+                if not closes:
+                    return None
+                price = closes[-1]
+            prev = ymeta.get("chartPreviousClose") or ymeta.get("previousClose") or price
+            change_pct = None
+            if prev and float(prev) != 0:
+                change_pct = round((float(price) - float(prev)) / float(prev) * 100, 2)
+            return AssetQuote(
+                symbol=symbol,
+                name=meta["name"],
+                asset_class=AssetClass(meta["asset_class"]),
+                price=round(float(price), 4),
+                change_pct_24h=change_pct,
+                updated_at=now,
+            )
+        except Exception as exc:
+            logger.debug("Yahoo v8 spot failed for %s: %s", symbol, exc)
+            return None
 
 
 async def _fetch_investing_fast(symbol: str, now: datetime) -> AssetQuote | None:

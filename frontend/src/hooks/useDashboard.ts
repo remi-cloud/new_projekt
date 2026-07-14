@@ -3,7 +3,7 @@ import { fetchDashboard, triggerScan } from '../api'
 import { useLiveFeed } from './useLiveFeed'
 import { DashboardResponse } from '../types'
 
-export function useDashboard(pollMs = 30_000) {
+export function useDashboard(pollMs = 60_000) {
   const [data, setData] = useState<DashboardResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [scanning, setScanning] = useState(false)
@@ -28,7 +28,12 @@ export function useDashboard(pollMs = 30_000) {
   }, [load, pollMs])
 
   const { connected: liveConnected, lastEventAt } = useLiveFeed((event) => {
-    if (event.type === 'price_tick' || event.type === 'full_scan' || event.type === 'alerts') {
+    if (
+      event.type === 'price_tick' ||
+      event.type === 'prices' ||
+      event.type === 'full_scan' ||
+      event.type === 'alerts'
+    ) {
       load()
     }
   })

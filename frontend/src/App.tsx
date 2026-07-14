@@ -44,6 +44,7 @@ export default function App() {
             <Route path="portfel" element={<PortfolioPage />} />
             <Route path="rynki" element={<MarketsPage />} />
             <Route path="instrument/:symbol" element={<InstrumentDetailPage />} />
+            <Route path="o-nas" element={<AboutPage />} />
             <Route path="o-aplikacji" element={<AboutPage />} />
             <Route path="powiadomienia" element={<AlertsPage />} />
           </Route>

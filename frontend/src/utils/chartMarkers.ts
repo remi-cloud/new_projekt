@@ -1,6 +1,62 @@
 import type { PaperTrade } from '../types'
-import type { ChartCandle } from '../types/chart'
+import type { ChartCandle, CycleMarker } from '../types/chart'
 import type { SeriesMarker, Time, UTCTimestamp } from 'lightweight-charts'
+
+function snapToCandle(ts: number, candles: ChartCandle[]): number | null {
+  if (!candles.length) return null
+  const exact = candles.find((c) => c.time === ts)
+  if (exact) return exact.time
+
+  let best = candles[0].time
+  let bestDiff = Math.abs(ts - best)
+  for (const c of candles) {
+    const diff = Math.abs(c.time - ts)
+    if (diff < bestDiff) {
+      bestDiff = diff
+      best = c.time
+    }
+  }
+  return best
+}
+
+function formatMarkerDate(ts: number): string {
+  const d = new Date(ts * 1000)
+  const day = String(d.getUTCDate()).padStart(2, '0')
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0')
+  return `${day}.${month}`
+}
+
+export function cycleMarkersToChartMarkers(
+  markers: CycleMarker[],
+  candles: ChartCandle[],
+): SeriesMarker<Time>[] {
+  if (!markers.length || !candles.length) return []
+
+  const minT = candles[0].time
+  const maxT = candles[candles.length - 1].time
+  const out: SeriesMarker<Time>[] = []
+  const usedTimes = new Set<number>()
+
+  for (const m of markers) {
+    const snapped = snapToCandle(m.time, candles)
+    if (snapped === null || snapped < minT || snapped > maxT) continue
+    if (usedTimes.has(snapped)) continue
+    usedTimes.add(snapped)
+
+    const isBuy = m.action === 'buy'
+    const dateLabel = formatMarkerDate(snapped)
+    out.push({
+      time: snapped as UTCTimestamp,
+      position: isBuy ? 'belowBar' : 'aboveBar',
+      color: isBuy ? '#22c55e' : '#f97316',
+      shape: isBuy ? 'arrowUp' : 'arrowDown',
+      text: isBuy ? `WEJ ${dateLabel}` : `WYJ ${dateLabel}`,
+    })
+  }
+
+  out.sort((a, b) => (a.time as number) - (b.time as number))
+  return out
+}
 
 export function tradesToChartMarkers(trades: PaperTrade[], candles: ChartCandle[]): SeriesMarker<Time>[] {
   if (!trades.length || !candles.length) return []
@@ -11,7 +67,8 @@ export function tradesToChartMarkers(trades: PaperTrade[], candles: ChartCandle[
 
   for (const t of trades) {
     const ts = Math.floor(new Date(t.created_at).getTime() / 1000)
-    if (ts < minT || ts > maxT) continue
+    const snapped = snapToCandle(ts, candles)
+    if (snapped === null || snapped < minT || snapped > maxT) continue
     const isBuy = t.side === 'buy'
     const qty =
       t.quantity >= 1
@@ -20,7 +77,7 @@ export function tradesToChartMarkers(trades: PaperTrade[], candles: ChartCandle[
           : t.quantity.toFixed(2)
         : t.quantity.toFixed(4)
     markers.push({
-      time: ts as UTCTimestamp,
+      time: snapped as UTCTimestamp,
       position: isBuy ? 'belowBar' : 'aboveBar',
       color: isBuy ? '#10b981' : '#ef4444',
       shape: isBuy ? 'arrowUp' : 'arrowDown',
@@ -35,12 +92,14 @@ export function tradesToChartMarkers(trades: PaperTrade[], candles: ChartCandle[
 export function positionOpenMarker(openedAt: string, candles: ChartCandle[]): SeriesMarker<Time>[] {
   if (!openedAt || !candles.length) return []
   const ts = Math.floor(new Date(openedAt).getTime() / 1000)
+  const snapped = snapToCandle(ts, candles)
+  if (snapped === null) return []
   const minT = candles[0].time
   const maxT = candles[candles.length - 1].time
-  if (ts < minT || ts > maxT) return []
+  if (snapped < minT || snapped > maxT) return []
   return [
     {
-      time: ts as UTCTimestamp,
+      time: snapped as UTCTimestamp,
       position: 'belowBar',
       color: '#3b82f6',
       shape: 'circle',

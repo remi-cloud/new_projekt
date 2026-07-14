@@ -10,15 +10,17 @@ export function OpportunitiesPage() {
   const { data, error, reload } = useDashboardContext()
   const [filterClass, setFilterClass] = useState<AssetClass | 'all'>('all')
   const [filterAction, setFilterAction] = useState<SignalAction | 'all'>('all')
+  const [filterMomentum, setFilterMomentum] = useState<'all' | 'momentum'>('all')
 
   const filtered = useMemo(() => {
     if (!data) return []
     return data.opportunities.filter((o) => {
       if (filterClass !== 'all' && o.asset_class !== filterClass) return false
       if (filterAction !== 'all' && o.action !== filterAction) return false
+      if (filterMomentum === 'momentum' && !o.is_momentum_pick) return false
       return true
     })
-  }, [data, filterClass, filterAction])
+  }, [data, filterClass, filterAction, filterMomentum])
 
   if (error && !data) return <ErrorState message={error} onRetry={reload} />
   if (!data) return null
@@ -42,6 +44,17 @@ export function OpportunitiesPage() {
       <div className="filter-section">
         <div className="filter-label">Sygnał</div>
         <FilterChips options={signalOptions} value={filterAction} onChange={setFilterAction} />
+      </div>
+      <div className="filter-section">
+        <div className="filter-label">Momentum</div>
+        <FilterChips
+          options={[
+            { value: 'all' as const, label: 'Wszystkie' },
+            { value: 'momentum' as const, label: '⚡ Momentum + cykl' },
+          ]}
+          value={filterMomentum}
+          onChange={setFilterMomentum}
+        />
       </div>
       <div className="filter-count-bar">{filtered.length} okazji</div>
 

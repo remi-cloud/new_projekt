@@ -7,6 +7,7 @@ from urllib.parse import quote as url_quote
 import httpx
 
 from app.config import settings
+from app.cycles.momentum_cycle import compute_momentum_indicators
 from app.data.assets import MONITORED_ASSETS
 from app.data.investing_com import fetch_investing_quote, uses_investing
 from app.models.schemas import AssetClass, AssetQuote
@@ -113,6 +114,8 @@ async def _fetch_yahoo_asset(
 
         if high_52w:
             stats = {"high_52w": high_52w, "low_52w": low_52w}
+            if len(closes) >= 30:
+                stats.update(compute_momentum_indicators(closes))
 
         if not closes:
             price = float(meta.get("regularMarketPrice", 0))

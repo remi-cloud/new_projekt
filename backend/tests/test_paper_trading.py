@@ -204,3 +204,34 @@ def test_close_position_without_holding_raises():
                 return exc.code == "no_position"
 
     assert asyncio.run(_run()) is True
+
+
+def test_close_partial_long_position():
+    quote = AssetQuote(
+        symbol="PKO.WA",
+        name="PKO BP",
+        asset_class=AssetClass.STOCK,
+        price=45.0,
+        change_pct_24h=0.0,
+        change_pct_7d=0.0,
+        currency="PLN",
+        updated_at=datetime.now(timezone.utc),
+    )
+
+    async def _run():
+        await init_paper_db()
+        await reset_account()
+        with patch("app.paper.pricing.scanner") as mock_scanner, patch(
+            "app.paper.executor.get_usd_pln_rate", return_value=4.0
+        ):
+            mock_scanner.quotes = [quote]
+            await place_order("PKO.WA", "buy", quantity=10.0)
+            trade = await close_position("PKO.WA", percent=50)
+            pos = await get_position("PKO.WA")
+            return trade, pos
+
+    trade, pos = asyncio.run(_run())
+    assert trade["side"] == "sell"
+    assert trade["quantity"] == 5.0
+    assert pos is not None
+    assert pos["quantity"] == 5.0

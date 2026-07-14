@@ -2,12 +2,20 @@ import { AssetClass } from '../types'
 import { ChartResponse } from '../types/chart'
 import { formatPrice } from '../utils/format'
 
+function changeFromPct(price: number, pct: number): number {
+  if (!pct) return 0
+  const prev = price / (1 + pct / 100)
+  return price - prev
+}
+
 interface PriceHeaderProps {
   name: string
   symbol: string
   assetClass: AssetClass
   chart?: ChartResponse | null
   fallbackPrice: number
+  /** Cena z live tickera (dashboard) — ma priorytet nad cache wykresu */
+  livePrice?: number
   change24h?: number | null
   change7d?: number | null
   signalLabel?: string
@@ -21,15 +29,16 @@ export function PriceHeader({
   assetClass,
   chart,
   fallbackPrice,
+  livePrice,
   change24h,
   change7d,
   signalLabel,
   signalAction,
   compact,
 }: PriceHeaderProps) {
-  const price = chart?.current_price ?? fallbackPrice
-  const change = chart?.change ?? 0
+  const price = livePrice ?? chart?.current_price ?? fallbackPrice ?? 0
   const changePct = chart?.change_pct ?? change24h ?? 0
+  const change = chart?.change ?? changeFromPct(price, changePct)
   const isUp = changePct >= 0
   const currency = chart?.currency === 'USD' || !chart?.currency ? '$' : `${chart.currency} `
 
@@ -46,7 +55,7 @@ export function PriceHeader({
       </div>
 
       <div className="price-main-row">
-        <span className="price-live">{currency}{formatPrice(price, assetClass)}</span>
+        <span className="price-live tabular">{currency}{formatPrice(price, assetClass)}</span>
         <div className={`price-change-block ${isUp ? 'up' : 'down'}`}>
           <span className="price-change-abs">
             {isUp ? '+' : ''}{currency}{Math.abs(change).toFixed(assetClass === 'forex' ? 4 : 2)}

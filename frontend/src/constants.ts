@@ -34,6 +34,11 @@ export const PHASE_LABELS: Record<string, string> = {
   year_2: 'Rok 2',
   year_3: 'Rok 3',
   year_4: 'Rok 4',
+  silne_wzrost: 'Silne wzrost',
+  wzrost: 'Wzrost',
+  silne_spadk: 'Silny spadek',
+  spadek: 'Spadek',
+  neutralne: 'Neutralne',
 }
 
 export const NAV_ITEMS = [
@@ -43,6 +48,7 @@ export const NAV_ITEMS = [
   { path: '/okazje', label: 'Okazje' },
   { path: '/cykle', label: 'Cykle' },
   { path: '/powiadomienia', label: 'Alerty' },
+  { path: '/o-nas', label: 'O nas' },
 ]
 
 export const MOBILE_NAV = [

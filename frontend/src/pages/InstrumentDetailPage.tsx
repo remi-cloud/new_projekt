@@ -29,10 +29,17 @@ export function InstrumentDetailPage() {
   }
 
   return (
-    <div className="instrument-detail">
-      <button type="button" className="back-btn tap-target" onClick={() => navigate(-1)}>
-        ← Wróć
-      </button>
+    <div className="instrument-detail institutional-page">
+      <header className="detail-header">
+        <button type="button" className="back-btn tap-target" onClick={() => navigate(-1)}>
+          ← Rynki
+        </button>
+        <div className="detail-header-meta">
+          <span className="detail-eyebrow">Instrument · Analiza cykliczna</span>
+          <h1 className="detail-title">{item.symbol}</h1>
+          <p className="detail-subtitle">{item.name}</p>
+        </div>
+      </header>
       <InstrumentPanel item={item} expanded />
     </div>
   )

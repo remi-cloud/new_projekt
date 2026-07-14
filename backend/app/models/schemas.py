@@ -51,6 +51,17 @@ class PresidentialYear(str, Enum):
     YEAR_4 = "year_4"
 
 
+class PresidentialYearReturn(BaseModel):
+    year: PresidentialYear
+    year_number: int
+    label: str
+    avg_return_pct: float
+    vs_cycle_avg_pct: float
+    bias: str
+    tone: str
+    is_current: bool = False
+
+
 class PresidentialCycleStatus(BaseModel):
     term_start: date
     term_end: date
@@ -63,6 +74,11 @@ class PresidentialCycleStatus(BaseModel):
     historical_bias: str
     signal: SignalAction
     rationale: str
+    benchmark: str = "S&P 500"
+    benchmark_note: str = "Średni roczny zwrot w latach cyklu (1949–2024, Stock Trader's Almanac)"
+    cycle_avg_return_pct: float = 8.5
+    year_returns: list[PresidentialYearReturn] = Field(default_factory=list)
+    current_year_expected_return_pct: float = 0.0
 
 
 class AssetQuote(BaseModel):
@@ -89,6 +105,10 @@ class AssetCycleAssessment(BaseModel):
     macro_cycle: str
     macro_phase: str
     price_phase: str
+    momentum_score: Optional[float] = None
+    momentum_signal: Optional[SignalAction] = None
+    momentum_phase: Optional[str] = None
+    is_momentum_pick: bool = False
     signal: SignalAction
     confidence: float = Field(ge=0, le=100)
     rationale: str
@@ -114,6 +134,14 @@ class ChartCandle(BaseModel):
     volume: Optional[float] = None
 
 
+class CycleMarker(BaseModel):
+    time: int
+    action: SignalAction
+    confidence: float = Field(ge=0, le=100)
+    price: float
+    rationale: str
+
+
 class ChartResponse(BaseModel):
     symbol: str
     name: str
@@ -127,6 +155,7 @@ class ChartResponse(BaseModel):
     day_high: Optional[float] = None
     day_low: Optional[float] = None
     prev_close: Optional[float] = None
+    cycle_markers: list[CycleMarker] = Field(default_factory=list)
 
 
 class Opportunity(BaseModel):
@@ -139,6 +168,9 @@ class Opportunity(BaseModel):
     cycle_source: str
     phase: str
     price: float
+    momentum_score: Optional[float] = None
+    momentum_signal: Optional[SignalAction] = None
+    is_momentum_pick: bool = False
     rationale: str
     created_at: datetime
 
@@ -207,6 +239,12 @@ class PaperOrderRequest(BaseModel):
     side: str = Field(pattern="^(buy|sell)$")
     quantity: float | None = Field(default=None, gt=0)
     amount_pln: float | None = Field(default=None, gt=0)
+    order_type: str = Field(default="market", pattern="^(market|limit|stop|take_profit)$")
+    limit_price_native: float | None = Field(default=None, gt=0)
+
+
+class PaperCloseRequest(BaseModel):
+    percent: float = Field(default=100.0, ge=10.0, le=100.0)
 
 
 class PaperPositionView(BaseModel):
@@ -225,6 +263,7 @@ class PaperPositionView(BaseModel):
     unrealized_pnl_pct: float
     currency: str
     opened_at: str | None = None
+    pending_limit_orders: list["PaperLimitOrderView"] = Field(default_factory=list)
 
 
 class PaperTradeView(BaseModel):
@@ -242,6 +281,42 @@ class PaperTradeView(BaseModel):
     created_at: str
 
 
+class PaperLimitOrderView(BaseModel):
+    id: int
+    symbol: str
+    name: str
+    asset_class: AssetClass
+    side: str
+    order_type: str = "limit"
+    limit_price_native: float
+    limit_price_pln: float
+    amount_pln: float
+    quantity_est: float
+    currency: str
+    status: str
+    created_at: str
+
+
+class PaperClosedPositionView(BaseModel):
+    id: int
+    symbol: str
+    name: str
+    asset_class: AssetClass
+    quantity: float
+    is_short: bool = False
+    entry_price_native: float
+    exit_price_native: float
+    entry_price_pln: float
+    exit_price_pln: float
+    cost_basis_pln: float
+    proceeds_pln: float
+    realized_pnl_pln: float
+    realized_pnl_pct: float
+    currency: str
+    opened_at: str
+    closed_at: str
+
+
 class PaperPortfolio(BaseModel):
     cash_pln: float
     initial_cash_pln: float
@@ -254,5 +329,8 @@ class PaperPortfolio(BaseModel):
     usd_pln_rate: float
     positions_count: int
     positions: list[PaperPositionView]
+    closed_positions_count: int = 0
+    closed_positions: list[PaperClosedPositionView] = Field(default_factory=list)
+    limit_orders: list[PaperLimitOrderView] = []
     recent_trades: list[PaperTradeView]
     quotes_available: int

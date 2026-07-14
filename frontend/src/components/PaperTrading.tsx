@@ -1,45 +1,24 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  closePaperPosition,
   fetchPaperMaxBuy,
   fetchPaperPortfolio,
   fetchPaperPosition,
   placePaperOrder,
+  cancelPaperOrder,
 } from '../api'
+import { PositionTradeControl } from './PositionTradeControl'
+import { OpenOrdersPanel } from './OpenOrdersPanel'
+import { useDashboardContext } from '../context/DashboardContext'
 import { PaperPortfolio as PaperPortfolioType, PaperPosition } from '../types'
 import { formatPln } from '../utils/format'
+
+export { usePaperPortfolio } from '../context/DashboardContext'
 
 function formatOpenedAt(iso?: string): string | null {
   if (!iso) return null
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return null
   return d.toLocaleString('pl-PL')
-}
-
-export function usePaperPortfolio(pollMs = 30_000) {
-  const [portfolio, setPortfolio] = useState<PaperPortfolioType | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const reload = useCallback(async () => {
-    try {
-      const data = await fetchPaperPortfolio()
-      setPortfolio(data)
-      setError(null)
-    } catch {
-      setError('Nie udało się załadować portfela')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    reload()
-    const t = setInterval(reload, pollMs)
-    return () => clearInterval(t)
-  }, [reload, pollMs])
-
-  return { portfolio, loading, error, reload }
 }
 
 interface TradePanelProps {
@@ -50,13 +29,19 @@ interface TradePanelProps {
 }
 
 export function TradePanel({ symbol, name, price, onTrade }: TradePanelProps) {
+  const { lastEventAt, reloadPortfolio, portfolio } = useDashboardContext()
   const [mode, setMode] = useState<'qty' | 'pln'>('pln')
+  const [orderType, setOrderType] = useState<'market' | 'limit' | 'stop' | 'take_profit'>('market')
+  const [limitPrice, setLimitPrice] = useState(String(price))
   const [quantity, setQuantity] = useState('')
   const [amountPln, setAmountPln] = useState('50000')
   const [maxQty, setMaxQty] = useState<number | null>(null)
   const [position, setPosition] = useState<PaperPosition | null>(null)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
+  const [cancellingId, setCancellingId] = useState<number | null>(null)
+
+  const symbolOpenOrders = (portfolio?.limit_orders ?? []).filter((o) => o.symbol === symbol)
 
   const reloadPosition = useCallback(() => {
     fetchPaperPosition(symbol)
@@ -73,17 +58,48 @@ export function TradePanel({ symbol, name, price, onTrade }: TradePanelProps) {
     reloadPosition()
   }, [symbol, reloadPosition])
 
+  useEffect(() => {
+    if (lastEventAt) reloadPosition()
+  }, [lastEventAt, reloadPosition])
+
+  useEffect(() => {
+    setLimitPrice(String(price))
+  }, [price, symbol])
+
   const submit = async (side: 'buy' | 'sell') => {
     setBusy(true)
     setMsg(null)
     try {
+      const limitNum = parseFloat(limitPrice)
+      if (orderType !== 'market' && (!limitNum || limitNum <= 0)) {
+        setMsg('Podaj cenę trigger')
+        return
+      }
       const body =
         mode === 'pln'
-          ? { symbol, side, amount_pln: parseFloat(amountPln) }
-          : { symbol, side, quantity: parseFloat(quantity) }
-      await placePaperOrder(body)
-      setMsg(side === 'buy' ? 'Kupiono ✓' : 'Sprzedano ✓')
+          ? {
+              symbol,
+              side,
+              amount_pln: parseFloat(amountPln),
+              order_type: orderType,
+              limit_price_native: orderType === 'market' ? undefined : limitNum,
+            }
+          : {
+              symbol,
+              side,
+              quantity: parseFloat(quantity),
+              order_type: orderType,
+              limit_price_native: orderType === 'market' ? undefined : limitNum,
+            }
+      const res = await placePaperOrder(body)
+      const status = (res as { status?: string }).status
+      if (status === 'pending') {
+        setMsg('Zlecenie złożone — oczekuje na trigger ✓')
+      } else {
+        setMsg(side === 'buy' ? 'Kupiono ✓' : 'Sprzedano ✓')
+      }
       reloadPosition()
+      reloadPortfolio()
       onTrade?.()
     } catch (e) {
       const err = e as Error
@@ -93,29 +109,42 @@ export function TradePanel({ symbol, name, price, onTrade }: TradePanelProps) {
     }
   }
 
-  const handleClose = async () => {
-    if (!position) return
-    const label = position.is_short ? 'short' : 'long'
-    if (!confirm(`Zamknąć całą pozycję ${label} (${Math.abs(position.quantity)} szt.)?`)) return
-    setBusy(true)
-    setMsg(null)
+  const handlePositionTrade = async () => {
+    reloadPosition()
+    reloadPortfolio()
+    onTrade?.()
+  }
+
+  const handleCancelOrder = async (orderId: number) => {
+    if (!confirm('Anulować zlecenie?')) return
+    setCancellingId(orderId)
     try {
-      await closePaperPosition(symbol)
-      setMsg('Pozycja zamknięta ✓')
-      setPosition(null)
-      onTrade?.()
+      await cancelPaperOrder(orderId)
+      reloadPosition()
+      reloadPortfolio()
     } catch (e) {
-      const err = e as Error
-      setMsg(err.message || 'Nie udało się zamknąć pozycji')
+      alert((e as Error).message)
     } finally {
-      setBusy(false)
+      setCancellingId(null)
     }
   }
 
   return (
-    <div className="trade-panel" onClick={(e) => e.stopPropagation()}>
-      <h4>Paper trading — {name}</h4>
-      <p className="trade-price-hint">Cena live: {price}</p>
+    <div className="trade-panel terminal-trade-panel" onClick={(e) => e.stopPropagation()}>
+      <div className="trade-panel-head">
+        <span className="trade-panel-eyebrow">Order Entry · Paper</span>
+        <h4>{name}</h4>
+      </div>
+      <p className="trade-price-hint">
+        Cena live <span className="tabular">{price}</span>
+      </p>
+
+      <OpenOrdersPanel
+        orders={symbolOpenOrders}
+        compact
+        onCancel={handleCancelOrder}
+        cancellingId={cancellingId}
+      />
 
       {position && (
         <div className="position-open">
@@ -132,15 +161,45 @@ export function TradePanel({ symbol, name, price, onTrade }: TradePanelProps) {
           {formatOpenedAt(position.opened_at) && (
             <p className="position-opened-at">Otwarto: {formatOpenedAt(position.opened_at)}</p>
           )}
-          <button
-            type="button"
-            className="btn-close-position btn-close-position-prominent tap-target"
+          <PositionTradeControl
+            symbol={symbol}
+            quantity={position.quantity}
+            isShort={position.is_short}
+            priceNative={position.current_price_native}
+            pricePln={position.current_price_pln}
+            currency={position.currency}
+            pendingOrders={position.pending_limit_orders ?? symbolOpenOrders}
             disabled={busy}
-            onClick={handleClose}
-          >
-            Zamknij pozycję
-          </button>
+            onComplete={handlePositionTrade}
+          />
         </div>
+      )}
+
+      <div className="trade-mode-tabs">
+        {(['market', 'limit', 'stop', 'take_profit'] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            className={orderType === t ? 'active' : ''}
+            onClick={() => setOrderType(t)}
+          >
+            {t === 'market' ? 'Rynek' : t === 'limit' ? 'Limit' : t === 'stop' ? 'Stop' : 'TP'}
+          </button>
+        ))}
+      </div>
+
+      {orderType !== 'market' && (
+        <label className="field-label">
+          Cena trigger
+          <input
+            className="field-input"
+            type="number"
+            value={limitPrice}
+            onChange={(e) => setLimitPrice(e.target.value)}
+            min={0}
+            step="any"
+          />
+        </label>
       )}
 
       <div className="trade-mode-tabs">
@@ -213,10 +272,10 @@ export function TradePanel({ symbol, name, price, onTrade }: TradePanelProps) {
 export function PortfolioSummary({ portfolio }: { portfolio: PaperPortfolioType }) {
   const pnlClass = portfolio.total_pnl_pln >= 0 ? 'positive' : 'negative'
   return (
-    <div className="portfolio-summary">
+    <div className="portfolio-summary portfolio-summary-hero">
       <div className="portfolio-hero">
-        <div className="stat-label">Wartość portfela</div>
-        <div className="portfolio-equity">{formatPln(portfolio.total_equity_pln)}</div>
+        <div className="stat-label">Net Asset Value</div>
+        <div className="portfolio-equity tabular">{formatPln(portfolio.total_equity_pln)}</div>
         <div className={`portfolio-pnl ${pnlClass}`}>
           {portfolio.total_pnl_pln >= 0 ? '+' : ''}
           {formatPln(portfolio.total_pnl_pln)} ({portfolio.total_pnl_pct}%)
@@ -224,16 +283,16 @@ export function PortfolioSummary({ portfolio }: { portfolio: PaperPortfolioType 
       </div>
       <div className="portfolio-stats-row">
         <div className="mini-stat">
-          <span>Gotówka</span>
-          <strong>{formatPln(portfolio.cash_pln)}</strong>
+          <span>Cash</span>
+          <strong className="tabular">{formatPln(portfolio.cash_pln)}</strong>
         </div>
         <div className="mini-stat">
-          <span>Pozycje</span>
-          <strong>{formatPln(portfolio.positions_value_pln)}</strong>
+          <span>Positions</span>
+          <strong className="tabular">{formatPln(portfolio.positions_value_pln)}</strong>
         </div>
         <div className="mini-stat">
           <span>USD/PLN</span>
-          <strong>{portfolio.usd_pln_rate.toFixed(4)}</strong>
+          <strong className="tabular">{portfolio.usd_pln_rate.toFixed(4)}</strong>
         </div>
       </div>
     </div>

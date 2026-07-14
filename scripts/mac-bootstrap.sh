@@ -147,6 +147,7 @@ echo "Uruchomić serwer teraz? [t/N]"
 read -r ANSWER || ANSWER="n"
 case "$ANSWER" in
   t|T|y|Y|tak|Tak)
+    cd "$PROJECT_DIR"
     exec ./scripts/mac-start.sh
     ;;
   *)

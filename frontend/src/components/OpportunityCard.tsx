@@ -36,6 +36,12 @@ export function OpportunityCard({ opp }: { opp: Opportunity }) {
       <div className="opp-meta">
         <span className={`tag ${opp.asset_class}`}>{ASSET_LABELS[opp.asset_class]}</span>
         <span className="tag">{opp.cycle_source === 'bitcoin_cycle' ? 'Cykl BTC' : 'Cykl prez.'}</span>
+        {opp.is_momentum_pick && (
+          <span className="tag momentum-pick">⚡ Momentum</span>
+        )}
+        {opp.momentum_score != null && (
+          <span className="tag momentum-score">Mom. {opp.momentum_score.toFixed(0)}</span>
+        )}
       </div>
       <p className="opp-rationale">{opp.rationale}</p>
       <span className="tap-hint">Zobacz wykres →</span>

@@ -29,22 +29,33 @@ async def scheduled_full_scan() -> None:
 async def scheduled_price_tick() -> None:
     try:
         result = await scanner.price_tick()
+        # Zawsze broadcast — frontend odświeża ceny po SSE, nawet gdy Yahoo zwróci te same wartości
+        await _broadcast_state("price_tick")
         if result.get("updated", 0) > 0:
             await _maybe_notify()
-            await _broadcast_state("price_tick")
-            await _maybe_refresh_portfolio_snapshot()
+        await _maybe_refresh_portfolio_snapshot()
     except Exception as exc:
         logger.exception("Price tick failed: %s", exc)
 
 
 async def _maybe_refresh_portfolio_snapshot() -> None:
     from app.paper import paper_db
+    from app.paper.limit_orders import process_limit_orders
     from app.paper.portfolio_agent import refresh_snapshot
+    from app.paper.pricing import refresh_quotes_for_symbols
+
+    try:
+        await process_limit_orders()
+    except Exception as exc:
+        logger.debug("Limit order processing skipped: %s", exc)
 
     positions = await paper_db.get_positions()
-    if not positions:
+    pending = await paper_db.get_pending_limit_orders()
+    symbols = {p["symbol"] for p in positions} | {o["symbol"] for o in pending}
+    if not symbols:
         return
     try:
+        await refresh_quotes_for_symbols(list(symbols))
         await refresh_snapshot()
     except Exception as exc:
         logger.debug("Portfolio snapshot refresh skipped: %s", exc)

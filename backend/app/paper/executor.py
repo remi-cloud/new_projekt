@@ -79,7 +79,11 @@ def _position_after_buy(
 
 
 async def place_order(
-    symbol: str, side: str, quantity: float | None = None, amount_pln: float | None = None
+    symbol: str,
+    side: str,
+    quantity: float | None = None,
+    amount_pln: float | None = None,
+    price_native_override: float | None = None,
 ) -> dict:
     if symbol not in ASSET_MAP:
         raise PaperTradeError(f"Instrument {symbol} nie jest monitorowany", "invalid_symbol")
@@ -90,16 +94,21 @@ async def place_order(
 
     meta = ASSET_MAP[symbol]
     asset_class = meta["asset_class"]
+    usd_pln = await get_usd_pln_rate()
+
+    if price_native_override is not None:
+        price_native = price_native_override
+        currency = native_currency(symbol)
+    else:
+        price_native, currency = _get_live_price(symbol)
+
+    price_pln = to_pln(price_native, currency, usd_pln)
+    if price_pln <= 0:
+        raise PaperTradeError("Nieprawidłowa cena", "no_price")
 
     if amount_pln is not None:
-        price_native, currency = _get_live_price(symbol)
-        usd_pln = await get_usd_pln_rate()
-        price_pln = to_pln(price_native, currency, usd_pln)
-        if price_pln <= 0:
-            raise PaperTradeError("Nieprawidłowa cena", "no_price")
         if side == "buy":
-            denom = price_pln * (1 + TRADE_FEE_RATE)
-            quantity = amount_pln / denom
+            quantity = amount_pln / (price_pln * (1 + TRADE_FEE_RATE))
         else:
             quantity = amount_pln / price_pln
 
@@ -110,9 +119,6 @@ async def place_order(
     if quantity <= 0:
         raise PaperTradeError("Ilość za mała po zaokrągleniu", "invalid_quantity")
 
-    price_native, currency = _get_live_price(symbol)
-    usd_pln = await get_usd_pln_rate()
-    price_pln = to_pln(price_native, currency, usd_pln)
     gross_pln = price_pln * quantity
     fee_pln = gross_pln * TRADE_FEE_RATE
     total_pln = gross_pln + fee_pln if side == "buy" else gross_pln - fee_pln
@@ -120,6 +126,7 @@ async def place_order(
     account = await paper_db.get_account()
     cash = float(account["cash_pln"])
     position = await paper_db.get_position(symbol)
+    pre_position = dict(position) if position else None
     now = datetime.now(timezone.utc).isoformat()
 
     if side == "buy":
@@ -144,10 +151,14 @@ async def place_order(
         new_qty, new_avg = _position_after_buy(held, old_avg, quantity, price_native)
         await paper_db.update_account_cash(new_cash, realized_pnl_delta=realized)
         if abs(new_qty) < 1e-9:
+            if pre_position and abs(float(pre_position["quantity"])) >= 1e-9:
+                await _archive_closed_position(pre_position, price_native, price_pln, realized, now, usd_pln)
             await paper_db.delete_position(symbol)
         else:
+            session_realized = float(pre_position.get("session_realized_pnl_pln") or 0) + realized if pre_position else realized
             await paper_db.upsert_position(
-                symbol, meta["name"], asset_class, new_qty, new_avg, currency
+                symbol, meta["name"], asset_class, new_qty, new_avg, currency,
+                session_realized_pnl_pln=session_realized if held != 0 else 0.0,
             )
     else:
         held = float(position["quantity"]) if position else 0.0
@@ -164,10 +175,14 @@ async def place_order(
         new_qty, new_avg = _position_after_sell(held, old_avg, quantity, price_native)
         await paper_db.update_account_cash(new_cash, realized_pnl_delta=realized)
         if abs(new_qty) < 1e-9:
+            if pre_position and abs(float(pre_position["quantity"])) >= 1e-9:
+                await _archive_closed_position(pre_position, price_native, price_pln, realized, now, usd_pln)
             await paper_db.delete_position(symbol)
         else:
+            session_realized = float(pre_position.get("session_realized_pnl_pln") or 0) + realized if pre_position else realized
             await paper_db.upsert_position(
-                symbol, meta["name"], asset_class, new_qty, new_avg, currency
+                symbol, meta["name"], asset_class, new_qty, new_avg, currency,
+                session_realized_pnl_pln=session_realized if held != 0 else 0.0,
             )
 
     trade = {
@@ -191,6 +206,49 @@ async def place_order(
     return trade
 
 
+async def _archive_closed_position(
+    position: dict,
+    exit_price_native: float,
+    exit_price_pln: float,
+    trade_realized_pln: float,
+    closed_at: str,
+    usd_pln: float,
+) -> None:
+    qty = float(position["quantity"])
+    if abs(qty) < 1e-9:
+        return
+    is_short = qty < 0
+    abs_qty = abs(qty)
+    entry_native = float(position["avg_price_native"])
+    currency = position["currency"]
+    entry_pln = to_pln(entry_native, currency, usd_pln)
+    cost_basis = entry_pln * abs_qty
+    proceeds = exit_price_pln * abs_qty
+    session_realized = float(position.get("session_realized_pnl_pln") or 0)
+    total_realized = round(session_realized + trade_realized_pln, 2)
+    pct = (total_realized / cost_basis * 100) if cost_basis > 0 else 0.0
+    await paper_db.insert_closed_position(
+        {
+            "symbol": position["symbol"],
+            "name": position["name"],
+            "asset_class": position["asset_class"],
+            "quantity": abs_qty,
+            "is_short": is_short,
+            "entry_price_native": entry_native,
+            "exit_price_native": exit_price_native,
+            "entry_price_pln": round(entry_pln, 4),
+            "exit_price_pln": round(exit_price_pln, 4),
+            "cost_basis_pln": round(cost_basis, 2),
+            "proceeds_pln": round(proceeds, 2),
+            "realized_pnl_pln": total_realized,
+            "realized_pnl_pct": round(pct, 2),
+            "currency": currency,
+            "opened_at": position["opened_at"],
+            "closed_at": closed_at,
+        }
+    )
+
+
 async def max_buy_quantity(symbol: str) -> float:
     meta = ASSET_MAP.get(symbol)
     if not meta:
@@ -209,8 +267,10 @@ async def max_buy_quantity(symbol: str) -> float:
     return _round_qty(qty, meta["asset_class"])
 
 
-async def close_position(symbol: str) -> dict:
-    """Close entire long (sell) or short (buy/cover) position."""
+async def close_position(symbol: str, percent: float = 100.0) -> dict:
+    """Close part or all of a long (sell) or short (buy/cover) position."""
+    if percent < 10 or percent > 100:
+        raise PaperTradeError("Zamknięcie: wybierz od 10% do 100%", "invalid_percent")
     if symbol not in ASSET_MAP:
         raise PaperTradeError(f"Instrument {symbol} nie jest monitorowany", "invalid_symbol")
     position = await paper_db.get_position(symbol)
@@ -220,6 +280,17 @@ async def close_position(symbol: str) -> dict:
     if abs(qty) < 1e-9:
         raise PaperTradeError(f"Brak otwartej pozycji na {symbol}", "no_position")
     meta = ASSET_MAP[symbol]
-    abs_qty = _round_qty(abs(qty), meta["asset_class"])
+    abs_qty = abs(qty)
+    if percent >= 100:
+        close_qty = _round_qty(abs_qty, meta["asset_class"])
+    else:
+        close_qty = _round_qty(abs_qty * (percent / 100.0), meta["asset_class"])
+        if close_qty <= 0:
+            raise PaperTradeError(
+                f"Ilość dla {percent:g}% pozycji za mała po zaokrągleniu",
+                "invalid_quantity",
+            )
+        if close_qty >= abs_qty:
+            close_qty = _round_qty(abs_qty, meta["asset_class"])
     side = "sell" if qty > 0 else "buy"
-    return await place_order(symbol, side, quantity=abs_qty)
+    return await place_order(symbol, side, quantity=close_qty)

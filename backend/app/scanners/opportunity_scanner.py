@@ -93,18 +93,10 @@ class OpportunityScanner:
         if not fast:
             return {"updated": 0, "full_scan": False}
 
-        quote_map = {q.symbol: q for q in self.quotes}
-        updated = 0
-        for sym, new_q in fast.items():
-            existing = quote_map.get(sym)
-            if existing:
-                existing.price = new_q.price
-                existing.change_pct_24h = new_q.change_pct_24h or existing.change_pct_24h
-                existing.updated_at = new_q.updated_at
-                updated += 1
-            else:
-                self.quotes.append(new_q)
-                updated += 1
+        from app.paper.pricing import merge_fast_quotes
+
+        merge_fast_quotes(fast)
+        updated = len(fast)
 
         self._reassess()
         self.last_price_tick_at = datetime.now(timezone.utc)
@@ -131,7 +123,10 @@ class OpportunityScanner:
             for a in self.market_assessments
             if a.confidence >= 50
         ]
-        self.opportunities.sort(key=lambda o: o.confidence, reverse=True)
+        self.opportunities.sort(
+            key=lambda o: (o.is_momentum_pick, o.confidence),
+            reverse=True,
+        )
 
     @staticmethod
     def _assessment_to_opportunity(a: AssetCycleAssessment, now: datetime) -> Opportunity:
@@ -144,6 +139,9 @@ class OpportunityScanner:
             cycle_source=a.macro_cycle,
             phase=f"{a.macro_phase}/{a.price_phase}",
             price=a.price,
+            momentum_score=a.momentum_score,
+            momentum_signal=a.momentum_signal,
+            is_momentum_pick=a.is_momentum_pick,
             rationale=a.rationale,
             created_at=now,
         )

@@ -1,6 +1,7 @@
 import {
   AlertSettings,
   DashboardResponse,
+  LiveQuote,
   NotificationStatus,
   PaperOrderRequest,
   PaperPortfolio,
@@ -109,11 +110,50 @@ export async function fetchPaperPosition(symbol: string): Promise<PaperPosition 
   return res.json()
 }
 
+export async function cancelPaperOrder(orderId: number): Promise<PaperPortfolio> {
+  const res = await fetch(`${API_BASE}/paper/orders/${orderId}`, { method: 'DELETE' })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    const detail = (err as { detail?: { message?: string } | string }).detail
+    const msg =
+      typeof detail === 'object' && detail?.message
+        ? detail.message
+        : String(detail || 'Nie udało się anulować zlecenia')
+    throw new Error(msg)
+  }
+  const data = await res.json()
+  return data.portfolio
+}
+
+/** @deprecated use cancelPaperOrder */
+export const cancelPaperLimitOrder = cancelPaperOrder
+
+export async function cancelAllPaperOrders(symbol?: string): Promise<PaperPortfolio> {
+  const qs = symbol ? `?symbol=${encodeURIComponent(symbol)}` : ''
+  const res = await fetch(`${API_BASE}/paper/orders/cancel-all${qs}`, { method: 'POST' })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    const detail = (err as { detail?: { message?: string } | string }).detail
+    const msg =
+      typeof detail === 'object' && detail?.message
+        ? detail.message
+        : String(detail || 'Nie udało się anulować zleceń')
+    throw new Error(msg)
+  }
+  const data = await res.json()
+  return data.portfolio
+}
+
 export async function closePaperPosition(
   symbol: string,
+  percent = 100,
 ): Promise<{ trade: PaperTrade; portfolio: PaperPortfolio }> {
   const encoded = symbol.split('/').map(encodeURIComponent).join('/')
-  const res = await fetch(`${API_BASE}/paper/close/${encoded}`, { method: 'POST' })
+  const res = await fetch(`${API_BASE}/paper/close/${encoded}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ percent }),
+  })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
     const detail = (err as { detail?: { message?: string } | string }).detail
@@ -130,6 +170,13 @@ export async function fetchPaperTrades(symbol: string): Promise<PaperTrade[]> {
   const encoded = symbol.split('/').map(encodeURIComponent).join('/')
   const res = await fetch(`${API_BASE}/paper/trades/${encoded}`)
   if (!res.ok) return []
+  return res.json()
+}
+
+export async function fetchQuote(symbol: string): Promise<LiveQuote> {
+  const encoded = symbol.split('/').map(encodeURIComponent).join('/')
+  const res = await fetch(`${API_BASE}/markets/quote/${encoded}`, { cache: 'no-store' })
+  if (!res.ok) throw new Error('Nie udało się pobrać ceny')
   return res.json()
 }
 

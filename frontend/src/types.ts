@@ -17,6 +17,17 @@ export interface BitcoinCycleStatus {
   rationale: string
 }
 
+export interface PresidentialYearReturn {
+  year: string
+  year_number: number
+  label: string
+  avg_return_pct: number
+  vs_cycle_avg_pct: number
+  bias: string
+  tone: 'weak' | 'moderate' | 'strong' | 'best'
+  is_current: boolean
+}
+
 export interface PresidentialCycleStatus {
   term_start: string
   term_end: string
@@ -29,6 +40,11 @@ export interface PresidentialCycleStatus {
   historical_bias: string
   signal: SignalAction
   rationale: string
+  benchmark?: string
+  benchmark_note?: string
+  cycle_avg_return_pct?: number
+  year_returns?: PresidentialYearReturn[]
+  current_year_expected_return_pct?: number
 }
 
 export interface AssetQuote {
@@ -40,6 +56,14 @@ export interface AssetQuote {
   change_pct_7d: number | null
   currency: string
   updated_at: string
+}
+
+export interface LiveQuote {
+  symbol: string
+  price: number
+  currency: string
+  change_pct_24h: number | null
+  updated_at: string | null
 }
 
 export interface AssetCycleAssessment {
@@ -55,6 +79,10 @@ export interface AssetCycleAssessment {
   macro_cycle: string
   macro_phase: string
   price_phase: string
+  momentum_score: number | null
+  momentum_signal: SignalAction | null
+  momentum_phase: string | null
+  is_momentum_pick: boolean
   signal: SignalAction
   confidence: number
   rationale: string
@@ -80,6 +108,9 @@ export interface Opportunity {
   cycle_source: string
   phase: string
   price: number
+  momentum_score: number | null
+  momentum_signal: SignalAction | null
+  is_momentum_pick: boolean
   rationale: string
   created_at: string
 }
@@ -143,6 +174,24 @@ export interface PaperOrderRequest {
   side: 'buy' | 'sell'
   quantity?: number
   amount_pln?: number
+  order_type?: 'market' | 'limit' | 'stop' | 'take_profit'
+  limit_price_native?: number
+}
+
+export interface PaperLimitOrder {
+  id: number
+  symbol: string
+  name: string
+  asset_class: AssetClass
+  side: 'buy' | 'sell'
+  order_type: 'limit' | 'stop' | 'take_profit'
+  limit_price_native: number
+  limit_price_pln: number
+  amount_pln: number
+  quantity_est: number
+  currency: string
+  status: string
+  created_at: string
 }
 
 export interface PaperPosition {
@@ -161,6 +210,7 @@ export interface PaperPosition {
   unrealized_pnl_pct: number
   currency: string
   opened_at?: string
+  pending_limit_orders?: PaperLimitOrder[]
 }
 
 export interface PaperTrade {
@@ -178,6 +228,26 @@ export interface PaperTrade {
   created_at: string
 }
 
+export interface PaperClosedPosition {
+  id: number
+  symbol: string
+  name: string
+  asset_class: AssetClass
+  quantity: number
+  is_short: boolean
+  entry_price_native: number
+  exit_price_native: number
+  entry_price_pln: number
+  exit_price_pln: number
+  cost_basis_pln: number
+  proceeds_pln: number
+  realized_pnl_pln: number
+  realized_pnl_pct: number
+  currency: string
+  opened_at: string
+  closed_at: string
+}
+
 export interface PaperPortfolio {
   cash_pln: number
   initial_cash_pln: number
@@ -190,6 +260,9 @@ export interface PaperPortfolio {
   usd_pln_rate: number
   positions_count: number
   positions: PaperPosition[]
+  closed_positions_count?: number
+  closed_positions?: PaperClosedPosition[]
+  limit_orders?: PaperLimitOrder[]
   recent_trades: PaperTrade[]
   quotes_available: number
 }

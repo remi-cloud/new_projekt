@@ -60,6 +60,51 @@ async def init_paper_db() -> None:
                 created_at TEXT NOT NULL
             )
         """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS paper_limit_orders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                symbol TEXT NOT NULL,
+                name TEXT NOT NULL,
+                asset_class TEXT NOT NULL,
+                side TEXT NOT NULL,
+                order_type TEXT NOT NULL DEFAULT 'limit',
+                limit_price_native REAL NOT NULL,
+                amount_pln REAL NOT NULL,
+                currency TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                created_at TEXT NOT NULL,
+                filled_at TEXT
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS paper_closed_positions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                symbol TEXT NOT NULL,
+                name TEXT NOT NULL,
+                asset_class TEXT NOT NULL,
+                quantity REAL NOT NULL,
+                is_short INTEGER NOT NULL DEFAULT 0,
+                entry_price_native REAL NOT NULL,
+                exit_price_native REAL NOT NULL,
+                entry_price_pln REAL NOT NULL,
+                exit_price_pln REAL NOT NULL,
+                cost_basis_pln REAL NOT NULL,
+                proceeds_pln REAL NOT NULL,
+                realized_pnl_pln REAL NOT NULL,
+                realized_pnl_pct REAL NOT NULL,
+                currency TEXT NOT NULL,
+                opened_at TEXT NOT NULL,
+                closed_at TEXT NOT NULL
+            )
+        """)
+        for alter in (
+            "ALTER TABLE paper_limit_orders ADD COLUMN order_type TEXT NOT NULL DEFAULT 'limit'",
+            "ALTER TABLE paper_positions ADD COLUMN session_realized_pnl_pln REAL NOT NULL DEFAULT 0",
+        ):
+            try:
+                await db.execute(alter)
+            except aiosqlite.OperationalError:
+                pass
         now = _now()
         await db.execute(
             """INSERT OR IGNORE INTO paper_account
@@ -141,27 +186,83 @@ async def upsert_position(
     quantity: float,
     avg_price_native: float,
     currency: str,
+    session_realized_pnl_pln: float | None = None,
 ) -> None:
     now = _now()
     async with portfolio_db_session() as db:
         db.row_factory = aiosqlite.Row
         existing = await (await db.execute(
-            "SELECT symbol FROM paper_positions WHERE symbol = ?", (symbol,)
+            "SELECT * FROM paper_positions WHERE symbol = ?", (symbol,)
         )).fetchone()
         if existing:
+            session = (
+                session_realized_pnl_pln
+                if session_realized_pnl_pln is not None
+                else float(existing["session_realized_pnl_pln"] or 0)
+            )
             await db.execute(
                 """UPDATE paper_positions SET quantity = ?, avg_price_native = ?,
-                   updated_at = ? WHERE symbol = ?""",
-                (quantity, avg_price_native, now, symbol),
+                   session_realized_pnl_pln = ?, updated_at = ? WHERE symbol = ?""",
+                (quantity, avg_price_native, session, now, symbol),
             )
         else:
             await db.execute(
                 """INSERT INTO paper_positions
-                   (symbol, name, asset_class, quantity, avg_price_native, currency, opened_at, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                   (symbol, name, asset_class, quantity, avg_price_native, currency,
+                    session_realized_pnl_pln, opened_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)""",
                 (symbol, name, asset_class, quantity, avg_price_native, currency, now, now),
             )
         await db.commit()
+
+
+async def insert_closed_position(record: dict) -> None:
+    async with portfolio_db_session() as db:
+        await db.execute(
+            """INSERT INTO paper_closed_positions
+               (symbol, name, asset_class, quantity, is_short,
+                entry_price_native, exit_price_native, entry_price_pln, exit_price_pln,
+                cost_basis_pln, proceeds_pln, realized_pnl_pln, realized_pnl_pct,
+                currency, opened_at, closed_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                record["symbol"],
+                record["name"],
+                record["asset_class"],
+                record["quantity"],
+                1 if record["is_short"] else 0,
+                record["entry_price_native"],
+                record["exit_price_native"],
+                record["entry_price_pln"],
+                record["exit_price_pln"],
+                record["cost_basis_pln"],
+                record["proceeds_pln"],
+                record["realized_pnl_pln"],
+                record["realized_pnl_pct"],
+                record["currency"],
+                record["opened_at"],
+                record["closed_at"],
+            ),
+        )
+        await db.commit()
+
+
+async def get_closed_positions(limit: int = 50) -> list[dict]:
+    async with portfolio_db_session() as db:
+        db.row_factory = aiosqlite.Row
+        rows = await (
+            await db.execute(
+                """SELECT * FROM paper_closed_positions
+                   ORDER BY closed_at DESC LIMIT ?""",
+                (limit,),
+            )
+        ).fetchall()
+        result = []
+        for r in rows:
+            row = dict(r)
+            row["is_short"] = bool(row["is_short"])
+            result.append(row)
+        return result
 
 
 async def delete_position(symbol: str) -> None:
@@ -191,6 +292,8 @@ async def reset_account() -> dict:
     async with portfolio_db_session() as db:
         await db.execute("DELETE FROM paper_positions")
         await db.execute("DELETE FROM paper_trades")
+        await db.execute("DELETE FROM paper_limit_orders")
+        await db.execute("DELETE FROM paper_closed_positions")
         await db.execute(
             """UPDATE paper_account SET cash_pln = ?, initial_cash_pln = ?,
                realized_pnl_pln = 0, updated_at = ? WHERE id = 1""",
@@ -198,3 +301,72 @@ async def reset_account() -> dict:
         )
         await db.commit()
     return await get_account()
+
+
+async def insert_limit_order(order: dict) -> dict:
+    now = _now()
+    async with portfolio_db_session() as db:
+        cur = await db.execute(
+            """INSERT INTO paper_limit_orders
+               (symbol, name, asset_class, side, order_type, limit_price_native, amount_pln, currency, status, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)""",
+            (
+                order["symbol"],
+                order["name"],
+                order["asset_class"],
+                order["side"],
+                order.get("order_type", "limit"),
+                order["limit_price_native"],
+                order["amount_pln"],
+                order["currency"],
+                now,
+            ),
+        )
+        await db.commit()
+        order_id = cur.lastrowid
+    row = await get_limit_order(int(order_id))
+    return row or {**order, "id": order_id, "status": "pending", "created_at": now}
+
+
+async def get_limit_order(order_id: int) -> dict | None:
+    async with portfolio_db_session() as db:
+        db.row_factory = aiosqlite.Row
+        row = await (
+            await db.execute("SELECT * FROM paper_limit_orders WHERE id = ?", (order_id,))
+        ).fetchone()
+        return dict(row) if row else None
+
+
+async def get_pending_limit_orders() -> list[dict]:
+    async with portfolio_db_session() as db:
+        db.row_factory = aiosqlite.Row
+        rows = await (
+            await db.execute(
+                """SELECT * FROM paper_limit_orders WHERE status = 'pending'
+                   ORDER BY created_at ASC"""
+            )
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+async def mark_limit_order_filled(order_id: int) -> None:
+    now = _now()
+    async with portfolio_db_session() as db:
+        await db.execute(
+            """UPDATE paper_limit_orders SET status = 'filled', filled_at = ?
+               WHERE id = ?""",
+            (now, order_id),
+        )
+        await db.commit()
+
+
+async def cancel_limit_order(order_id: int) -> None:
+    now = _now()
+    async with portfolio_db_session() as db:
+        await db.execute(
+            """UPDATE paper_limit_orders SET status = 'cancelled', filled_at = ?
+               WHERE id = ? AND status = 'pending'""",
+            (now, order_id),
+        )
+        await db.commit()
+

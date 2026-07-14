@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 from app.cycles.bitcoin_cycle import analyze_bitcoin_cycle
 from app.cycles.macro_types import MacroCycleResult
+from app.cycles.momentum_cycle import analyze_momentum, momentum_aligns_with_cycle
 from app.cycles.price_cycle import analyze_price_cycle
 from app.cycles.regional_macro import analyze_regional_macro, macro_weight_for_region
 from app.models.schemas import (
@@ -23,8 +24,77 @@ SIGNAL_PRIORITY = {
     SignalAction.SELL: 1,
 }
 
-# Base split: regional macro vs price cycle (macro weight adjusted per region).
-PRICE_CYCLE_WEIGHT = 0.40
+# Base split: regional macro vs price cycle vs momentum.
+PRICE_CYCLE_WEIGHT = 0.35
+MOMENTUM_WEIGHT = 0.25
+
+
+def _combine_three_signals(
+    macro_signal: SignalAction,
+    macro_conf: float,
+    price_signal: SignalAction,
+    price_conf: float,
+    momentum_signal: SignalAction,
+    momentum_conf: float,
+    region: str = "global",
+) -> tuple[SignalAction, float, bool]:
+    """
+    Weight macro + price cycle + momentum.
+    Returns (final_signal, confidence, is_momentum_pick).
+    """
+    macro_w = macro_weight_for_region(region) * 0.85
+    price_w = PRICE_CYCLE_WEIGHT
+    mom_w = MOMENTUM_WEIGHT
+
+    cycle_signal, cycle_conf = _combine_signals(
+        macro_signal, macro_conf, price_signal, price_conf, region=region
+    )
+
+    if _signals_conflict(cycle_signal, momentum_signal):
+        mom_w *= 0.40
+    divisor = macro_w + price_w + mom_w
+    macro_w /= divisor
+    price_w /= divisor
+    mom_w /= divisor
+
+    scores = {SignalAction.BUY: 0.0, SignalAction.WATCH: 0.0, SignalAction.HOLD: 0.0, SignalAction.SELL: 0.0}
+    weights = {SignalAction.BUY: 1.0, SignalAction.WATCH: 0.5, SignalAction.HOLD: 0.2, SignalAction.SELL: -0.6}
+
+    for sig, conf, w in [
+        (cycle_signal, cycle_conf, macro_w + price_w),
+        (momentum_signal, momentum_conf, mom_w),
+    ]:
+        for action in scores:
+            if action == sig:
+                scores[action] += conf * w
+            elif weights[action] * weights[sig] > 0:
+                scores[action] += conf * w * 0.3
+
+    best = max(scores, key=lambda s: scores[s])
+    combined_conf = min(95, max(35, scores[best]))
+
+    aligned = momentum_aligns_with_cycle(momentum_signal, cycle_signal)
+    is_pick = False
+
+    if aligned and momentum_conf >= 55:
+        combined_conf = min(95, combined_conf + 8)
+        if best in (SignalAction.BUY, SignalAction.SELL) and momentum_signal == best:
+            is_pick = True
+            combined_conf = min(95, combined_conf + 5)
+
+    if _signals_conflict(best, momentum_signal) and momentum_conf >= 60:
+        if best == SignalAction.BUY:
+            best = SignalAction.WATCH
+        elif best == SignalAction.SELL:
+            best = SignalAction.WATCH
+        combined_conf = max(35, combined_conf - 10)
+
+    return best, combined_conf, is_pick
+
+
+def _assess_momentum(stats: dict) -> tuple[SignalAction, float, str, float, str]:
+    mom_sig, mom_conf, mom_phase, mom_score, mom_rat = analyze_momentum(stats)
+    return mom_sig, mom_conf, mom_phase, mom_score, mom_rat
 
 
 def _signals_conflict(a: SignalAction, b: SignalAction) -> bool:
@@ -146,7 +216,7 @@ class AssetAnalyzer:
             if a:
                 assessments.append(a)
 
-        assessments.sort(key=lambda x: x.confidence, reverse=True)
+        assessments.sort(key=lambda x: (x.is_momentum_pick, x.confidence), reverse=True)
         return assessments
 
     def _assess_crypto(
@@ -176,13 +246,15 @@ class AssetAnalyzer:
             elif quote.change_pct_7d > 15 and macro_phase == CyclePhase.DISTRIBUTION:
                 macro_sig = SignalAction.SELL
 
-        final_sig, final_conf = _combine_signals(
-            macro_sig, macro_conf, price_sig, price_conf, region="global"
+        mom_sig, mom_conf, mom_phase, mom_score, mom_rat = _assess_momentum(stats)
+
+        final_sig, final_conf, is_pick = _combine_three_signals(
+            macro_sig, macro_conf, price_sig, price_conf, mom_sig, mom_conf, region="global"
         )
 
         rationale = (
             f"[Cykl BTC: {macro_phase.value}, {btc_cycle.days_since_ath}d od ATH] "
-            f"[Cena: {price_rat}]"
+            f"[Cena: {price_rat}] [Momentum: {mom_rat}]"
         )
 
         return AssetCycleAssessment(
@@ -198,6 +270,10 @@ class AssetAnalyzer:
             macro_cycle="bitcoin_cycle",
             macro_phase=macro_phase.value,
             price_phase=price_phase.value,
+            momentum_score=mom_score if stats.get("rsi_14") is not None else None,
+            momentum_signal=mom_sig if stats.get("rsi_14") is not None else None,
+            momentum_phase=mom_phase if stats.get("rsi_14") is not None else None,
+            is_momentum_pick=is_pick,
             signal=final_sig,
             confidence=round(final_conf, 1),
             rationale=rationale,
@@ -234,8 +310,10 @@ class AssetAnalyzer:
             quote, macro, macro_sig, macro_conf, price_sig, price_conf
         )
 
-        final_sig, final_conf = _combine_signals(
-            macro_sig, macro_conf, price_sig, price_conf, region=region
+        mom_sig, mom_conf, mom_phase, mom_score, mom_rat = _assess_momentum(stats)
+
+        final_sig, final_conf, is_pick = _combine_three_signals(
+            macro_sig, macro_conf, price_sig, price_conf, mom_sig, mom_conf, region=region
         )
 
         cycle_label = {
@@ -249,7 +327,7 @@ class AssetAnalyzer:
             "global_macro_cycle": "Cykl globalny",
         }.get(macro.cycle_id, macro.cycle_id)
 
-        rationale = f"[{cycle_label}: {macro_phase.replace('_', ' ')}] [Cena: {price_rat}]"
+        rationale = f"[{cycle_label}: {macro_phase.replace('_', ' ')}] [Cena: {price_rat}] [Momentum: {mom_rat}]"
         if quote.change_pct_7d is not None:
             rationale += f" [7d: {quote.change_pct_7d:+.1f}%]"
 
@@ -266,6 +344,10 @@ class AssetAnalyzer:
             macro_cycle=macro.cycle_id,
             macro_phase=macro_phase,
             price_phase=price_phase.value,
+            momentum_score=mom_score if stats.get("rsi_14") is not None else None,
+            momentum_signal=mom_sig if stats.get("rsi_14") is not None else None,
+            momentum_phase=mom_phase if stats.get("rsi_14") is not None else None,
+            is_momentum_pick=is_pick,
             signal=final_sig,
             confidence=round(final_conf, 1),
             rationale=rationale,
