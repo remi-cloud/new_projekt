@@ -25,7 +25,7 @@ async def send_sms_test() -> tuple[bool, str]:
 
     url = f"https://api.twilio.com/2010-04-01/Accounts/{creds['account_sid']}/Messages.json"
     body = (
-        "Cyclical Trader — test SMS\n"
+        "Cyclical Academy — test SMS\n"
         f"Alerty będą wysyłane na ten numer ({to_number}).\n"
         "Handel pozostaje manualny."
     )

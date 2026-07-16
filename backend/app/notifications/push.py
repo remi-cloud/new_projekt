@@ -32,7 +32,7 @@ async def send_push_alerts(events: list[AlertEvent]) -> int:
 
     sent = 0
     for event in events:
-        title = f"Cyclical Trader — {event.action.upper()}"
+        title = f"Cyclical Academy — {event.action.upper()}"
         body = f"{event.name} ({event.symbol}): {event.reason} @ {event.price}"
         payload = json.dumps({"title": title, "body": body, "symbol": event.symbol})
 

@@ -2,6 +2,22 @@ import type { PaperTrade } from '../types'
 import type { ChartCandle, CycleMarker } from '../types/chart'
 import type { SeriesMarker, Time, UTCTimestamp } from 'lightweight-charts'
 
+export interface ChartMarkerLabels {
+  cycleEntry: string
+  cycleExit: string
+  tradeBuy: string
+  tradeSell: string
+  positionOpen: string
+}
+
+const DEFAULT_LABELS: ChartMarkerLabels = {
+  cycleEntry: 'ENT',
+  cycleExit: 'EXT',
+  tradeBuy: 'BUY',
+  tradeSell: 'SEL',
+  positionOpen: 'OPN',
+}
+
 function snapToCandle(ts: number, candles: ChartCandle[]): number | null {
   if (!candles.length) return null
   const exact = candles.find((c) => c.time === ts)
@@ -29,6 +45,7 @@ function formatMarkerDate(ts: number): string {
 export function cycleMarkersToChartMarkers(
   markers: CycleMarker[],
   candles: ChartCandle[],
+  labels: ChartMarkerLabels = DEFAULT_LABELS,
 ): SeriesMarker<Time>[] {
   if (!markers.length || !candles.length) return []
 
@@ -50,7 +67,7 @@ export function cycleMarkersToChartMarkers(
       position: isBuy ? 'belowBar' : 'aboveBar',
       color: isBuy ? '#22c55e' : '#f97316',
       shape: isBuy ? 'arrowUp' : 'arrowDown',
-      text: isBuy ? `WEJ ${dateLabel}` : `WYJ ${dateLabel}`,
+      text: isBuy ? `${labels.cycleEntry} ${dateLabel}` : `${labels.cycleExit} ${dateLabel}`,
     })
   }
 
@@ -58,7 +75,11 @@ export function cycleMarkersToChartMarkers(
   return out
 }
 
-export function tradesToChartMarkers(trades: PaperTrade[], candles: ChartCandle[]): SeriesMarker<Time>[] {
+export function tradesToChartMarkers(
+  trades: PaperTrade[],
+  candles: ChartCandle[],
+  labels: ChartMarkerLabels = DEFAULT_LABELS,
+): SeriesMarker<Time>[] {
   if (!trades.length || !candles.length) return []
 
   const minT = candles[0].time
@@ -81,7 +102,7 @@ export function tradesToChartMarkers(trades: PaperTrade[], candles: ChartCandle[
       position: isBuy ? 'belowBar' : 'aboveBar',
       color: isBuy ? '#10b981' : '#ef4444',
       shape: isBuy ? 'arrowUp' : 'arrowDown',
-      text: isBuy ? `KUP ${qty}` : `SPR ${qty}`,
+      text: isBuy ? `${labels.tradeBuy} ${qty}` : `${labels.tradeSell} ${qty}`,
     })
   }
 
@@ -89,7 +110,11 @@ export function tradesToChartMarkers(trades: PaperTrade[], candles: ChartCandle[
   return markers
 }
 
-export function positionOpenMarker(openedAt: string, candles: ChartCandle[]): SeriesMarker<Time>[] {
+export function positionOpenMarker(
+  openedAt: string,
+  candles: ChartCandle[],
+  labels: ChartMarkerLabels = DEFAULT_LABELS,
+): SeriesMarker<Time>[] {
   if (!openedAt || !candles.length) return []
   const ts = Math.floor(new Date(openedAt).getTime() / 1000)
   const snapped = snapToCandle(ts, candles)
@@ -103,7 +128,7 @@ export function positionOpenMarker(openedAt: string, candles: ChartCandle[]): Se
       position: 'belowBar',
       color: '#3b82f6',
       shape: 'circle',
-      text: 'OTW',
+      text: labels.positionOpen,
     },
   ]
 }

@@ -1,4 +1,6 @@
 import { useEffect, useRef } from 'react'
+import { useLocale } from '../context/LocaleContext'
+import { TV_LOCALE } from '../i18n/apiErrors'
 import { AssetClass, Region } from '../types'
 import { presetToTvInterval, toTradingViewSymbol } from '../utils/tradingViewSymbol'
 
@@ -37,6 +39,7 @@ export function TradingViewChart({
   height = 360,
   interval = '1',
 }: TradingViewChartProps) {
+  const { locale } = useLocale()
   const ref = useRef<HTMLDivElement>(null)
   const tvSymbol = toTradingViewSymbol(symbol, assetClass, region)
 
@@ -52,7 +55,7 @@ export function TradingViewChart({
         timezone: 'Europe/Warsaw',
         theme: 'dark',
         style: '1',
-        locale: 'pl',
+        locale: TV_LOCALE[locale],
         enable_publishing: false,
         allow_symbol_change: false,
         hide_top_toolbar: false,
@@ -64,7 +67,7 @@ export function TradingViewChart({
         gridColor: 'rgba(255,255,255,0.06)',
       },
     )
-  }, [tvSymbol, interval])
+  }, [tvSymbol, interval, locale])
 
   return (
     <div className="tradingview-wrap" style={{ height, width: '100%' }}>
@@ -85,6 +88,7 @@ interface TradingViewQuoteProps {
 
 /** Live price ticker from TradingView (real-time, extended hours). */
 export function TradingViewQuote({ symbol, assetClass, region }: TradingViewQuoteProps) {
+  const { locale } = useLocale()
   const ref = useRef<HTMLDivElement>(null)
   const tvSymbol = toTradingViewSymbol(symbol, assetClass, region)
 
@@ -98,10 +102,10 @@ export function TradingViewQuote({ symbol, assetClass, region }: TradingViewQuot
         width: '100%',
         colorTheme: 'dark',
         isTransparent: true,
-        locale: 'pl',
+        locale: TV_LOCALE[locale],
       },
     )
-  }, [tvSymbol])
+  }, [tvSymbol, locale])
 
   return (
     <div className="tradingview-quote-wrap">

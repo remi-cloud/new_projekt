@@ -1,12 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { cancelPaperOrder, placePaperOrder } from '../api'
+import { useLocale } from '../context/LocaleContext'
+import { formatThrownError } from '../i18n/utils'
 import { OpenOrdersPanel } from './OpenOrdersPanel'
 import { PaperLimitOrder } from '../types'
-
-function formatQty(qty: number): string {
-  if (qty >= 1) return qty.toLocaleString('pl-PL', { maximumFractionDigits: 4 })
-  return qty.toPrecision(4)
-}
 
 type OrderType = 'market' | 'limit' | 'stop' | 'take_profit'
 
@@ -42,11 +39,17 @@ export function PositionTradeControl({
   compact,
   onComplete,
 }: PositionTradeControlProps) {
+  const { t, dateLocale } = useLocale()
   const [orderType, setOrderType] = useState<OrderType>('limit')
   const [price, setPrice] = useState(String(priceNative))
   const [orderValue, setOrderValue] = useState('10000')
   const [busy, setBusy] = useState(false)
   const [cancellingId, setCancellingId] = useState<number | null>(null)
+
+  const formatQty = (qty: number): string => {
+    if (qty >= 1) return qty.toLocaleString(dateLocale, { maximumFractionDigits: 4 })
+    return qty.toPrecision(4)
+  }
 
   useEffect(() => {
     setPrice(String(defaultTriggerPrice(orderType, 'buy', priceNative).toFixed(4)))
@@ -64,14 +67,21 @@ export function PositionTradeControl({
     return valueNum / (estPricePln * 1.001)
   }, [estPricePln, valueNum])
 
+  const confirmTypeLabel = (kind: OrderType) => {
+    if (kind === 'market') return t('paper.market').toUpperCase()
+    if (kind === 'limit') return t('orders.limit')
+    if (kind === 'stop') return t('orders.stopLoss')
+    return t('orders.takeProfit')
+  }
+
   const handleCancel = async (orderId: number) => {
-    if (!confirm('Anulować zlecenie?')) return
+    if (!confirm(t('paper.confirmCancel'))) return
     setCancellingId(orderId)
     try {
       await cancelPaperOrder(orderId)
       await onComplete()
     } catch (e) {
-      alert((e as Error).message || 'Nie udało się anulować')
+      alert(formatThrownError(e, t('positions.cancelFailed')))
     } finally {
       setCancellingId(null)
     }
@@ -79,23 +89,28 @@ export function PositionTradeControl({
 
   const submit = async (side: 'buy' | 'sell') => {
     if (valueNum <= 0) {
-      alert('Podaj wartość zamówienia w PLN')
+      alert(t('positions.enterValue'))
       return
     }
     if (orderType !== 'market' && priceNum <= 0) {
-      alert('Podaj cenę trigger')
+      alert(t('paper.enterTrigger'))
       return
     }
 
     const trigger = orderType === 'market' ? priceNative : priceNum
 
-    const action = side === 'buy' ? 'DOKUP' : 'SPRZEDAŻ'
-    const typeLabel = orderType.toUpperCase().replace('_', ' ')
-    const positionLabel = isShort ? 'short' : 'long'
-
     if (
       !confirm(
-        `${typeLabel} · ${action} · ${symbol} (${positionLabel})\nTrigger: ${trigger} ${currency}\nWartość: ${valueNum.toLocaleString('pl-PL')} PLN\n~${formatQty(estQty)} szt.`,
+        t('paper.confirmSummary', {
+          type: confirmTypeLabel(orderType),
+          action: side === 'buy' ? t('paper.actionBuy') : t('paper.actionSell'),
+          symbol,
+          position: isShort ? t('paper.positionShort') : t('paper.positionLong'),
+          trigger,
+          currency,
+          value: valueNum.toLocaleString(dateLocale),
+          qty: formatQty(estQty),
+        }),
       )
     ) {
       return
@@ -112,11 +127,11 @@ export function PositionTradeControl({
       })
       const status = (res as { status?: string }).status
       if (status === 'pending') {
-        alert('Zlecenie złożone — oczekuje na trigger ✓')
+        alert(t('paper.orderPending'))
       }
       await onComplete()
     } catch (e) {
-      alert((e as Error).message || 'Transakcja nieudana')
+      alert(formatThrownError(e, t('paper.tradeFailed')))
     } finally {
       setBusy(false)
     }
@@ -124,49 +139,58 @@ export function PositionTradeControl({
 
   const isDisabled = disabled || busy
 
+  const tabLabel = (kind: OrderType) => {
+    if (kind === 'market') return t('paper.market')
+    if (kind === 'limit') return t('paper.limit')
+    if (kind === 'stop') return t('paper.stop')
+    return t('paper.tp')
+  }
+
   return (
     <div className={`position-trade-control ${compact ? 'position-trade-control-compact' : ''}`}>
       <OpenOrdersPanel
         orders={pendingOrders}
         compact
-        title="Otwarte zlecenia"
         onCancel={handleCancel}
         cancellingId={cancellingId}
       />
 
       <div className="position-trade-header">
-        <span className="position-trade-label">Zlecenie</span>
+        <span className="position-trade-label">{t('positions.order')}</span>
         <span className="position-trade-qty tabular">
-          {isShort ? 'SHORT ' : ''}
-          {formatQty(absQty)} szt.
+          {isShort ? `${t('common.short')} ` : ''}
+          {formatQty(absQty)} {t('paper.pieces')}
         </span>
       </div>
 
       <div className="trade-mode-tabs position-trade-type-tabs">
-        {(['market', 'limit', 'stop', 'take_profit'] as OrderType[]).map((t) => (
+        {(['market', 'limit', 'stop', 'take_profit'] as OrderType[]).map((kind) => (
           <button
-            key={t}
+            key={kind}
             type="button"
-            className={orderType === t ? 'active' : ''}
+            className={orderType === kind ? 'active' : ''}
             disabled={isDisabled}
-            onClick={() => setOrderType(t)}
+            onClick={() => setOrderType(kind)}
           >
-            {t === 'market' ? 'Rynek' : t === 'limit' ? 'Limit' : t === 'stop' ? 'Stop' : 'TP'}
+            {tabLabel(kind)}
           </button>
         ))}
       </div>
 
       {orderType === 'market' ? (
         <p className="position-trade-live-price tabular">
-          Cena rynkowa: {priceNative.toLocaleString('pl-PL')} {currency}
+          {t('paper.marketPrice', {
+            price: priceNative.toLocaleString(dateLocale),
+            currency,
+          })}
         </p>
       ) : (
         <label className="position-trade-field">
           <span>
-            Cena trigger ({currency})
-            {orderType === 'limit' && ' · limit'}
-            {orderType === 'stop' && ' · stop loss'}
-            {orderType === 'take_profit' && ' · take profit'}
+            {t('paper.triggerPrice')} ({currency})
+            {orderType === 'limit' && ` · ${t('paper.limit').toLowerCase()}`}
+            {orderType === 'stop' && ` · ${t('orders.stopLoss').toLowerCase()}`}
+            {orderType === 'take_profit' && ` · ${t('orders.takeProfit').toLowerCase()}`}
           </span>
           <input
             className="field-input"
@@ -181,7 +205,7 @@ export function PositionTradeControl({
       )}
 
       <label className="position-trade-field">
-        <span>Wartość zamówienia (PLN)</span>
+        <span>{t('paper.orderValue')}</span>
         <input
           className="field-input"
           type="number"
@@ -194,15 +218,15 @@ export function PositionTradeControl({
       </label>
 
       {valueNum > 0 && estQty > 0 && (
-        <p className="position-trade-estimate tabular">≈ {formatQty(estQty)} szt.</p>
+        <p className="position-trade-estimate tabular">{t('paper.estimate', { n: formatQty(estQty) })}</p>
       )}
 
       <div className="position-trade-actions">
         <button type="button" className="btn-buy tap-target" disabled={isDisabled} onClick={() => submit('buy')}>
-          Dokup
+          {t('positions.addTo')}
         </button>
         <button type="button" className="btn-sell tap-target" disabled={isDisabled} onClick={() => submit('sell')}>
-          Sprzedaj
+          {t('positions.sellBtn')}
         </button>
       </div>
     </div>

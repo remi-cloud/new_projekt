@@ -1,28 +1,32 @@
 import { useNavigate } from 'react-router-dom'
 import { CycleCardBitcoin } from '../components/CycleCardBitcoin'
 import { CycleCardPresidential } from '../components/CycleCardPresidential'
-import { ErrorState } from '../components/Loading'
+import { ErrorState, Loading } from '../components/Loading'
 import { OpportunityCard } from '../components/OpportunityCard'
+import { InvestmentShowcase } from '../components/InvestmentShowcase'
 import { TradingPlatformBanner } from '../components/TradingPlatformBanner'
 import { useDashboardContext } from '../context/DashboardContext'
+import { useLocale } from '../context/LocaleContext'
 
 export function HomePage() {
-  const { data, error, reload, liveConnected, scan, scanning } = useDashboardContext()
+  const { data, error, reload, liveConnected, scan, scanning, loading } = useDashboardContext()
   const navigate = useNavigate()
+  const { t } = useLocale()
 
   if (error && !data) return <ErrorState message={error} onRetry={reload} />
+  if (loading && !data) return <Loading message={t('layout.loading')} />
   if (!data) return null
 
   const topOpps = data.opportunities.slice(0, 3)
   const totalAssets = data.market_summary?.total_assets ?? 0
 
   const statusLabel = data.scan_in_progress
-    ? 'SCAN · IN PROGRESS'
+    ? t('layout.statusScan')
     : data.live_mode && liveConnected
-      ? 'TELEMETRIA · LIVE'
+      ? t('layout.statusLive')
       : data.scanner_running
-        ? 'SYSTEM · ONLINE'
-        : 'SYSTEM · OFFLINE'
+        ? t('layout.statusOnline')
+        : t('layout.statusOffline')
 
   return (
     <div className="home-page">
@@ -38,6 +42,8 @@ export function HomePage() {
       />
 
       <div className="home-page-body">
+        <InvestmentShowcase />
+
         <section className="home-cycles">
           <CycleCardBitcoin cycle={data.bitcoin_cycle} />
           <CycleCardPresidential cycle={data.presidential_cycle} />
@@ -46,9 +52,9 @@ export function HomePage() {
         {topOpps.length > 0 && (
           <section>
             <div className="section-header">
-              <h2 className="section-title">Top okazje</h2>
+              <h2 className="section-title">{t('home.topOpportunities')}</h2>
               <button type="button" className="link-btn tap-target" onClick={() => navigate('/okazje')}>
-                Wszystkie →
+                {t('home.seeAll')}
               </button>
             </div>
             <div className="opportunities-grid">

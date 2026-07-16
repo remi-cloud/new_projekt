@@ -1,4 +1,5 @@
-import { SIGNAL_LABELS, PHASE_LABELS } from '../constants'
+import { useLocale } from '../context/LocaleContext'
+import { useDomainLabels } from '../i18n/useDomainLabels'
 import { PresidentialCycleStatus, PresidentialYearReturn } from '../types'
 
 const CHART_MAX_PCT = 18
@@ -14,11 +15,19 @@ function barHeight(pct: number): number {
 }
 
 function ReturnBar({ item }: { item: PresidentialYearReturn }) {
+  const { t } = useLocale()
+  const { phase } = useDomainLabels()
   const positive = item.avg_return_pct >= 0
+  const label = phase(item.year)
+
   return (
     <div
       className={`pres-return-col ${item.is_current ? 'active' : ''} tone-${item.tone}`}
-      title={`${item.label}: średnio ${formatReturn(item.avg_return_pct)}/rok · ${item.bias}`}
+      title={t('cyclesCard.returnTooltip', {
+        label,
+        return: formatReturn(item.avg_return_pct),
+        bias: item.bias,
+      })}
     >
       <span className={`pres-return-value ${positive ? 'positive' : 'negative'}`}>
         {formatReturn(item.avg_return_pct)}
@@ -29,49 +38,54 @@ function ReturnBar({ item }: { item: PresidentialYearReturn }) {
           style={{ height: `${barHeight(item.avg_return_pct)}%` }}
         />
       </div>
-      <span className="pres-return-label">{item.label}</span>
+      <span className="pres-return-label">{label}</span>
       {item.is_current && <span className="pres-return-active-dot" aria-hidden />}
     </div>
   )
 }
 
 export function CycleCardPresidential({ cycle }: { cycle: PresidentialCycleStatus }) {
+  const { t } = useLocale()
+  const { signal, phase } = useDomainLabels()
   const yearReturns = cycle.year_returns ?? []
   const currentReturn = cycle.current_year_expected_return_pct ?? 0
   const cycleAvg = cycle.cycle_avg_return_pct ?? 8.5
+  const currentYearLabel = phase(cycle.current_year)
 
   return (
     <div className="cycle-card presidential">
       <div className="cycle-card-header">
-        <h2>Cykl prezydencki USA</h2>
-        <span className={`signal-tag signal-${cycle.signal}`}>{SIGNAL_LABELS[cycle.signal]}</span>
+        <h2>{t('cyclesCard.presTitle')}</h2>
+        <span className={`signal-tag signal-${cycle.signal}`}>{signal[cycle.signal]}</span>
       </div>
 
       <div className="cycle-stats pres-cycle-stats">
         <div className="stat">
-          <div className="stat-label">Prezydent</div>
+          <div className="stat-label">{t('cyclesCard.president')}</div>
           <div className="stat-value">{cycle.president}</div>
         </div>
         <div className="stat">
-          <div className="stat-label">Rok kadencji</div>
-          <div className="stat-value">{PHASE_LABELS[cycle.current_year] ?? cycle.current_year}</div>
+          <div className="stat-label">{t('cyclesCard.termYear')}</div>
+          <div className="stat-value">{currentYearLabel}</div>
         </div>
         <div className="stat">
-          <div className="stat-label">Historyczny zwrot</div>
+          <div className="stat-label">{t('cyclesCard.historicalReturn')}</div>
           <div className={`stat-value ${currentReturn >= cycleAvg ? 'positive' : 'negative'}`}>
             {formatReturn(currentReturn)}
-            <em>/rok</em>
+            <em>{t('cyclesCard.perYear')}</em>
           </div>
         </div>
         <div className="stat">
-          <div className="stat-label">Średnia cyklu</div>
+          <div className="stat-label">{t('cyclesCard.cycleAvg')}</div>
           <div className="stat-value stat-small">{formatReturn(cycleAvg)}</div>
         </div>
       </div>
 
       <div className="pres-return-chart-wrap">
         <div className="pres-return-chart-head">
-          <span className="pres-return-chart-title">{cycle.benchmark ?? 'S&P 500'} · roczna zmiana</span>
+          <span className="pres-return-chart-title">
+            {t('cyclesCard.benchmarkChange', { benchmark: cycle.benchmark ?? 'S&P 500' })}
+          </span>
           <span className="pres-return-chart-note">{cycle.benchmark_note}</span>
         </div>
 
@@ -87,7 +101,7 @@ export function CycleCardPresidential({ cycle }: { cycle: PresidentialCycleStatu
           <div className="pres-return-bars">
             <div className="pres-return-zero-line" aria-hidden />
             <div className="pres-return-avg-line" style={{ bottom: `${barHeight(cycleAvg)}%` }}>
-              <span>śr. {formatReturn(cycleAvg)}</span>
+              <span>{t('cyclesCard.avg', { n: formatReturn(cycleAvg) })}</span>
             </div>
             {yearReturns.map((item) => (
               <ReturnBar key={item.year} item={item} />
@@ -96,19 +110,19 @@ export function CycleCardPresidential({ cycle }: { cycle: PresidentialCycleStatu
         </div>
 
         <div className="pres-return-legend">
-          <span className="pres-legend-item tone-weak">Najsłabszy</span>
-          <span className="pres-legend-item tone-moderate">Umiarkowany</span>
-          <span className="pres-legend-item tone-best">Najsilniejszy</span>
+          <span className="pres-legend-item tone-weak">{t('cyclesCard.weakest')}</span>
+          <span className="pres-legend-item tone-moderate">{t('cyclesCard.moderate')}</span>
+          <span className="pres-legend-item tone-best">{t('cyclesCard.strongest')}</span>
         </div>
       </div>
 
       <div className="pres-year-progress">
         <div className="pres-year-progress-head">
           <span>
-            Postęp {PHASE_LABELS[cycle.current_year] ?? `Rok ${cycle.year_number}`}
+            {t('cyclesCard.progress')} {currentYearLabel}
           </span>
           <span className="tabular">
-            {cycle.year_progress_pct}% · {cycle.days_remaining_in_year} dni
+            {cycle.year_progress_pct}% · {cycle.days_remaining_in_year} {t('cyclesCard.days')}
           </span>
         </div>
         <div className="progress-bar">

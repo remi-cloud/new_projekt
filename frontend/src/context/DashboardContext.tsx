@@ -1,7 +1,9 @@
-import { createContext, useContext, ReactNode } from 'react'
+import { createContext, useContext, ReactNode, useMemo } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useDashboard } from '../hooks/useDashboard'
 import { usePaperPortfolioFeed } from '../hooks/usePaperPortfolio'
 import { DashboardResponse, PaperPortfolio } from '../types'
+import { needsDashboardFeed, needsLiveSse, needsPortfolioFeed } from '../utils/routeActivity'
 
 interface DashboardContextValue {
   data: DashboardResponse | null
@@ -16,14 +18,36 @@ interface DashboardContextValue {
   portfolioLoading: boolean
   portfolioError: string | null
   reloadPortfolio: () => Promise<void>
+  dashboardActive: boolean
 }
 
 const DashboardContext = createContext<DashboardContextValue | null>(null)
 
 export function DashboardProvider({ children }: { children: ReactNode }) {
-  const dashboard = useDashboard()
-  const portfolioFeed = usePaperPortfolioFeed(60_000, dashboard.lastEventAt)
-  const value: DashboardContextValue = { ...dashboard, ...portfolioFeed }
+  const { pathname } = useLocation()
+  const dashboardActive = needsDashboardFeed(pathname)
+  const portfolioActive = needsPortfolioFeed(pathname)
+  const sseActive = needsLiveSse(pathname)
+
+  const dashboard = useDashboard({
+    enabled: dashboardActive,
+    poll: dashboardActive,
+    sse: sseActive,
+  })
+  const portfolioFeed = usePaperPortfolioFeed(
+    60_000,
+    sseActive ? dashboard.lastEventAt : null,
+    portfolioActive,
+  )
+
+  const value = useMemo<DashboardContextValue>(
+    () => ({
+      ...dashboard,
+      ...portfolioFeed,
+      dashboardActive,
+    }),
+    [dashboard, portfolioFeed, dashboardActive],
+  )
 
   return <DashboardContext.Provider value={value}>{children}</DashboardContext.Provider>
 }
@@ -34,7 +58,7 @@ export function useDashboardContext() {
   return ctx
 }
 
-/** Portfolio state from global feed (polls in background on all pages). */
+/** Portfolio state from global feed (polls only on trading routes). */
 export function usePaperPortfolio() {
   const ctx = useDashboardContext()
   return {

@@ -1,10 +1,50 @@
+# Dependencies & build
 node_modules/
 dist/
 .venv/
+backend/.venv/
+venv/
+*.tsbuildinfo
+
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# Env & secrets
 .env
+.env.local
+.env.*.local
+*.pem
+
+# App data (runtime)
 backend/data/
 backend/static/
 *.db
-*.tsbuildinfo
+*.sqlite
+*.sqlite3
+
+# Local backups (full project snapshots — keep on disk, never commit)
+backups/session_*/
+backups/sessions_auto/
+backups/progress/
+backups/LATEST_SESSION.txt
+backups/latest_session
+backups/*.sqlite
+backups/*_latest.*
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Debug / logs
+*.log
+.cursor/debug-*.log

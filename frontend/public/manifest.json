@@ -1,7 +1,7 @@
 {
-  "name": "Cyclical Trader",
+  "name": "Cyclical Academy",
   "short_name": "Cyclical",
-  "description": "Trading cykliczny — krypto i rynki tradycyjne",
+  "description": "Edukacja rynków przez cykle — krypto i rynki tradycyjne",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#000000",

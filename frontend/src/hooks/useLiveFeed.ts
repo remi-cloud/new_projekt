@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { API_BASE } from '../api'
+import { ApiError } from '../i18n/apiErrors'
 
 export interface LiveEvent {
   type: string
@@ -7,13 +8,18 @@ export interface LiveEvent {
   at?: string
 }
 
-export function useLiveFeed(onEvent?: (event: LiveEvent) => void) {
+export function useLiveFeed(onEvent?: (event: LiveEvent) => void, enabled = true) {
   const [connected, setConnected] = useState(false)
   const [lastEventAt, setLastEventAt] = useState<string | null>(null)
   const onEventRef = useRef(onEvent)
   onEventRef.current = onEvent
 
   useEffect(() => {
+    if (!enabled) {
+      setConnected(false)
+      return
+    }
+
     let es: EventSource | null = null
     let retryMs = 3000
 
@@ -43,7 +49,7 @@ export function useLiveFeed(onEvent?: (event: LiveEvent) => void) {
 
     connect()
     return () => es?.close()
-  }, [])
+  }, [enabled])
 
   return { connected, lastEventAt }
 }
@@ -57,11 +63,11 @@ function urlBase64ToUint8Array(base64String: string) {
 
 export async function subscribeToPush(vapidPublicKey: string): Promise<boolean> {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    throw new Error('Push nie jest wspierany w tej przeglądarce')
+    throw new ApiError('pushUnsupported')
   }
   const permission = await Notification.requestPermission()
   if (permission !== 'granted') {
-    throw new Error('Brak zgody na powiadomienia')
+    throw new ApiError('pushDenied')
   }
   const reg = await navigator.serviceWorker.register('/sw.js')
   await navigator.serviceWorker.ready
@@ -75,6 +81,6 @@ export async function subscribeToPush(vapidPublicKey: string): Promise<boolean> 
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ endpoint: json.endpoint, keys: json.keys }),
   })
-  if (!res.ok) throw new Error('Nie udało się zapisać subskrypcji')
+  if (!res.ok) throw new ApiError('pushSubscribeFailed')
   return true
 }

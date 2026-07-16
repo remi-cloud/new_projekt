@@ -29,6 +29,7 @@ LOOKBACK_BARS: dict[str, int] = {
     "3M": 126,
     "1Y": 252,
     "MAX": 252,
+    "10Y": 252,
 }
 
 CHANGE_BARS: dict[str, int] = {
@@ -44,6 +45,7 @@ CHANGE_BARS: dict[str, int] = {
     "3M": 2,
     "1Y": 2,
     "MAX": 2,
+    "10Y": 2,
 }
 
 MIN_WARMUP = 35

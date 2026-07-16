@@ -27,6 +27,7 @@ INVESTING_CHART_PRESETS: dict[str, tuple[str, str, int]] = {
     "3M": ("P3M", "P1D", 90),
     "1Y": ("P1Y", "P1D", 120),
     "MAX": ("MAX", "P1W", 120),
+    "10Y": ("MAX", "P1W", 200),
 }
 
 QUOTE_CHART = ("P1Y", "P1D", 120)

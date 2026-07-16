@@ -1,6 +1,5 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ASSET_LABELS, PHASE_LABELS, REGION_LABELS, SIGNAL_LABELS } from '../constants'
 import { phaseTagClass, confidenceTier } from '../utils/phaseTags'
 import { useLazyVisible } from '../hooks/useLazyVisible'
 import { useLiveQuote } from '../hooks/useLiveQuote'
@@ -11,6 +10,10 @@ import { TradePanel } from './PaperTrading'
 import { ChartLoader } from './TradingChart'
 import { PriceHeader } from './PriceHeader'
 import { TradingViewChart, TradingViewQuote } from './TradingViewChart'
+import { TagTip } from './TagTip'
+import { useLocale } from '../context/LocaleContext'
+import { useDomainLabels } from '../i18n/useDomainLabels'
+import type { TranslationPath } from '../i18n'
 
 interface InstrumentPanelProps {
   item: AssetCycleAssessment
@@ -19,13 +22,34 @@ interface InstrumentPanelProps {
 
 type ChartMode = 'live' | 'cycles'
 
+type RationaleKind = 'cycle' | 'price' | 'momentum' | 'other'
+
+function parseRationaleChunks(raw: string): { kind: RationaleKind; label: string; detail: string; full: string }[] {
+  const matches = [...raw.matchAll(/\[([^\]]+)\]/g)].map((m) => m[1].trim())
+  const parts = matches.length > 0 ? matches : raw.trim() ? [raw.trim()] : []
+  return parts.map((full) => {
+    const idx = full.indexOf(':')
+    const label = (idx >= 0 ? full.slice(0, idx) : full).trim()
+    const detail = (idx >= 0 ? full.slice(idx + 1) : full).trim()
+    const low = label.toLowerCase()
+    let kind: RationaleKind = 'other'
+    if (low.includes('cykl') || low.includes('cycle') || low.includes('btc') || low.includes('pres')) kind = 'cycle'
+    else if (low.includes('cena') || low.includes('price') || low.includes('prix') || low.includes('preis')) kind = 'price'
+    else if (low.includes('momentum') || low.includes('mom.')) kind = 'momentum'
+    return { kind, label, detail, full }
+  })
+}
+
 export function InstrumentPanel({ item, expanded = false }: InstrumentPanelProps) {
   const navigate = useNavigate()
+  const { t } = useLocale()
+  const { asset, region, signal, phase } = useDomainLabels()
   const { ref, visible } = useLazyVisible()
   const [chartData, setChartData] = useState<ChartResponse | null>(null)
   const [preset, setPreset] = useState<ChartPreset>('1m')
   const [chartMode, setChartMode] = useState<ChartMode>('live')
   const [tradesRevision, setTradesRevision] = useState(0)
+  const [openTip, setOpenTip] = useState<string | null>(null)
 
   const openDetail = () => navigate(`/instrument/${encodeURIComponent(item.symbol)}`)
 
@@ -35,6 +59,29 @@ export function InstrumentPanel({ item, expanded = false }: InstrumentPanelProps
     expanded ? 15_000 : 60_000,
   )
   const displayPrice = liveQuote?.price ?? chartData?.current_price ?? item.price
+  const confTier = confidenceTier(item.confidence)
+  const regionKey = (['global', 'us', 'eu', 'asia', 'em', 'pl'] as const).includes(
+    item.region as 'global' | 'us' | 'eu' | 'asia' | 'em' | 'pl',
+  )
+    ? (item.region as 'global' | 'us' | 'eu' | 'asia' | 'em' | 'pl')
+    : 'global'
+  const phaseKey = item.price_phase || 'neutral'
+  const momPhaseKey = item.momentum_phase || ''
+
+  const rationaleChunks = useMemo(() => parseRationaleChunks(item.rationale || ''), [item.rationale])
+
+  const tipForKind = (kind: RationaleKind) => {
+    if (kind === 'cycle') {
+      return { body: t('tagTips.layerCycle.body'), hint: t('tagTips.layerCycle.hint') }
+    }
+    if (kind === 'price') {
+      return { body: t('tagTips.layerPrice.body'), hint: t('tagTips.layerPrice.hint') }
+    }
+    if (kind === 'momentum') {
+      return { body: t('tagTips.layerMomentum.body'), hint: t('tagTips.layerMomentum.hint') }
+    }
+    return { body: t('tagTips.layerOther.body'), hint: t('tagTips.layerOther.hint') }
+  }
 
   return (
     <article
@@ -52,10 +99,10 @@ export function InstrumentPanel({ item, expanded = false }: InstrumentPanelProps
               <span className="price-ticker">{item.symbol}</span>
               <span className="price-name">{item.name}</span>
             </div>
-            <span className={`signal-tag signal-${item.signal}`}>{SIGNAL_LABELS[item.signal]}</span>
+            <span className={`signal-tag signal-${item.signal}`}>{signal[item.signal]}</span>
           </div>
           <TradingViewQuote symbol={item.symbol} assetClass={item.asset_class} region={item.region} />
-          <p className="tv-price-hint">Cena live · TradingView (sesja + after-hours)</p>
+          <p className="tv-price-hint">{t('chart.livePriceHint')}</p>
         </div>
       ) : (
         <PriceHeader
@@ -67,7 +114,7 @@ export function InstrumentPanel({ item, expanded = false }: InstrumentPanelProps
           livePrice={displayPrice}
           change24h={liveQuote?.change_pct_24h ?? item.change_pct_24h}
           change7d={item.change_pct_7d}
-          signalLabel={SIGNAL_LABELS[item.signal]}
+          signalLabel={signal[item.signal]}
           signalAction={item.signal}
           compact={!expanded}
         />
@@ -80,7 +127,7 @@ export function InstrumentPanel({ item, expanded = false }: InstrumentPanelProps
               <span className="terminal-chrome-symbol">{item.symbol}</span>
               <span className="terminal-chrome-name">{item.name}</span>
             </div>
-            <span className="terminal-chrome-live">LIVE</span>
+            <span className="terminal-chrome-live">{t('common.live')}</span>
           </div>
         )}
 
@@ -91,14 +138,14 @@ export function InstrumentPanel({ item, expanded = false }: InstrumentPanelProps
               className={`tf-btn ${chartMode === 'live' ? 'active' : ''}`}
               onClick={() => setChartMode('live')}
             >
-              Live · TradingView
+              {t('chart.liveTv')}
             </button>
             <button
               type="button"
               className={`tf-btn ${chartMode === 'cycles' ? 'active' : ''}`}
               onClick={() => setChartMode('cycles')}
             >
-              Cykle · RSI · WEJ/WYJ
+              {t('chart.cyclesRsi')}
             </button>
           </div>
         )}
@@ -172,12 +219,12 @@ export function InstrumentPanel({ item, expanded = false }: InstrumentPanelProps
             )}
             {expanded && chartMode === 'cycles' && (
               <div className="chart-trade-legend">
-                <span className="legend-rsi">RSI zielone wyprzedanie / czerwone wykupienie</span>
-                <span className="legend-cycle-buy">▲ WEJ — wejście cykliczne</span>
-                <span className="legend-cycle-sell">▼ WYJ — wyjście cykliczne</span>
-                <span className="legend-buy">▲ Paper kupno</span>
-                <span className="legend-sell">▼ Paper sprzedaż</span>
-                <span className="legend-open">● Otwarcie pozycji</span>
+                <span className="legend-rsi">{t('chart.legendRsi')}</span>
+                <span className="legend-cycle-buy">{t('chart.legendCycleBuy')}</span>
+                <span className="legend-cycle-sell">{t('chart.legendCycleSell')}</span>
+                <span className="legend-buy">{t('chart.legendPaperBuy')}</span>
+                <span className="legend-sell">{t('chart.legendPaperSell')}</span>
+                <span className="legend-open">{t('chart.legendOpen')}</span>
               </div>
             )}
           </>
@@ -186,31 +233,108 @@ export function InstrumentPanel({ item, expanded = false }: InstrumentPanelProps
       </div>
 
       <div className="instrument-footer">
-        <div className="market-tags">
-          <span className={`tag ${item.asset_class}`}>{ASSET_LABELS[item.asset_class]}</span>
-          <span className="tag region">{REGION_LABELS[item.region as keyof typeof REGION_LABELS] ?? item.region}</span>
-          <span className={`tag phase-tag ${phaseTagClass(item.price_phase)}`}>
-            {PHASE_LABELS[item.price_phase] ?? item.price_phase}
-          </span>
+        <p className="tag-tips-hint">{t('tagTips.clickHint')}</p>
+        <div className="market-tags" onClick={(e) => e.stopPropagation()}>
+          <TagTip
+            tipId="asset"
+            openId={openTip}
+            onOpen={setOpenTip}
+            className={item.asset_class}
+            label={asset[item.asset_class]}
+            title={asset[item.asset_class]}
+            body={t(`tagTips.asset.${item.asset_class}.body` as TranslationPath)}
+            hint={t(`tagTips.asset.${item.asset_class}.hint` as TranslationPath)}
+          />
+          <TagTip
+            tipId="region"
+            openId={openTip}
+            onOpen={setOpenTip}
+            className="region"
+            label={region[regionKey] ?? item.region}
+            title={region[regionKey] ?? item.region}
+            body={t(`tagTips.region.${regionKey}.body`)}
+            hint={t(`tagTips.region.${regionKey}.hint`)}
+          />
+          <TagTip
+            tipId="phase"
+            openId={openTip}
+            onOpen={setOpenTip}
+            className={`phase-tag ${phaseTagClass(item.price_phase)}`}
+            label={phase(item.price_phase)}
+            title={phase(item.price_phase)}
+            body={t(`tagTips.phase.${phaseKey}.body` as TranslationPath)}
+            hint={t(`tagTips.phase.${phaseKey}.hint` as TranslationPath)}
+          />
           {item.momentum_score != null && (
-            <span
-              className={`tag momentum-score phase-tag ${phaseTagClass(item.momentum_phase)} ${item.is_momentum_pick ? 'momentum-pick' : ''}`}
-            >
-              Mom. {item.momentum_score.toFixed(0)}
-              {item.momentum_phase ? ` · ${PHASE_LABELS[item.momentum_phase] ?? item.momentum_phase}` : ''}
-            </span>
+            <TagTip
+              tipId="momScore"
+              openId={openTip}
+              onOpen={setOpenTip}
+              className="momentum-score"
+              label={t('opportunities.momScore', { n: item.momentum_score.toFixed(0) })}
+              title={t('opportunities.momScore', { n: item.momentum_score.toFixed(0) })}
+              body={t('tagTips.momScore.body', { n: item.momentum_score.toFixed(0) })}
+              hint={t('tagTips.momScore.hint')}
+            />
           )}
-          {item.is_momentum_pick && <span className="tag momentum-pick">⚡ Momentum + cykl</span>}
-          <span
-            className={`signal-tag signal-${item.signal} conf-tier-${confidenceTier(item.confidence)}`}
-            title={`Pewność sygnału ${item.confidence}% — im wyżej, tym silniejsza okazja ${item.signal === 'buy' ? 'kupna' : item.signal === 'sell' ? 'sprzedaży' : ''}`}
-          >
-            {item.confidence}%
-          </span>
+          {momPhaseKey ? (
+            <TagTip
+              tipId="momPhase"
+              openId={openTip}
+              onOpen={setOpenTip}
+              className={`phase-tag ${phaseTagClass(item.momentum_phase)}`}
+              label={phase(momPhaseKey)}
+              title={phase(momPhaseKey)}
+              body={t(`tagTips.phase.${momPhaseKey}.body` as TranslationPath)}
+              hint={t(`tagTips.phase.${momPhaseKey}.hint` as TranslationPath)}
+            />
+          ) : null}
+          {item.is_momentum_pick && (
+            <TagTip
+              tipId="momPick"
+              openId={openTip}
+              onOpen={setOpenTip}
+              className="momentum-pick"
+              label={t('instrument.momentumTag')}
+              title={t('instrument.momentumTag')}
+              body={t('tagTips.momPick.body')}
+              hint={t('tagTips.momPick.hint')}
+            />
+          )}
+          <TagTip
+            tipId="conf"
+            openId={openTip}
+            onOpen={setOpenTip}
+            className={`signal-tag signal-${item.signal} conf-tier-${confTier}`}
+            label={`${item.confidence}%`}
+            title={`${item.confidence}%`}
+            body={t(`tagTips.confidence.${confTier}.body`, { n: item.confidence })}
+            hint={t(`tagTips.confidence.${confTier}.hint`)}
+          />
         </div>
-        {!expanded && (
-          <span className="tap-hint">Stuknij aby powiększyć →</span>
+
+        {rationaleChunks.length > 0 && (
+          <div className="market-rationale-tips" onClick={(e) => e.stopPropagation()}>
+            {rationaleChunks.map((chunk, i) => {
+              const layer = tipForKind(chunk.kind)
+              return (
+                <TagTip
+                  key={`${chunk.label}-${i}`}
+                  tipId={`rat-${i}`}
+                  openId={openTip}
+                  onOpen={setOpenTip}
+                  className={`rationale-chip kind-${chunk.kind}`}
+                  label={chunk.full}
+                  title={chunk.label}
+                  body={`${layer.body} ${chunk.detail}`}
+                  hint={layer.hint}
+                />
+              )
+            })}
+          </div>
         )}
+
+        {!expanded && <span className="tap-hint">{t('instrument.tapExpand')}</span>}
         {expanded && (
           <TradePanel
             symbol={item.symbol}
@@ -219,7 +343,6 @@ export function InstrumentPanel({ item, expanded = false }: InstrumentPanelProps
             onTrade={() => setTradesRevision((n) => n + 1)}
           />
         )}
-        <p className="market-rationale">{item.rationale}</p>
       </div>
     </article>
   )

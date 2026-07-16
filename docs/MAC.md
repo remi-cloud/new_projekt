@@ -1,4 +1,4 @@
-# Cyclical Trader na Macu (Terminal)
+# Cyclical Academy na Macu (Terminal)
 
 **Pierwszy raz?** Zacznij od folderów: [`MAC-SETUP.md`](MAC-SETUP.md)
 

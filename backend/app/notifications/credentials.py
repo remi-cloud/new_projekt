@@ -6,6 +6,7 @@ import json
 import logging
 from pathlib import Path
 
+from app.config import settings
 from app.db.paths import database_path
 
 logger = logging.getLogger(__name__)

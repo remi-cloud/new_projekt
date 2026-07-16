@@ -1,8 +1,10 @@
 from datetime import date, datetime
 from enum import Enum
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
+
+MacroNewsCategory = Literal["fed", "usa", "macro", "global", "musk"]
 
 
 class AssetClass(str, Enum):
@@ -92,6 +94,20 @@ class AssetQuote(BaseModel):
     updated_at: datetime
 
 
+class BrokerOption(BaseModel):
+    id: str
+    name: str
+    regions: list[str] = Field(default_factory=list)
+    url: str = ""
+    notes: str = ""
+
+
+class BrokerPurchaseInfo(BaseModel):
+    primary_exchange: str | None = None
+    brokers: list[BrokerOption] = Field(default_factory=list)
+    disclaimer: str = ""
+
+
 class AssetCycleAssessment(BaseModel):
     symbol: str
     name: str
@@ -113,6 +129,7 @@ class AssetCycleAssessment(BaseModel):
     confidence: float = Field(ge=0, le=100)
     rationale: str
     updated_at: datetime
+    broker_info: Optional[BrokerPurchaseInfo] = None
 
 
 class MarketSummary(BaseModel):
@@ -186,6 +203,51 @@ class RegionalCycleSnapshot(BaseModel):
     rationale: str
 
 
+class MacroNewsItem(BaseModel):
+    id: str
+    title: str
+    summary: str | None = None
+    url: str | None = None
+    image_url: str | None = None
+    source_image_url: str | None = None
+    source: str
+    category: MacroNewsCategory
+    impact: str = "medium"
+    published_at: datetime
+    is_curated: bool = False
+    age_minutes: int | None = None
+
+
+class MacroCalendarEvent(BaseModel):
+    id: str
+    title: str
+    event_date: date
+    days_until: int
+    category: str
+    impact: str = "high"
+    time_utc: str = "13:30"
+    region: str = "US"
+
+
+class MacroCalendarMonthResponse(BaseModel):
+    year: int
+    month: int
+    events: list[MacroCalendarEvent]
+    news: list[MacroNewsItem] = Field(default_factory=list)
+    fetched_at: datetime
+    poll_interval_seconds: int = 120
+
+
+class MacroNewsFeed(BaseModel):
+    items: list[MacroNewsItem]
+    calendar_events: list[MacroCalendarEvent] = Field(default_factory=list)
+    fetched_at: datetime
+    counts: dict[str, int] = Field(default_factory=dict)
+    sources_count: int = 0
+    poll_interval_seconds: int = 120
+    fresh_count_1h: int = 0
+
+
 class DashboardResponse(BaseModel):
     bitcoin_cycle: BitcoinCycleStatus
     presidential_cycle: PresidentialCycleStatus
@@ -210,6 +272,7 @@ class AlertSettings(BaseModel):
     min_confidence: float = Field(default=60, ge=40, le=95)
     alert_on_signal_change: bool = True
     alert_on_new_opportunity: bool = True
+    alert_on_macro_news: bool = True
 
 
 class TwilioConfigRequest(BaseModel):
@@ -264,6 +327,32 @@ class PaperPositionView(BaseModel):
     currency: str
     opened_at: str | None = None
     pending_limit_orders: list["PaperLimitOrderView"] = Field(default_factory=list)
+    broker_info: BrokerPurchaseInfo | None = None
+
+
+class PearlFind(BaseModel):
+    id: int | None = None
+    agent_id: str
+    symbol: str
+    name: str
+    asset_class: AssetClass
+    region: str = "global"
+    price: float = 0.0
+    change_pct_24h: float | None = None
+    score: float = 0.0
+    confidence: float = 0.0
+    action: SignalAction = "watch"
+    rationale: str = ""
+    source: str = ""
+    found_at: datetime
+    broker_info: BrokerPurchaseInfo | None = None
+
+
+class PearlHunterStatus(BaseModel):
+    enabled: bool
+    agents: list[dict] = Field(default_factory=list)
+    finds_count: int = 0
+    last_run_at: datetime | None = None
 
 
 class PaperTradeView(BaseModel):
@@ -334,3 +423,87 @@ class PaperPortfolio(BaseModel):
     limit_orders: list[PaperLimitOrderView] = []
     recent_trades: list[PaperTradeView]
     quotes_available: int
+
+
+class AiChatRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=4000)
+    session_id: str | None = None
+    locale: str = "pl"
+    symbol: str | None = None
+
+
+class AiChatResponse(BaseModel):
+    session_id: str
+    reply: str
+    message_id: int
+    tools_used: list[str] = Field(default_factory=list)
+    tool_results: list[dict] = Field(default_factory=list)
+    critic_score: float | None = None
+    llm_active: bool = False
+    tool_count: int = 0
+
+
+class AiFeedbackRequest(BaseModel):
+    session_id: str
+    message_id: int | None = None
+    rating: int = Field(ge=1, le=5)
+    correction: str | None = None
+    question: str | None = None
+    answer: str | None = None
+
+
+class AiStatusResponse(BaseModel):
+    enabled: bool
+    llm_configured: bool
+    model: str
+    features: list[str]
+    knowledge_entries: int = 0
+    learning_notes: int = 0
+
+
+class AiAnalyzeResponse(BaseModel):
+    symbol: str
+    summary: str
+    tools: list[dict] = Field(default_factory=list)
+    llm_active: bool = False
+
+
+class RoiCalculateRequest(BaseModel):
+    symbol: str
+    amount: float = Field(gt=0, le=100_000_000)
+    strategy: str = "buy_hold"  # buy_hold | cycle | dca | cycle_dca
+    mode: str = "forward"  # forward | backtest
+    years: int = Field(default=30, ge=1, le=50)
+    monthly_contribution: float = Field(default=0, ge=0, le=10_000_000)
+    start: date | None = None
+    end: date | None = None
+    compare_buy_hold: bool = True
+
+
+class RoiAssetInfo(BaseModel):
+    symbol: str
+    name: str
+    asset_class: str
+    region: str
+    history_from: str
+
+
+class NewsletterRequest(BaseModel):
+    email: str
+    locale: str | None = None
+    source: str = "web"
+
+
+class BusinessLeadRequest(BaseModel):
+    name: str
+    email: str
+    company: str | None = None
+    package: str | None = None
+    message: str | None = None
+    locale: str | None = None
+
+
+class WatchlistVoteRequest(BaseModel):
+    symbol: str
+    name: str | None = None
+

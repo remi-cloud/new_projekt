@@ -87,6 +87,52 @@ export interface AssetCycleAssessment {
   confidence: number
   rationale: string
   updated_at: string
+  broker_info?: BrokerPurchaseInfo | null
+}
+
+export interface BrokerOption {
+  id: string
+  name: string
+  regions: string[]
+  url: string
+  notes: string
+}
+
+export interface BrokerPurchaseInfo {
+  primary_exchange?: string | null
+  brokers: BrokerOption[]
+  disclaimer: string
+}
+
+export interface PearlFind {
+  id?: number | null
+  agent_id: string
+  symbol: string
+  name: string
+  asset_class: AssetClass
+  region: string
+  price: number
+  change_pct_24h?: number | null
+  score: number
+  confidence: number
+  action: SignalAction
+  rationale: string
+  source: string
+  found_at: string
+  broker_info?: BrokerPurchaseInfo | null
+}
+
+export interface PearlHunterStatus {
+  enabled: boolean
+  agents: Array<{
+    id: string
+    name: string
+    last_run_at?: string | null
+    last_count?: number
+    last_error?: string
+  }>
+  finds_count: number
+  last_run_at?: string | null
 }
 
 export interface MarketSummary {
@@ -126,6 +172,53 @@ export interface RegionalCycleSnapshot {
   rationale: string
 }
 
+export type MacroNewsCategory = 'fed' | 'usa' | 'macro' | 'global' | 'musk'
+
+export interface MacroNewsItem {
+  id: string
+  title: string
+  summary: string | null
+  url: string | null
+  image_url: string | null
+  source_image_url?: string | null
+  source: string
+  category: MacroNewsCategory
+  impact: string
+  published_at: string
+  is_curated: boolean
+  age_minutes?: number | null
+}
+
+export interface MacroCalendarEvent {
+  id: string
+  title: string
+  event_date: string
+  days_until: number
+  category: string
+  impact: string
+  time_utc: string
+  region: string
+}
+
+export interface MacroCalendarMonth {
+  year: number
+  month: number
+  events: MacroCalendarEvent[]
+  news: MacroNewsItem[]
+  fetched_at: string
+  poll_interval_seconds: number
+}
+
+export interface MacroNewsFeed {
+  items: MacroNewsItem[]
+  calendar_events: MacroCalendarEvent[]
+  fetched_at: string
+  counts: Record<string, number>
+  sources_count: number
+  poll_interval_seconds: number
+  fresh_count_1h: number
+}
+
 export interface DashboardResponse {
   bitcoin_cycle: BitcoinCycleStatus
   presidential_cycle: PresidentialCycleStatus
@@ -150,6 +243,7 @@ export interface AlertSettings {
   min_confidence: number
   alert_on_signal_change: boolean
   alert_on_new_opportunity: boolean
+  alert_on_macro_news: boolean
 }
 
 export interface NotificationStatus {
@@ -211,6 +305,7 @@ export interface PaperPosition {
   currency: string
   opened_at?: string
   pending_limit_orders?: PaperLimitOrder[]
+  broker_info?: BrokerPurchaseInfo | null
 }
 
 export interface PaperTrade {
@@ -267,4 +362,135 @@ export interface PaperPortfolio {
   quotes_available: number
 }
 
-export type { ChartPreset, ChartCandle, ChartResponse } from './types/chart'
+export type { ChartPreset, ChartCandle, ChartResponse } from './chart'
+
+export type RoiStrategy = 'buy_hold' | 'cycle' | 'dca' | 'cycle_dca'
+export type RoiMode = 'forward' | 'backtest'
+
+export interface RoiAssetInfo {
+  symbol: string
+  name: string
+  asset_class: string
+  region: string
+  history_from: string
+}
+
+export interface RoiEquityPoint {
+  time: number
+  equity: number
+  price?: number
+  phase?: string
+}
+
+export interface RoiTrade {
+  time: number
+  action: 'buy' | 'sell' | string
+  price: number
+  amount: number
+  units: number
+  rationale: string
+  phase: string
+}
+
+export interface RoiMilestone {
+  year: number
+  date: string
+  base: number
+  optimistic: number
+  pessimistic: number
+  roi_pct: number
+}
+
+export interface RoiSentiment {
+  label: string
+  score: number
+  multiplier: number
+  momentum_signal: string
+  momentum_phase: string
+  rationale: string
+}
+
+export interface RoiCurrentCycle {
+  phase: string
+  days_since_ath: number | null
+  ath_date: string | null
+  ath_price: number | null
+  price: number
+  historical_cagr_pct: number
+  rationale: string
+  price_phase: string
+}
+
+export interface RoiCalculateResult {
+  mode?: RoiMode
+  symbol: string
+  name: string
+  asset_class: string
+  region: string
+  strategy: RoiStrategy
+  amount: number
+  monthly_contribution?: number
+  invested: number
+  final_value: number
+  final_optimistic?: number
+  final_pessimistic?: number
+  profit: number
+  roi_pct: number
+  cagr_pct: number
+  max_drawdown_pct: number
+  years: number
+  data_start: string | null
+  data_end: string | null
+  bars: number
+  cycle_source: string
+  equity_curve: RoiEquityPoint[]
+  optimistic_curve?: RoiEquityPoint[]
+  pessimistic_curve?: RoiEquityPoint[]
+  trades: RoiTrade[]
+  price_series: { time: number; value: number }[]
+  btc_cycle_aths: { date: string; price: number; label: string }[]
+  milestones?: RoiMilestone[]
+  sentiment?: RoiSentiment
+  current_cycle?: RoiCurrentCycle
+  disclaimer: string
+  buy_hold?: {
+    final_value: number
+    roi_pct: number
+    cagr_pct: number
+    max_drawdown_pct: number
+    equity_curve: RoiEquityPoint[]
+  }
+}
+
+export interface RoiShowcaseCard {
+  id: string
+  featured: boolean
+  symbol: string
+  name: string
+  strategy: RoiStrategy
+  amount: number
+  invested: number
+  final_value: number
+  profit: number
+  roi_pct: number
+  cagr_pct: number
+  years: number
+  data_start: string | null
+  data_end: string | null
+  buy_hold?: {
+    final_value: number
+    roi_pct: number
+    cagr_pct: number
+  }
+}
+
+export interface RoiShowcaseResult {
+  amount: number
+  years: number
+  start: string
+  end: string
+  strategy: RoiStrategy
+  cards: RoiShowcaseCard[]
+  disclaimer: string
+}
+

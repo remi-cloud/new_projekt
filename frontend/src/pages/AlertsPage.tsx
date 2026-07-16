@@ -7,9 +7,12 @@ import {
 } from '../api'
 import { subscribeToPush } from '../hooks/useLiveFeed'
 import { ErrorState } from '../components/Loading'
+import { useLocale } from '../context/LocaleContext'
+import { formatThrownError } from '../i18n/utils'
 import { AlertSettings, NotificationStatus, TwilioConfig } from '../types'
 
 export function AlertsPage() {
+  const { t } = useLocale()
   const [status, setStatus] = useState<NotificationStatus | null>(null)
   const [settings, setSettings] = useState<AlertSettings | null>(null)
   const [twilio, setTwilio] = useState<TwilioConfig>({ account_sid: '', auth_token: '', from_number: '' })
@@ -24,7 +27,7 @@ export function AlertsPage() {
         setStatus(s)
         setSettings(s.settings)
       })
-      .catch(() => setError('Nie udało się załadować ustawień'))
+      .catch(() => setError(t('alerts.loadError')))
 
   useEffect(() => {
     reload().finally(() => setLoading(false))
@@ -37,9 +40,9 @@ export function AlertsPage() {
     try {
       const saved = await saveAlertSettings(settings)
       setSettings(saved)
-      setMessage('Ustawienia zapisane ✓')
+      setMessage(t('alerts.saved'))
     } catch {
-      setMessage('Błąd zapisu ustawień')
+      setMessage(t('alerts.saveError'))
     } finally {
       setSaving(false)
     }
@@ -47,15 +50,15 @@ export function AlertsPage() {
 
   const handleEnablePush = async () => {
     if (!status?.vapid_public_key) {
-      setMessage('Push niedostępny — brak klucza VAPID na serwerze')
+      setMessage(t('alerts.pushUnavailable'))
       return
     }
     try {
       await subscribeToPush(status.vapid_public_key)
-      setMessage('Powiadomienia push włączone ✓')
+      setMessage(t('alerts.pushEnabled'))
       await reload()
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : 'Nie udało się włączyć push')
+      setMessage(formatThrownError(e, t('alerts.pushError')))
     }
   }
 
@@ -64,11 +67,11 @@ export function AlertsPage() {
     setMessage(null)
     try {
       await saveTwilioConfig(twilio)
-      setTwilio((t) => ({ ...t, auth_token: '' }))
-      setMessage('Dane Twilio zapisane na serwerze ✓')
+      setTwilio((prev) => ({ ...prev, auth_token: '' }))
+      setMessage(t('alerts.twilioSaved'))
       await reload()
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : 'Błąd zapisu Twilio')
+      setMessage(formatThrownError(e, t('alerts.twilioError')))
     } finally {
       setSaving(false)
     }
@@ -81,41 +84,39 @@ export function AlertsPage() {
       const ntfy = res.ntfy as { ok?: boolean; url?: string } | undefined
       const sms = res.sms as { ok?: boolean; message?: string } | undefined
       if (ntfy?.ok) {
-        setMessage(`Test ntfy wysłany — sprawdź aplikację ntfy (${ntfy.url})`)
+        setMessage(t('alerts.testNtfy', { url: ntfy.url ?? '' }))
       } else if (sms?.ok) {
-        setMessage(`Test SMS wysłany na ${settings?.phone}`)
+        setMessage(t('alerts.testSms', { phone: settings?.phone ?? '' }))
       } else {
-        setMessage(sms?.message || 'Test wysłany (ntfy) — sprawdź telefon')
+        setMessage(sms?.message || t('alerts.testSent'))
       }
     } catch {
-      setMessage('Test nie powiódł się')
+      setMessage(t('alerts.testFailed'))
     }
   }
 
-  if (loading) return <div className="page-loading">Ładowanie...</div>
+  if (loading) return <div className="page-loading">{t('alerts.loading')}</div>
   if (error) return <ErrorState message={error} onRetry={() => window.location.reload()} />
   if (!settings || !status) return null
 
   return (
     <div className="alerts-page">
       <div className="info-banner">
-        <h2>Powiadomienia</h2>
-        <p>
-          Alerty na <strong>{settings.phone}</strong>. Handel manualny — aplikacja tylko informuje
-          o sygnałach. Kanał <strong>ntfy</strong> działa od razu (bez konta). SMS wymaga Twilio.
-        </p>
+        <h2>{t('alerts.title')}</h2>
+        <p>{t('alerts.banner', { phone: settings.phone })}</p>
       </div>
 
       <section className="settings-card highlight-card">
-        <h3>📱 Telefon — ntfy (działa od razu)</h3>
+        <h3>{t('alerts.phoneNtfyTitle')}</h3>
         <p className="settings-hint">
-          1. Zainstaluj aplikację <strong>ntfy</strong> (Android/iOS)<br />
-          2. Dodaj subskrypcję tego tematu:
+          {t('alerts.phoneNtfyHint1')}
+          <br />
+          {t('alerts.phoneNtfyHint2')}
         </p>
         <code className="topic-code">{status.ntfy_subscribe_url || settings.ntfy_topic}</code>
         {status.ntfy_app_url && (
           <a className="btn-link tap-target" href={status.ntfy_app_url}>
-            Otwórz w aplikacji ntfy
+            {t('alerts.openNtfy')}
           </a>
         )}
         <label className="toggle-row">
@@ -124,49 +125,47 @@ export function AlertsPage() {
             checked={settings.ntfy_enabled}
             onChange={(e) => setSettings({ ...settings, ntfy_enabled: e.target.checked })}
           />
-          Wysyłaj alerty na telefon (ntfy)
+          {t('alerts.ntfyToggle')}
         </label>
       </section>
 
       <section className="settings-card">
-        <h3>SMS — Twilio</h3>
+        <h3>{t('alerts.smsTitle')}</h3>
         <p className="settings-hint">
-          {status.sms_configured
-            ? 'Twilio skonfigurowane ✓'
-            : 'Załóż konto na twilio.com/try-twilio, zweryfikuj swój numer telefonu i wklej dane poniżej:'}
+          {status.sms_configured ? t('alerts.smsConfigured') : t('alerts.smsNotConfigured')}
         </p>
         <label className="field-label">
-          Account SID (AC…)
+          {t('alerts.accountSid')}
           <input
             className="field-input"
             value={twilio.account_sid}
             onChange={(e) => setTwilio({ ...twilio, account_sid: e.target.value })}
-            placeholder="ACxxxxxxxx"
+            placeholder={t('alerts.placeholderSid')}
             autoComplete="off"
           />
         </label>
         <label className="field-label">
-          Auth Token
+          {t('alerts.authToken')}
           <input
             className="field-input"
             type="password"
             value={twilio.auth_token}
             onChange={(e) => setTwilio({ ...twilio, auth_token: e.target.value })}
-            placeholder="••••••••"
+            placeholder={t('alerts.placeholderToken')}
             autoComplete="new-password"
           />
         </label>
         <label className="field-label">
-          Numer nadawcy Twilio (E.164)
+          {t('alerts.fromNumber')}
           <input
             className="field-input"
             value={twilio.from_number}
             onChange={(e) => setTwilio({ ...twilio, from_number: e.target.value })}
-            placeholder="+39..."
+            placeholder={t('alerts.placeholderPhone')}
           />
         </label>
         <label className="field-label">
-          Twój numer (odbiorca)
+          {t('alerts.yourNumber')}
           <input
             type="tel"
             className="field-input"
@@ -180,35 +179,33 @@ export function AlertsPage() {
             checked={settings.sms_enabled}
             onChange={(e) => setSettings({ ...settings, sms_enabled: e.target.checked })}
           />
-          Wysyłaj SMS przy alertach
+          {t('alerts.smsToggle')}
         </label>
         <button type="button" className="btn-secondary tap-target" onClick={handleSaveTwilio} disabled={saving}>
-          Zapisz dane Twilio
+          {t('alerts.saveTwilio')}
         </button>
       </section>
 
       <section className="settings-card">
-        <h3>Push (przeglądarka)</h3>
-        <p className="settings-hint">
-          Subskrypcje: {status.push_subscriptions}
-        </p>
+        <h3>{t('alerts.pushTitle')}</h3>
+        <p className="settings-hint">{t('alerts.pushSubscriptions', { n: status.push_subscriptions })}</p>
         <label className="toggle-row">
           <input
             type="checkbox"
             checked={settings.push_enabled}
             onChange={(e) => setSettings({ ...settings, push_enabled: e.target.checked })}
           />
-          Wysyłaj powiadomienia push
+          {t('alerts.pushToggle')}
         </label>
         <button type="button" className="btn-secondary tap-target" onClick={handleEnablePush}>
-          Włącz push w tej przeglądarce
+          {t('alerts.enablePush')}
         </button>
       </section>
 
       <section className="settings-card">
-        <h3>Progi alertów</h3>
+        <h3>{t('alerts.thresholdsTitle')}</h3>
         <label className="field-label">
-          Minimalna pewność ({settings.min_confidence}%)
+          {t('alerts.minConfidence', { n: settings.min_confidence })}
           <input
             type="range"
             min={40}
@@ -220,10 +217,10 @@ export function AlertsPage() {
       </section>
 
       <button type="button" className="btn-primary tap-target" onClick={handleSave} disabled={saving}>
-        {saving ? 'Zapisywanie…' : 'Zapisz ustawienia'}
+        {saving ? t('alerts.saving') : t('alerts.save')}
       </button>
       <button type="button" className="btn-secondary tap-target" onClick={handleTest}>
-        Wyślij test powiadomienia
+        {t('alerts.sendTest')}
       </button>
 
       {message && <p className="settings-message">{message}</p>}

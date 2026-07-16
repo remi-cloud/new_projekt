@@ -7,6 +7,7 @@ from app.config import settings
 from app.db.paths import ensure_data_dir
 from app.db.sqlite import db_session
 from app.models.schemas import Opportunity
+from app.ai.db import init_ai_db
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +85,7 @@ async def init_db() -> None:
             (default_phone, ntfy_topic),
         )
         await db.commit()
+    await init_ai_db()
 
 
 async def _migrate_alert_settings(db: aiosqlite.Connection) -> None:
@@ -93,6 +95,8 @@ async def _migrate_alert_settings(db: aiosqlite.Connection) -> None:
         await db.execute("ALTER TABLE alert_settings ADD COLUMN ntfy_topic TEXT DEFAULT ''")
     if "ntfy_enabled" not in cols:
         await db.execute("ALTER TABLE alert_settings ADD COLUMN ntfy_enabled INTEGER DEFAULT 1")
+    if "alert_on_macro_news" not in cols:
+        await db.execute("ALTER TABLE alert_settings ADD COLUMN alert_on_macro_news INTEGER DEFAULT 1")
 
 
 async def save_opportunities(opportunities: list[Opportunity]) -> None:
@@ -169,6 +173,7 @@ async def get_alert_settings() -> dict:
                 "min_confidence": settings.alert_min_confidence,
                 "alert_on_signal_change": True,
                 "alert_on_new_opportunity": True,
+                "alert_on_macro_news": True,
             }
         keys = row.keys() if hasattr(row, "keys") else []
         return {
@@ -180,6 +185,7 @@ async def get_alert_settings() -> dict:
             "min_confidence": float(row["min_confidence"]),
             "alert_on_signal_change": bool(row["alert_on_signal_change"]),
             "alert_on_new_opportunity": bool(row["alert_on_new_opportunity"]),
+            "alert_on_macro_news": bool(row["alert_on_macro_news"]) if "alert_on_macro_news" in keys else True,
         }
 
 
@@ -193,7 +199,8 @@ async def update_alert_settings(data: dict) -> dict:
                ntfy_enabled = ?,
                min_confidence = ?,
                alert_on_signal_change = ?,
-               alert_on_new_opportunity = ?
+               alert_on_new_opportunity = ?,
+               alert_on_macro_news = ?
                WHERE id = 1""",
             (
                 data.get("phone", ""),
@@ -203,6 +210,7 @@ async def update_alert_settings(data: dict) -> dict:
                 float(data.get("min_confidence", settings.alert_min_confidence)),
                 1 if data.get("alert_on_signal_change", True) else 0,
                 1 if data.get("alert_on_new_opportunity", True) else 0,
+                1 if data.get("alert_on_macro_news", True) else 0,
             ),
         )
         await db.commit()

@@ -1,14 +1,9 @@
 import { Link } from 'react-router-dom'
+import { useLocale } from '../context/LocaleContext'
 import { PaperClosedPosition, PaperLimitOrder, PaperPosition } from '../types'
 import { formatPln } from '../utils/format'
+import { BrokerPurchaseHint } from './BrokerPurchaseHint'
 import { PositionTradeControl } from './PositionTradeControl'
-
-function formatDt(iso?: string): string | null {
-  if (!iso) return null
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return null
-  return d.toLocaleString('pl-PL')
-}
 
 interface PositionsSectionProps {
   tab: 'open' | 'closed'
@@ -33,12 +28,21 @@ export function PositionsSection({
   tradingSymbol,
   onTradeComplete,
 }: PositionsSectionProps) {
+  const { t, dateLocale } = useLocale()
+
+  const formatDt = (iso?: string): string | null => {
+    if (!iso) return null
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return null
+    return d.toLocaleString(dateLocale)
+  }
+
   return (
     <section className="portfolio-section positions-section">
       <div className="section-header">
         <div className="section-header-left">
-          <h3 className="section-title">Pozycje</h3>
-          <div className="position-tabs" role="tablist" aria-label="Otwarte i zamknięte pozycje">
+          <h3 className="section-title">{t('positions.title')}</h3>
+          <div className="position-tabs" role="tablist" aria-label={t('positions.tabsAria')}>
             <button
               type="button"
               role="tab"
@@ -46,7 +50,7 @@ export function PositionsSection({
               className={`position-tab ${tab === 'open' ? 'active' : ''}`}
               onClick={() => onTabChange('open')}
             >
-              Otwarte
+              {t('positions.open')}
               <span className="position-tab-count">{openCount}</span>
             </button>
             <button
@@ -56,7 +60,7 @@ export function PositionsSection({
               className={`position-tab ${tab === 'closed' ? 'active' : ''}`}
               onClick={() => onTabChange('closed')}
             >
-              Zamknięte
+              {t('positions.closed')}
               <span className="position-tab-count">{closedCount}</span>
             </button>
           </div>
@@ -65,14 +69,14 @@ export function PositionsSection({
 
       {tab === 'open' ? (
         openCount === 0 ? (
-          <p className="empty-state">Brak otwartych pozycji. Kup instrument na stronie Rynki.</p>
+          <p className="empty-state">{t('positions.emptyOpen')}</p>
         ) : (
           <div className="data-table positions-table">
             <div className="data-table-head">
-              <span>Instrument</span>
-              <span>Ilość</span>
-              <span>Wartość</span>
-              <span>P/L (nereal.)</span>
+              <span>{t('table.instrument')}</span>
+              <span>{t('table.quantity')}</span>
+              <span>{t('table.value')}</span>
+              <span>{t('table.pnlUnrealized')}</span>
               <span aria-hidden />
             </div>
             {positions.map((p) => (
@@ -85,11 +89,14 @@ export function PositionsSection({
                     <strong className="position-symbol">{p.symbol}</strong>
                     <span className="position-name">{p.name}</span>
                     {formatDt(p.opened_at) && (
-                      <span className="position-opened-at">Otwarto {formatDt(p.opened_at)}</span>
+                      <span className="position-opened-at">
+                        {t('positions.opened', { date: formatDt(p.opened_at)! })}
+                      </span>
                     )}
+                    <BrokerPurchaseHint info={p.broker_info} compact />
                   </div>
                   <span className="position-qty tabular">
-                    {p.is_short ? `SHORT ${Math.abs(p.quantity)}` : p.quantity}
+                    {p.is_short ? `${t('common.short')} ${Math.abs(p.quantity)}` : p.quantity}
                   </span>
                   <span className="position-value tabular">{formatPln(p.market_value_pln)}</span>
                   <span
@@ -117,18 +124,16 @@ export function PositionsSection({
           </div>
         )
       ) : closedCount === 0 ? (
-        <p className="empty-state">
-          Brak zamkniętych pozycji. Po pełnym zamknięciu (sprzedaż / cover) pozycja trafi tutaj z P/L.
-        </p>
+        <p className="empty-state">{t('positions.emptyClosed')}</p>
       ) : (
         <div className="data-table closed-positions-table">
           <div className="data-table-head">
-            <span>Instrument</span>
-            <span>Strona</span>
-            <span>Ilość</span>
-            <span>Wejście → Wyjście</span>
-            <span>P/L (real.)</span>
-            <span>Zamknięto</span>
+            <span>{t('table.instrument')}</span>
+            <span>{t('table.side')}</span>
+            <span>{t('table.quantity')}</span>
+            <span>{t('table.entryExit')}</span>
+            <span>{t('table.pnlRealized')}</span>
+            <span>{t('table.closedAt')}</span>
           </div>
           {closedPositions.map((p) => (
             <Link
@@ -140,18 +145,21 @@ export function PositionsSection({
                 <strong className="position-symbol">{p.symbol}</strong>
                 <span className="position-name">{p.name}</span>
                 {formatDt(p.opened_at) && (
-                  <span className="position-opened-at">Otwarto {formatDt(p.opened_at)}</span>
+                  <span className="position-opened-at">
+                    {t('positions.opened', { date: formatDt(p.opened_at)! })}
+                  </span>
                 )}
               </div>
               <span className={p.is_short ? 'side-sell' : 'side-buy'}>
-                {p.is_short ? 'SHORT' : 'LONG'}
+                {p.is_short ? t('common.short') : t('common.long')}
               </span>
               <span className="tabular">{p.quantity}</span>
               <span className="tabular closed-position-prices">
-                {p.entry_price_native.toLocaleString('pl-PL')} → {p.exit_price_native.toLocaleString('pl-PL')}{' '}
+                {p.entry_price_native.toLocaleString(dateLocale)} → {p.exit_price_native.toLocaleString(dateLocale)}{' '}
                 {p.currency}
                 <em>
-                  {formatPln(p.entry_price_pln)} → {formatPln(p.exit_price_pln)}/szt.
+                  {formatPln(p.entry_price_pln)} → {formatPln(p.exit_price_pln)}
+                  {t('table.perUnit')}
                 </em>
               </span>
               <span

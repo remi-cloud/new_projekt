@@ -1,7 +1,12 @@
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
+import { AutoRefreshToggle } from './AutoRefreshToggle'
 import { KarDigitalLogo } from './KarDigitalLogo'
-import { MOBILE_NAV, NAV_ITEMS } from '../constants'
+import { LanguageSwitcher } from './LanguageSwitcher'
+import { SectionTabs } from './SectionTabs'
+import { hubForPath, MOBILE_NAV, NAV_ITEMS, navActivePath } from '../constants'
+import { useLocale } from '../context/LocaleContext'
+import type { TranslationPath } from '../i18n'
 
 interface LayoutProps {
   scannerRunning?: boolean
@@ -12,32 +17,59 @@ interface LayoutProps {
   scanning?: boolean
 }
 
+const NAV_KEYS: Record<string, TranslationPath> = {
+  '/': 'nav.start',
+  '/dashboard': 'nav.panel',
+  '/rynki': 'nav.markets',
+  '/okazje': 'nav.opportunities',
+  '/cykle': 'nav.cycles',
+  '/kalkulator': 'nav.calculator',
+  '/live': 'nav.live',
+  '/biznes': 'nav.business',
+  '/partnerzy': 'nav.partners',
+  '/embed': 'nav.embed',
+  '/news': 'nav.news',
+  '/agent': 'nav.agent',
+  '/powiadomienia': 'nav.alerts',
+  '/o-nas': 'nav.about',
+  '/portfel': 'nav.portfolio',
+}
+
 export function Layout({ scannerRunning, scanInProgress, liveMode, liveConnected, onScan, scanning }: LayoutProps) {
   const location = useLocation()
   const navigate = useNavigate()
+  const { t } = useLocale()
   const [toast, setToast] = useState<string | null>(null)
-  const pageTitle = NAV_ITEMS.find((n) => n.path === location.pathname)?.label ?? 'Cyclical Trader'
+  const activePath = navActivePath(location.pathname)
+  const hub = hubForPath(location.pathname)
+  const titleKey: TranslationPath =
+    location.pathname.startsWith('/o-nas')
+      ? 'nav.about'
+      : location.pathname === '/embed'
+        ? 'nav.embed'
+        : (NAV_KEYS[location.pathname] ?? NAV_KEYS[activePath] ?? 'nav.start')
+  const pageTitle = t(titleKey)
   const isHome = location.pathname === '/'
 
   const handleScan = async () => {
     if (!onScan || scanning) return
     try {
       await onScan()
-      setToast('Skan w tle — dane odświeżą się za chwilę ✓')
+      setToast(t('layout.scanDone'))
       setTimeout(() => setToast(null), 3500)
     } catch {
-      setToast('Błąd skanowania — spróbuj za chwilę')
+      setToast(t('layout.scanError'))
       setTimeout(() => setToast(null), 3500)
     }
   }
 
   const statusLabel = scanInProgress
-    ? 'SCAN · IN PROGRESS'
+    ? t('layout.statusScan')
     : liveMode && liveConnected
-      ? 'TELEMETRY · LIVE'
+      ? t('layout.statusLive')
       : scannerRunning
-        ? 'SYSTEM · ONLINE'
-        : 'SYSTEM · OFFLINE'
+        ? t('layout.statusOnline')
+        : t('layout.statusOffline')
 
   return (
     <div className="app-shell">
@@ -45,25 +77,30 @@ export function Layout({ scannerRunning, scanInProgress, liveMode, liveConnected
 
       <aside className="desktop-sidebar">
         <button type="button" className="sidebar-brand tap-target" onClick={() => navigate('/')}>
-          <KarDigitalLogo size={48} />
-          <span className="sidebar-product">Cyclical Trader</span>
+          <KarDigitalLogo size={64} />
+          <span className="sidebar-product">{t('layout.brand')}</span>
         </button>
 
-        <nav className="sidebar-nav" aria-label="Nawigacja główna">
+        <div className="sidebar-lang">
+          <LanguageSwitcher />
+          <AutoRefreshToggle />
+        </div>
+
+        <nav className="sidebar-nav" aria-label={t('layout.navMain')}>
           {NAV_ITEMS.map((item) => (
             <Link
               key={item.path}
               to={item.path}
-              className={`sidebar-nav-item tap-target ${location.pathname === item.path ? 'active' : ''}`}
+              className={`sidebar-nav-item tap-target ${activePath === item.path ? 'active' : ''}`}
             >
-              {item.label}
+              {t(item.labelKey)}
             </Link>
           ))}
           <Link
             to="/portfel"
-            className={`sidebar-nav-item tap-target ${location.pathname === '/portfel' ? 'active' : ''}`}
+            className={`sidebar-nav-item tap-target ${activePath === '/portfel' ? 'active' : ''}`}
           >
-            Portfel
+            {t('nav.portfolio')}
           </Link>
         </nav>
 
@@ -76,7 +113,7 @@ export function Layout({ scannerRunning, scanInProgress, liveMode, liveConnected
               onClick={handleScan}
               disabled={scanning}
             >
-              {scanning ? 'Skanowanie…' : '↻ Skanuj rynki'}
+              {scanning ? t('layout.scanning') : t('layout.scan')}
             </button>
           )}
         </div>
@@ -91,17 +128,20 @@ export function Layout({ scannerRunning, scanInProgress, liveMode, liveConnected
               <div className="mobile-subtitle">{statusLabel}</div>
             </div>
           </button>
-          {onScan && (
-            <button
-              type="button"
-              className="mobile-scan-btn tap-target"
-              onClick={handleScan}
-              disabled={scanning}
-              aria-label="Skanuj rynki"
-            >
-              {scanning ? '…' : '↻'}
-            </button>
-          )}
+          <div className="mobile-header-actions">
+            <LanguageSwitcher compact />
+            {onScan && (
+              <button
+                type="button"
+                className="mobile-scan-btn tap-target"
+                onClick={handleScan}
+                disabled={scanning}
+                aria-label={t('layout.scan')}
+              >
+                {scanning ? '…' : '↻'}
+              </button>
+            )}
+          </div>
         </header>
 
         <header className={`desktop-header ${isHome ? 'home-header-hidden' : ''}`}>
@@ -109,34 +149,37 @@ export function Layout({ scannerRunning, scanInProgress, liveMode, liveConnected
             <h1 className="desktop-page-title">{pageTitle}</h1>
             <p className="desktop-page-subtitle">{statusLabel}</p>
           </div>
-          {onScan && (
-            <button
-              type="button"
-              className="btn btn-primary desktop-scan-btn tap-target"
-              onClick={handleScan}
-              disabled={scanning}
-            >
-              {scanning ? 'Skanowanie…' : '↻ Skanuj rynki'}
-            </button>
-          )}
+          <div className="desktop-header-actions">
+            {onScan && (
+              <button
+                type="button"
+                className="btn btn-primary desktop-scan-btn tap-target"
+                onClick={handleScan}
+                disabled={scanning}
+              >
+                {scanning ? t('layout.scanning') : t('layout.scan')}
+              </button>
+            )}
+          </div>
         </header>
 
         <main className={`app-content ${isHome ? 'app-content-home' : ''}`}>
+          {hub && <SectionTabs tabs={hub.tabs} />}
           <div key={location.pathname} className="page-transition">
             <Outlet />
           </div>
         </main>
       </div>
 
-      <nav className="bottom-nav" aria-label="Nawigacja mobilna">
+      <nav className="bottom-nav" aria-label={t('layout.navMobile')}>
         {MOBILE_NAV.map((item) => (
           <Link
             key={item.path}
             to={item.path}
-            className={`bottom-nav-item tap-target ${location.pathname === item.path ? 'active' : ''}`}
+            className={`bottom-nav-item tap-target ${activePath === item.path || location.pathname === item.path ? 'active' : ''}`}
           >
             <span className="bottom-nav-icon">{item.icon}</span>
-            <span className="bottom-nav-label">{item.label}</span>
+            <span className="bottom-nav-label">{t(NAV_KEYS[item.path] ?? 'nav.start')}</span>
           </Link>
         ))}
       </nav>

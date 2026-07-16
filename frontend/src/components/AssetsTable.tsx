@@ -1,4 +1,5 @@
-import { ASSET_LABELS } from '../constants'
+import { useDomainLabels } from '../i18n/useDomainLabels'
+import { useLocale } from '../context/LocaleContext'
 import { formatPrice } from '../utils/format'
 import { AssetClass, AssetQuote } from '../types'
 
@@ -9,8 +10,11 @@ function ChangeCell({ value }: { value: number | null }) {
 }
 
 export function AssetsTable({ assets }: { assets: AssetQuote[] }) {
+  const { t } = useLocale()
+  const { asset: assetLabels } = useDomainLabels()
+
   if (!assets.length) {
-    return <p className="empty-state">Brak danych rynkowych.</p>
+    return <p className="empty-state">{t('table.noMarketData')}</p>
   }
 
   return (
@@ -18,11 +22,11 @@ export function AssetsTable({ assets }: { assets: AssetQuote[] }) {
       <table className="assets-table">
         <thead>
           <tr>
-            <th>Instrument</th>
-            <th>Klasa</th>
-            <th>Cena</th>
-            <th>24h</th>
-            <th>7d</th>
+            <th>{t('table.instrument')}</th>
+            <th>{t('table.class')}</th>
+            <th>{t('table.price')}</th>
+            <th>{t('table.change24h')}</th>
+            <th>{t('table.change7d')}</th>
           </tr>
         </thead>
         <tbody>
@@ -32,7 +36,7 @@ export function AssetsTable({ assets }: { assets: AssetQuote[] }) {
                 <strong>{a.name}</strong>
                 <div className="symbol-sub">{a.symbol}</div>
               </td>
-              <td><span className={`tag ${a.asset_class}`}>{ASSET_LABELS[a.asset_class]}</span></td>
+              <td><span className={`tag ${a.asset_class}`}>{assetLabels[a.asset_class]}</span></td>
               <td className="price-cell">${formatPrice(a.price, a.asset_class)}</td>
               <td><ChangeCell value={a.change_pct_24h} /></td>
               <td><ChangeCell value={a.change_pct_7d} /></td>

@@ -1,17 +1,6 @@
+import { useLocale } from '../context/LocaleContext'
 import { PaperLimitOrder } from '../types'
 import { formatPln } from '../utils/format'
-
-const ORDER_TYPE_LABEL: Record<string, string> = {
-  limit: 'LIMIT',
-  stop: 'STOP LOSS',
-  take_profit: 'TAKE PROFIT',
-}
-
-function sideLabel(side: string, orderType: string): string {
-  if (orderType === 'stop') return side === 'sell' ? 'SL · SPRZEDAJ' : 'SL · KUP'
-  if (orderType === 'take_profit') return side === 'sell' ? 'TP · SPRZEDAJ' : 'TP · KUP'
-  return side === 'buy' ? 'LIMIT · KUP' : 'LIMIT · SPRZEDAJ'
-}
 
 interface OpenOrdersPanelProps {
   orders: PaperLimitOrder[]
@@ -30,14 +19,31 @@ export function OpenOrdersPanel({
   cancellingId,
   cancellingAll,
   compact,
-  title = 'Otwarte zlecenia',
+  title,
 }: OpenOrdersPanelProps) {
+  const { t, dateLocale } = useLocale()
+
+  const panelTitle = title ?? t('orders.title')
+
+  const orderTypeLabel = (orderType: string) => {
+    if (orderType === 'limit') return t('orders.limit')
+    if (orderType === 'stop') return t('orders.stopLoss')
+    if (orderType === 'take_profit') return t('orders.takeProfit')
+    return orderType
+  }
+
+  const sideLabel = (side: string, orderType: string) => {
+    if (orderType === 'stop') return side === 'sell' ? t('orders.slSell') : t('orders.slBuy')
+    if (orderType === 'take_profit') return side === 'sell' ? t('orders.tpSell') : t('orders.tpBuy')
+    return side === 'buy' ? t('orders.limitBuy') : t('orders.limitSell')
+  }
+
   if (orders.length === 0) return null
 
   return (
     <div className={`open-orders-panel ${compact ? 'open-orders-panel-compact' : ''}`}>
       <div className="open-orders-head">
-        <span className="open-orders-title">{title}</span>
+        <span className="open-orders-title">{panelTitle}</span>
         {onCancelAll && orders.length > 1 && (
           <button
             type="button"
@@ -45,7 +51,7 @@ export function OpenOrdersPanel({
             disabled={cancellingAll}
             onClick={onCancelAll}
           >
-            {cancellingAll ? '…' : 'Anuluj wszystkie'}
+            {cancellingAll ? '…' : t('orders.cancelAll')}
           </button>
         )}
       </div>
@@ -56,12 +62,12 @@ export function OpenOrdersPanel({
             <div key={o.id} className={`pending-limit-item side-${o.side} type-${o.order_type}`}>
               <div className="pending-limit-item-main">
                 <span className="pending-limit-side">{sideLabel(o.side, o.order_type)}</span>
-                <span className="pending-limit-type">{ORDER_TYPE_LABEL[o.order_type] ?? o.order_type}</span>
+                <span className="pending-limit-type">{orderTypeLabel(o.order_type)}</span>
                 <span className="pending-limit-price tabular">
-                  @ {o.limit_price_native.toLocaleString('pl-PL')} {o.currency}
+                  @ {o.limit_price_native.toLocaleString(dateLocale)} {o.currency}
                 </span>
                 <span className="pending-limit-value tabular">
-                  {formatPln(o.amount_pln)} · ≈ {o.quantity_est} szt.
+                  {formatPln(o.amount_pln)} · {t('orders.approxQty', { n: o.quantity_est })}
                 </span>
               </div>
               {onCancel && (
@@ -71,7 +77,7 @@ export function OpenOrdersPanel({
                   disabled={cancellingId === o.id}
                   onClick={() => onCancel(o.id)}
                 >
-                  {cancellingId === o.id ? '…' : 'Cancel'}
+                  {cancellingId === o.id ? '…' : t('orders.cancel')}
                 </button>
               )}
             </div>
@@ -80,25 +86,30 @@ export function OpenOrdersPanel({
       ) : (
         <div className="data-table open-orders-table">
           <div className="data-table-head">
-            <span>Typ</span>
-            <span>Strona</span>
-            <span>Symbol</span>
-            <span>Cena trigger</span>
-            <span>Wartość</span>
+            <span>{t('table.type')}</span>
+            <span>{t('table.side')}</span>
+            <span>{t('table.symbol')}</span>
+            <span>{t('table.triggerPrice')}</span>
+            <span>{t('table.value')}</span>
             <span aria-hidden />
           </div>
           {orders.map((o) => (
             <div key={o.id} className={`data-table-row open-order-row side-${o.side}`}>
-              <span className="open-order-type">{ORDER_TYPE_LABEL[o.order_type] ?? o.order_type}</span>
-              <span className={`side-${o.side}`}>{o.side === 'buy' ? 'KUP' : 'SPRZEDAJ'}</span>
+              <span className="open-order-type">{orderTypeLabel(o.order_type)}</span>
+              <span className={`side-${o.side}`}>
+                {o.side === 'buy' ? t('portfolio.buySide') : t('portfolio.sellSide')}
+              </span>
               <span className="trade-symbol">{o.symbol}</span>
               <span className="tabular">
-                {o.limit_price_native.toLocaleString('pl-PL')} {o.currency}
-                <em>{formatPln(o.limit_price_pln)}/szt.</em>
+                {o.limit_price_native.toLocaleString(dateLocale)} {o.currency}
+                <em>
+                  {formatPln(o.limit_price_pln)}
+                  {t('table.perUnit')}
+                </em>
               </span>
               <span className="tabular">
                 {formatPln(o.amount_pln)}
-                <em>≈ {o.quantity_est} szt.</em>
+                <em>{t('orders.approxQty', { n: o.quantity_est })}</em>
               </span>
               {onCancel && (
                 <button
@@ -107,7 +118,7 @@ export function OpenOrdersPanel({
                   disabled={cancellingId === o.id}
                   onClick={() => onCancel(o.id)}
                 >
-                  {cancellingId === o.id ? '…' : 'Cancel'}
+                  {cancellingId === o.id ? '…' : t('orders.cancel')}
                 </button>
               )}
             </div>

@@ -1,3 +1,5 @@
+import type { TranslationPath } from './i18n'
+
 export const ASSET_LABELS = {
   crypto: 'Krypto',
   stock: 'Akcje',
@@ -41,15 +43,65 @@ export const PHASE_LABELS: Record<string, string> = {
   neutralne: 'Neutralne',
 }
 
-export const NAV_ITEMS = [
-  { path: '/', label: 'Start' },
-  { path: '/dashboard', label: 'Panel' },
-  { path: '/rynki', label: 'Rynki' },
-  { path: '/okazje', label: 'Okazje' },
-  { path: '/cykle', label: 'Cykle' },
-  { path: '/powiadomienia', label: 'Alerty' },
-  { path: '/o-nas', label: 'O nas' },
+/** Primary sidebar entries — hubs expand into section tabs, not extra sidebar rows. */
+export const NAV_ITEMS: { path: string; labelKey: TranslationPath }[] = [
+  { path: '/', labelKey: 'nav.start' },
+  { path: '/dashboard', labelKey: 'nav.panel' },
+  { path: '/live', labelKey: 'nav.live' },
+  { path: '/rynki', labelKey: 'nav.markets' },
+  { path: '/kalkulator', labelKey: 'nav.calculator' },
+  { path: '/news', labelKey: 'nav.news' },
+  { path: '/biznes', labelKey: 'nav.business' },
+  { path: '/agent', labelKey: 'nav.agent' },
+  { path: '/powiadomienia', labelKey: 'nav.alerts' },
+  { path: '/o-nas', labelKey: 'nav.about' },
 ]
+
+export type NavHub = {
+  id: string
+  /** Sidebar path used for this hub entry */
+  root: string
+  tabs: { path: string; labelKey: TranslationPath }[]
+}
+
+export const NAV_HUBS: NavHub[] = [
+  {
+    id: 'markets',
+    root: '/rynki',
+    tabs: [
+      { path: '/rynki', labelKey: 'nav.markets' },
+      { path: '/okazje', labelKey: 'nav.opportunities' },
+      { path: '/perly', labelKey: 'nav.pearls' },
+      { path: '/cykle', labelKey: 'nav.cycles' },
+    ],
+  },
+  {
+    id: 'growth',
+    root: '/biznes',
+    tabs: [
+      { path: '/biznes', labelKey: 'nav.business' },
+      { path: '/partnerzy', labelKey: 'nav.partners' },
+    ],
+  },
+]
+
+export function hubForPath(pathname: string): NavHub | undefined {
+  return NAV_HUBS.find((hub) =>
+    hub.tabs.some(
+      (tab) => pathname === tab.path || (tab.path !== '/' && pathname.startsWith(`${tab.path}/`)),
+    ),
+  )
+}
+
+/** Resolve which sidebar item should look active for the current URL. */
+export function navActivePath(pathname: string): string {
+  const hub = hubForPath(pathname)
+  if (hub) return hub.root
+  if (pathname.startsWith('/o-nas')) return '/o-nas'
+  if (pathname.startsWith('/embed')) return '/biznes'
+  if (pathname.startsWith('/instrument')) return '/rynki'
+  return pathname
+}
 
 export const MOBILE_NAV = [
   { path: '/', label: 'Start', icon: '⌂' },

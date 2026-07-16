@@ -41,7 +41,7 @@ async def send_sms_alerts(events: list[AlertEvent]) -> int:
     async with httpx.AsyncClient(timeout=20) as client:
         for event in events:
             body = (
-                f"Cyclical Trader\n"
+                f"Cyclical Academy\n"
                 f"{event.name} ({event.symbol})\n"
                 f"Sygnał: {event.action.upper()} ({event.confidence:.0f}%)\n"
                 f"Cena: {event.price}\n"

@@ -3,15 +3,19 @@ import { CycleCardBitcoin } from '../components/CycleCardBitcoin'
 import { CycleCardPresidential } from '../components/CycleCardPresidential'
 import { MarketSummaryBanner } from '../components/MarketAssessmentCard'
 import { OpportunityCard } from '../components/OpportunityCard'
-import { ErrorState } from '../components/Loading'
-import { SIGNAL_LABELS } from '../constants'
+import { ErrorState, Loading } from '../components/Loading'
 import { useDashboardContext } from '../context/DashboardContext'
+import { useLocale } from '../context/LocaleContext'
+import { useDomainLabels } from '../i18n/useDomainLabels'
 
 export function DashboardPage() {
-  const { data, error, reload } = useDashboardContext()
+  const { data, error, reload, loading } = useDashboardContext()
   const navigate = useNavigate()
+  const { t } = useLocale()
+  const { signal } = useDomainLabels()
 
   if (error && !data) return <ErrorState message={error} onRetry={reload} />
+  if (loading && !data) return <Loading message={t('layout.loading')} />
   if (!data) return null
 
   const momentumPicks = data.opportunities.filter((o) => o.is_momentum_pick)
@@ -26,7 +30,7 @@ export function DashboardPage() {
 
       <section className="dashboard-section">
         <div className="section-header">
-          <h2 className="section-title">Cykle rynkowe</h2>
+          <h2 className="section-title">{t('dashboard.marketCycles')}</h2>
         </div>
         <div className="cycles-grid">
           <CycleCardBitcoin cycle={data.bitcoin_cycle} />
@@ -38,15 +42,15 @@ export function DashboardPage() {
         <section className="dashboard-section dashboard-section-main">
           <div className="section-header">
             <h2 className="section-title">
-              Okazje tradingowe
+              {t('dashboard.tradingOpportunities')}
               <span className="count">{data.opportunities.length}</span>
             </h2>
             <button type="button" className="link-btn tap-target" onClick={() => navigate('/okazje')}>
-              Wszystkie →
+              {t('dashboard.seeAll')}
             </button>
           </div>
           {data.opportunities.length === 0 ? (
-            <p className="empty-state">Brak aktywnych sygnałów.</p>
+            <p className="empty-state">{t('dashboard.emptySignals')}</p>
           ) : (
             <div className="opportunities-grid">
               {data.opportunities.slice(0, 6).map((opp) => (
@@ -59,8 +63,8 @@ export function DashboardPage() {
         <aside className="dashboard-section dashboard-section-side">
           {momentumPicks.length > 0 && (
             <div className="side-panel momentum-panel">
-              <h3 className="side-panel-title">⚡ Momentum + cykl</h3>
-              <p className="side-panel-desc">Sygnały gdzie momentum i cykle się zgadzają</p>
+              <h3 className="side-panel-title">{t('dashboard.momentumTitle')}</h3>
+              <p className="side-panel-desc">{t('dashboard.momentumDesc')}</p>
               <div className="momentum-list">
                 {momentumPicks.slice(0, 5).map((opp) => (
                   <button
@@ -71,11 +75,15 @@ export function DashboardPage() {
                   >
                     <div className="momentum-item-top">
                       <span className="momentum-item-name">{opp.name}</span>
-                      <span className={`signal-tag signal-${opp.action}`}>{SIGNAL_LABELS[opp.action]}</span>
+                      <span className={`signal-tag signal-${opp.action}`}>{signal[opp.action]}</span>
                     </div>
                     <div className="momentum-item-meta">
-                      {opp.momentum_score != null && <span>Mom. {opp.momentum_score.toFixed(0)}</span>}
-                      <span>{opp.confidence}% pewności</span>
+                      {opp.momentum_score != null && (
+                        <span>
+                          {t('dashboard.momentumShort')} {opp.momentum_score.toFixed(0)}
+                        </span>
+                      )}
+                      <span>{t('dashboard.confidencePct', { n: opp.confidence })}</span>
                     </div>
                   </button>
                 ))}
@@ -84,7 +92,7 @@ export function DashboardPage() {
           )}
 
           <div className="side-panel">
-            <h3 className="side-panel-title">Top rynki wg oceny</h3>
+            <h3 className="side-panel-title">{t('dashboard.topMarkets')}</h3>
             <div className="markets-list markets-list-compact">
               {(data.market_assessments ?? []).slice(0, 5).map((item) => (
                 <button
@@ -98,10 +106,12 @@ export function DashboardPage() {
                       <div className="market-name">{item.name}</div>
                       <div className="market-symbol">{item.symbol}</div>
                     </div>
-                    <span className={`signal-tag signal-${item.signal}`}>{SIGNAL_LABELS[item.signal]}</span>
+                    <span className={`signal-tag signal-${item.signal}`}>{signal[item.signal]}</span>
                   </div>
                   {item.momentum_score != null && (
-                    <div className="market-momentum">Momentum: {item.momentum_score.toFixed(0)}</div>
+                    <div className="market-momentum">
+                      {t('dashboard.momentum', { n: item.momentum_score.toFixed(0) })}
+                    </div>
                   )}
                 </button>
               ))}

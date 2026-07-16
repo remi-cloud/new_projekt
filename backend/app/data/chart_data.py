@@ -32,6 +32,7 @@ CHART_PRESETS: dict[str, tuple[str, str, int | None, int]] = {
     "3M": ("1y", "1d", None, 1),
     "1Y": ("2y", "1d", None, 1),
     "MAX": ("5y", "1wk", None, 1),
+    "10Y": ("10y", "1wk", None, 1),
 }
 
 # Fallback Yahoo ranges when primary returns empty (common for crypto).

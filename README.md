@@ -1,6 +1,6 @@
-# Cyclical Trader — wersja WWW
+# Cyclical Academy — wersja WWW
 
-Aplikacja webowa do **tradingu cyklicznego** — monitoruje rynki 24/7 i wyszukuje okazje kupna/sprzedaży na podstawie cykli. Nie skalping, nie HFT.
+Aplikacja webowa do **edukacji rynków przez cykle** — tłumaczy fazy rynku i schematy na podstawie cykli. Nie skalping, nie HFT, nie broker.
 
 ## Filozofia
 
@@ -99,9 +99,14 @@ Dokumentacja API: http://localhost:8080/docs
 
 ```
 frontend/     React SPA (React Router, TypeScript, Vite)
+  src/styles/   base.css + theme.css (jeden entry: styles/index.css)
+  src/types/    typy domenowe + chart
 backend/      FastAPI — API + serwowanie static SPA
+  app/api/      routery HTTP (markets, paper, news, ai, …)
+  app/main.py   lifespan + rejestracja routerów (~70 linii)
 scripts/      mac-bootstrap / build-www / start
 Dockerfile    Multi-stage: npm build → Python + static
+backups/      lokalne snapshoty (gitignore — nie commitować)
 ```
 
 Skaner działa w trybie **real-time**:
@@ -110,6 +115,19 @@ Skaner działa w trybie **real-time**:
 - **Powiadomienia** — push (przeglądarka) + SMS (Twilio) przy zmianie sygnału
 
 Konfiguracja: `.env.example` (VAPID, Twilio, progi alertów).
+
+### Backup / auto-save
+
+Pełny snapshot przed wyjściem:
+
+```bash
+./scripts/backup-now.sh
+```
+
+Zapis trafia do `backups/session_YYYYMMDD_HHMMSS/` (wskaźnik: `backups/LATEST_SESSION.txt`).
+
+Co **20 s** backend kopiuje postęp do `backups/progress/current/` (portfel, trader.db, static).  
+W UI: przełącznik **Auto-odświeżanie 20s** (sidebar) — dashboard odświeża dane co 20 s.
 
 ## Disclaimer
 

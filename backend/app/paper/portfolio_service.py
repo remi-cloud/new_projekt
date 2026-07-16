@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.data.broker_map import resolve_broker_info
 from app.paper import paper_db
 from app.paper.currency import get_usd_pln_rate, native_currency, to_pln
 from app.paper.limit_orders import limit_orders_for_portfolio
@@ -18,6 +19,7 @@ async def _position_to_view(pos: dict, usd_pln: float) -> dict:
     qty = float(pos["quantity"])
     avg_native = float(pos["avg_price_native"])
     currency = pos["currency"] or native_currency(symbol)
+    asset_class = pos["asset_class"]
 
     try:
         current_native, _ = await get_live_price_async(symbol)
@@ -31,10 +33,20 @@ async def _position_to_view(pos: dict, usd_pln: float) -> dict:
     unrealized = market_value - cost_basis
     unrealized_pct = (unrealized / cost_basis * 100) if cost_basis > 0 else 0.0
 
+    region = None
+    try:
+        assessment = next((a for a in scanner.market_assessments if a.symbol == symbol), None)
+        if assessment:
+            region = getattr(assessment, "region", None)
+            if hasattr(region, "value"):
+                region = region.value
+    except Exception:
+        region = None
+
     return {
         "symbol": symbol,
         "name": pos["name"],
-        "asset_class": pos["asset_class"],
+        "asset_class": asset_class,
         "quantity": qty,
         "is_short": qty < 0,
         "avg_price_native": avg_native,
@@ -47,6 +59,7 @@ async def _position_to_view(pos: dict, usd_pln: float) -> dict:
         "unrealized_pnl_pct": round(unrealized_pct, 2),
         "currency": currency,
         "opened_at": pos.get("opened_at"),
+        "broker_info": resolve_broker_info(symbol, str(asset_class), region),
     }
 
 

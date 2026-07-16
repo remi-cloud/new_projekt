@@ -47,25 +47,14 @@ async def fetch_fast_quotes(
     quotes: dict[str, AssetQuote] = {}
 
     async with httpx.AsyncClient(timeout=20, headers=YAHOO_HEADERS) as client:
-        yahoo_tasks = [
-            _fetch_yahoo_batch(client, batch, now)
-            for batch in _chunks(yahoo_symbols, BATCH_SIZE)
-        ]
+        # Yahoo v7 batch quote often returns 401 — use v8 chart spot directly.
+        v8_tasks = [_fetch_yahoo_v8_spot(client, sym, now) for sym in yahoo_symbols]
+        v8_results = await asyncio.gather(*v8_tasks, return_exceptions=True)
+        for sym, result in zip(yahoo_symbols, v8_results):
+            if isinstance(result, AssetQuote):
+                quotes[sym] = result
+
         investing_tasks = [_fetch_investing_fast(sym, now) for sym in investing_symbols]
-
-        for batch_result in await asyncio.gather(*yahoo_tasks, return_exceptions=True):
-            if isinstance(batch_result, dict):
-                quotes.update(batch_result)
-
-        # Yahoo v7 quote API often returns 401 — fallback to v8 chart spot
-        missing_yahoo = [s for s in yahoo_symbols if s not in quotes]
-        if missing_yahoo:
-            v8_tasks = [_fetch_yahoo_v8_spot(client, sym, now) for sym in missing_yahoo]
-            v8_results = await asyncio.gather(*v8_tasks, return_exceptions=True)
-            for sym, result in zip(missing_yahoo, v8_results):
-                if isinstance(result, AssetQuote):
-                    quotes[sym] = result
-
         inv_results = await asyncio.gather(*investing_tasks, return_exceptions=True)
         for sym, result in zip(investing_symbols, inv_results):
             if isinstance(result, AssetQuote):

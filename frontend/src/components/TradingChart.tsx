@@ -9,6 +9,7 @@ import {
 } from 'lightweight-charts'
 import { fetchChart, fetchPaperPosition, fetchPaperTrades } from '../api'
 import { useDashboardContext } from '../context/DashboardContext'
+import { useLocale } from '../context/LocaleContext'
 import { PaperTrade } from '../types'
 import { ChartPreset, ChartCandle, ChartResponse, INTRADAY_CHART_PRESETS } from '../types/chart'
 import { cycleMarkersToChartMarkers, positionOpenMarker, tradesToChartMarkers } from '../utils/chartMarkers'
@@ -43,6 +44,7 @@ export function TradingChart({
   showRsiShadow = false,
   dataReady = true,
 }: TradingChartProps) {
+  const { t } = useLocale()
   const wrapRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const overlayRef = useRef<HTMLCanvasElement>(null)
@@ -303,7 +305,7 @@ export function TradingChart({
   }, [applyCandleData])
 
   if (!dataReady || !candles.length) {
-    return <div className="chart-empty" style={{ height }}>Brak danych wykresu</div>
+    return <div className="chart-empty" style={{ height }}>{t('chart.noData')}</div>
   }
 
   return (
@@ -312,7 +314,7 @@ export function TradingChart({
         {rsiActive && (
           <div className="chart-pane-header">
             <span className="pane-label">
-              Cena · {preset}
+              {t('chart.pricePreset', { preset })}
               {rsiData?.latest != null && (
                 <span
                   className={`pane-rsi-hint${
@@ -320,14 +322,14 @@ export function TradingChart({
                   }`}
                 >
                   {' '}
-                  · RSI {rsiData.latest.toFixed(0)}
+                  · {t('chart.rsi', { n: rsiData.latest.toFixed(0) })}
                 </span>
               )}
             </span>
             <div className="chart-zoom-controls">
-              <button type="button" className="chart-zoom-btn tap-target" onClick={zoomOut} title="Oddal">−</button>
-              <button type="button" className="chart-zoom-btn tap-target" onClick={fitChart} title="Reset widoku">⟲</button>
-              <button type="button" className="chart-zoom-btn tap-target" onClick={zoomIn} title="Przybliż">+</button>
+              <button type="button" className="chart-zoom-btn tap-target" onClick={zoomOut} title={t('chart.zoomOut')}>−</button>
+              <button type="button" className="chart-zoom-btn tap-target" onClick={fitChart} title={t('chart.resetView')}>⟲</button>
+              <button type="button" className="chart-zoom-btn tap-target" onClick={zoomIn} title={t('chart.zoomIn')}>+</button>
             </div>
           </div>
         )}
@@ -341,7 +343,7 @@ export function TradingChart({
               <div className="chart-rsi-scale-zone chart-rsi-scale-hot">
                 <span className="rsi-label-hot">100</span>
                 <span className="rsi-label-hot">70</span>
-                <span className="rsi-zone-tag">wykupienie</span>
+                <span className="rsi-zone-tag">{t('chart.overbought')}</span>
               </div>
               <div className="chart-rsi-scale-zone chart-rsi-scale-neutral">
                 <span>50</span>
@@ -349,7 +351,7 @@ export function TradingChart({
               <div className="chart-rsi-scale-zone chart-rsi-scale-cold">
                 <span className="rsi-label-cold">30</span>
                 <span className="rsi-label-cold">0</span>
-                <span className="rsi-zone-tag">wyprzedanie</span>
+                <span className="rsi-zone-tag">{t('chart.oversold')}</span>
               </div>
             </div>
           )}
@@ -380,6 +382,7 @@ export function ChartLoader({
   tradesRevision = 0,
   showRsiShadow = false,
 }: ChartLoaderProps) {
+  const { t } = useLocale()
   const { lastEventAt } = useDashboardContext()
   const [chartBundle, setChartBundle] = useState<{
     candles: ChartCandle[]
@@ -408,7 +411,7 @@ export function ChartLoader({
         if (gen !== loadGenRef.current) return
         if (!data.candles?.length) {
           setChartBundle(null)
-          setLoadError(`Brak świec dla interwału ${requestedPreset}`)
+          setLoadError(t('chart.noCandles', { preset: requestedPreset }))
           return
         }
         setChartBundle({
@@ -429,7 +432,7 @@ export function ChartLoader({
             if (gen !== loadGenRef.current) return
             if (!data.candles?.length) {
               setChartBundle(null)
-              setLoadError(`Brak świec dla interwału ${requestedPreset}`)
+              setLoadError(t('chart.noCandles', { preset: requestedPreset }))
               return
             }
             setChartBundle({
@@ -443,17 +446,17 @@ export function ChartLoader({
           } catch {
             if (gen === loadGenRef.current) {
               setChartBundle(null)
-              setLoadError(`Nie udało się załadować ${requestedPreset}`)
+              setLoadError(t('chart.loadFailed', { preset: requestedPreset }))
             }
           }
         } else if (gen === loadGenRef.current) {
-          setLoadError(`Odświeżenie ${requestedPreset} nieudane`)
+          setLoadError(t('chart.refreshFailed', { preset: requestedPreset }))
         }
       } finally {
         if (gen === loadGenRef.current && !silent) setLoading(false)
       }
     },
-    [enabled, symbol, onData],
+    [enabled, symbol, onData, t],
   )
 
   useEffect(() => {
@@ -502,11 +505,31 @@ export function ChartLoader({
   const displayCandles = dataReady ? chartBundle.candles : []
   const displayPositive = chartBundle?.positive ?? true
 
+  const markerLabels = useMemo(
+    () => ({
+      cycleEntry: t('markers.wej'),
+      cycleExit: t('markers.wyj'),
+      tradeBuy: t('markers.buy'),
+      tradeSell: t('markers.sell'),
+      positionOpen: t('markers.open'),
+    }),
+    [t],
+  )
+
+  const tradeMarkers = useMemo(
+    () => [
+      ...cycleMarkersToChartMarkers(chartBundle?.cycleMarkers ?? [], displayCandles, markerLabels),
+      ...tradesToChartMarkers(trades, displayCandles, markerLabels),
+      ...(positionOpenedAt ? positionOpenMarker(positionOpenedAt, displayCandles, markerLabels) : []),
+    ],
+    [chartBundle?.cycleMarkers, displayCandles, trades, positionOpenedAt, markerLabels],
+  )
+
   if (loading && !chartBundle) {
     return (
       <div className="chart-loading" style={{ height }}>
         <div className="chart-loading-bar" />
-        <span className="chart-loading-label">Ładowanie {preset}…</span>
+        <span className="chart-loading-label">{t('chart.loadingPreset', { preset })}</span>
       </div>
     )
   }
@@ -516,17 +539,11 @@ export function ChartLoader({
       <div className="chart-empty chart-empty-error" style={{ height }}>
         <span>{loadError}</span>
         <button type="button" className="chart-retry-btn tap-target" onClick={() => void loadChart(preset)}>
-          Spróbuj ponownie
+          {t('chart.retry')}
         </button>
       </div>
     )
   }
-
-  const tradeMarkers = [
-    ...cycleMarkersToChartMarkers(chartBundle?.cycleMarkers ?? [], displayCandles),
-    ...tradesToChartMarkers(trades, displayCandles),
-    ...(positionOpenedAt ? positionOpenMarker(positionOpenedAt, displayCandles) : []),
-  ]
 
   return (
     <div className={`chart-loader-wrap${loading ? ' chart-loader-loading' : ''}`}>
