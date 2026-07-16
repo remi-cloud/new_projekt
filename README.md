@@ -1,6 +1,6 @@
-# Cyclical Academy — wersja WWW
+# Cykliczny Trader · Kar Digital
 
-Aplikacja webowa do **edukacji rynków przez cykle** — tłumaczy fazy rynku i schematy na podstawie cykli. Nie skalping, nie HFT, nie broker.
+Aplikacja webowa (**Cyclical Academy**) do **edukacji rynków przez cykle** — tłumaczy fazy rynku i schematy na podstawie cykli. Nie skalping, nie HFT, nie broker.
 
 ## Filozofia
 

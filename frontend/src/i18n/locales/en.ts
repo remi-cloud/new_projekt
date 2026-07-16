@@ -14,7 +14,7 @@ export const en: Translations = {
     scan: '↻ Scan markets', scanning: 'Scanning…', scanDone: 'Background scan — data will refresh shortly ✓',
     scanError: 'Scan failed — try again shortly', statusScan: 'SCAN · IN PROGRESS',
     statusLive: 'TELEMETRY · LIVE', statusOnline: 'SYSTEM · ONLINE', statusOffline: 'SYSTEM · OFFLINE',
-    language: 'Language', loading: 'Loading…', brand: 'Cyclical Academy',
+    language: 'Language', loading: 'Loading…', brand: 'Cyclical Trader · Kar Digital',
     navMain: 'Main navigation', navMobile: 'Mobile navigation',
     autoRefresh: 'Auto-refresh 20s',
     notFoundTitle: 'Page not found',

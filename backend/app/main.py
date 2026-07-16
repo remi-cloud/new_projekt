@@ -69,8 +69,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Cyclical Academy",
-    description="Aplikacja tradingowa — cykle rynkowe, śledzenie live, powiadomienia push/SMS",
+    title="Cykliczny Trader Kar Digital",
+    description="Cykliczny Trader · Kar Digital — cykle rynkowe, śledzenie live, powiadomienia push/SMS",
     version="1.3.0",
     lifespan=lifespan,
 )

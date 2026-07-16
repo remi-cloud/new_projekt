@@ -14,7 +14,7 @@ export const pl: Translations = {
     scan: '↻ Skanuj rynki', scanning: 'Skanowanie…', scanDone: 'Skan w tle — dane odświeżą się za chwilę ✓',
     scanError: 'Błąd skanowania — spróbuj za chwilę', statusScan: 'SKAN · W TRAKCIE',
     statusLive: 'TELEMETRIA · LIVE', statusOnline: 'SYSTEM · ONLINE', statusOffline: 'SYSTEM · OFFLINE',
-    language: 'Język', loading: 'Ładowanie…', brand: 'Cyclical Academy',
+    language: 'Język', loading: 'Ładowanie…', brand: 'Cykliczny Trader · Kar Digital',
     navMain: 'Nawigacja główna', navMobile: 'Nawigacja mobilna',
     autoRefresh: 'Auto-odświeżanie 20s',
     notFoundTitle: 'Strona nie znaleziona',
