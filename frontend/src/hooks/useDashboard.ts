@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchDashboard, triggerScan } from '../api'
+import { ApiError } from '../i18n/apiErrors'
 import { resolveApiMessage } from '../i18n/utils'
 import { useLiveFeed } from './useLiveFeed'
 import { DashboardResponse } from '../types'
@@ -21,7 +22,10 @@ export function useDashboard(options: UseDashboardOptions = {}) {
   const [scanning, setScanning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const reloadTimer = useRef<number | null>(null)
+  const dataRef = useRef<DashboardResponse | null>(null)
   const [tickMs, setTickMs] = useState(() => getAutoRefreshIntervalMs())
+
+  dataRef.current = data
 
   const load = useCallback(async () => {
     if (!enabled) return
@@ -29,8 +33,12 @@ export function useDashboard(options: UseDashboardOptions = {}) {
       const dashboard = await fetchDashboard()
       setData(dashboard)
       setError(null)
-    } catch {
-      setError(resolveApiMessage('noConnection'))
+    } catch (err) {
+      // Keep previous markets if a transient 503 hits mid-scan; only error on first load.
+      if (!dataRef.current) {
+        const code = err instanceof ApiError ? err.code : null
+        setError(resolveApiMessage(code === 'serverUnavailable' ? 'serverUnavailable' : 'noConnection'))
+      }
     } finally {
       setLoading(false)
     }

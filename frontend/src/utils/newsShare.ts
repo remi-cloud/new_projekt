@@ -7,17 +7,19 @@ export type SharePlatform =
   | 'telegram'
   | 'reddit'
   | 'bluesky'
+  | 'substack'
   | 'email'
   | 'copy'
 
 export const SHARE_PLATFORMS: SharePlatform[] = [
   'native',
   'x',
-  'facebook',
   'linkedin',
+  'reddit',
+  'substack',
+  'facebook',
   'whatsapp',
   'telegram',
-  'reddit',
   'bluesky',
   'email',
   'copy',

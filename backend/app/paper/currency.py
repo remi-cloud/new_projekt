@@ -61,7 +61,7 @@ async def _fetch_v7_quote(client: httpx.AsyncClient, symbol: str) -> float | Non
     return None
 
 
-async def get_usd_pln_rate() -> float:
+async def get_usd_pln_rate(*, allow_network: bool = True) -> float:
     from_quote = _from_scanner_quotes()
     if from_quote and from_quote > 0:
         _rate_cache["value"] = from_quote
@@ -72,8 +72,11 @@ async def get_usd_pln_rate() -> float:
     if now < _rate_cache.get("expires_at", 0):
         return float(_rate_cache["value"])
 
+    if not allow_network:
+        return float(_rate_cache.get("value") or DEFAULT_USD_PLN)
+
     try:
-        async with httpx.AsyncClient(timeout=12) as client:
+        async with httpx.AsyncClient(timeout=3) as client:
             rate = await _fetch_v8_chart(client, "USDPLN=X")
             if not rate or rate <= 0:
                 rate = await _fetch_v7_quote(client, "USDPLN%3DX")
@@ -82,9 +85,9 @@ async def get_usd_pln_rate() -> float:
                 if pln_x and pln_x > 0:
                     rate = 1.0 / pln_x
             if rate and rate > 0:
-                _rate_cache["value"] = rate
+                _rate_cache["value"] = float(rate)
                 _rate_cache["expires_at"] = now + _CACHE_TTL_SEC
-                return rate
+                return float(rate)
     except Exception as exc:
         logger.warning("USD/PLN fetch failed: %s", exc)
 

@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import { InstrumentShareMenu } from '../components/InstrumentShareMenu'
 import { CycleCardBitcoin } from '../components/CycleCardBitcoin'
 import { CycleCardPresidential } from '../components/CycleCardPresidential'
 import { MarketSummaryBanner } from '../components/MarketAssessmentCard'
@@ -67,25 +68,34 @@ export function DashboardPage() {
               <p className="side-panel-desc">{t('dashboard.momentumDesc')}</p>
               <div className="momentum-list">
                 {momentumPicks.slice(0, 5).map((opp) => (
-                  <button
-                    key={`mom-${opp.symbol}`}
-                    type="button"
-                    className="momentum-item tap-target"
-                    onClick={() => navigate(`/instrument/${encodeURIComponent(opp.symbol)}`)}
-                  >
-                    <div className="momentum-item-top">
-                      <span className="momentum-item-name">{opp.name}</span>
-                      <span className={`signal-tag signal-${opp.action}`}>{signal[opp.action]}</span>
-                    </div>
-                    <div className="momentum-item-meta">
-                      {opp.momentum_score != null && (
-                        <span>
-                          {t('dashboard.momentumShort')} {opp.momentum_score.toFixed(0)}
-                        </span>
-                      )}
-                      <span>{t('dashboard.confidencePct', { n: opp.confidence })}</span>
-                    </div>
-                  </button>
+                  <div key={`mom-${opp.symbol}`} className="momentum-item-wrap">
+                    <button
+                      type="button"
+                      className="momentum-item tap-target"
+                      onClick={() => navigate(`/instrument/${encodeURIComponent(opp.symbol)}`)}
+                    >
+                      <div className="momentum-item-top">
+                        <span className="momentum-item-name">{opp.name}</span>
+                        <span className={`signal-tag signal-${opp.action}`}>{signal[opp.action]}</span>
+                      </div>
+                      <div className="momentum-item-meta">
+                        {opp.momentum_score != null && (
+                          <span>
+                            {t('dashboard.momentumShort')} {opp.momentum_score.toFixed(0)}
+                          </span>
+                        )}
+                        <span>{t('dashboard.confidencePct', { n: opp.confidence })}</span>
+                      </div>
+                    </button>
+                    <InstrumentShareMenu
+                      symbol={opp.symbol}
+                      name={opp.name}
+                      kind="instrument"
+                      signal={signal[opp.action]}
+                      compact
+                      className="momentum-item-share"
+                    />
+                  </div>
                 ))}
               </div>
             </div>
@@ -95,25 +105,34 @@ export function DashboardPage() {
             <h3 className="side-panel-title">{t('dashboard.topMarkets')}</h3>
             <div className="markets-list markets-list-compact">
               {(data.market_assessments ?? []).slice(0, 5).map((item) => (
-                <button
-                  key={item.symbol}
-                  type="button"
-                  className="market-card market-card-clickable tap-target"
-                  onClick={() => navigate(`/instrument/${encodeURIComponent(item.symbol)}`)}
-                >
-                  <div className="market-card-top">
-                    <div>
-                      <div className="market-name">{item.name}</div>
-                      <div className="market-symbol">{item.symbol}</div>
+                <div key={item.symbol} className="market-card-wrap">
+                  <button
+                    type="button"
+                    className="market-card market-card-clickable tap-target"
+                    onClick={() => navigate(`/instrument/${encodeURIComponent(item.symbol)}`)}
+                  >
+                    <div className="market-card-top">
+                      <div>
+                        <div className="market-name">{item.name}</div>
+                        <div className="market-symbol">{item.symbol}</div>
+                      </div>
+                      <span className={`signal-tag signal-${item.signal}`}>{signal[item.signal]}</span>
                     </div>
-                    <span className={`signal-tag signal-${item.signal}`}>{signal[item.signal]}</span>
-                  </div>
-                  {item.momentum_score != null && (
-                    <div className="market-momentum">
-                      {t('dashboard.momentum', { n: item.momentum_score.toFixed(0) })}
-                    </div>
-                  )}
-                </button>
+                    {item.momentum_score != null && (
+                      <div className="market-momentum">
+                        {t('dashboard.momentum', { n: item.momentum_score.toFixed(0) })}
+                      </div>
+                    )}
+                  </button>
+                  <InstrumentShareMenu
+                    symbol={item.symbol}
+                    name={item.name}
+                    kind="instrument"
+                    signal={signal[item.signal]}
+                    compact
+                    className="market-card-share"
+                  />
+                </div>
               ))}
             </div>
           </div>

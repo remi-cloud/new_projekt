@@ -82,6 +82,33 @@ class Settings(BaseSettings):
     # Frontend / API hint: optional UI auto-refresh interval (seconds); 0 = off
     ui_auto_refresh_seconds: int = 20
 
+    # Broker execution agent
+    execution_enabled: bool = False
+    execution_dry_run: bool = True
+    execution_mirror_paper: bool = False
+    execution_require_approval: bool = True
+    execution_min_confidence: float = 70.0
+    execution_amount_pln: float = 10_000.0
+    execution_max_daily: int = 5
+    execution_cooldown_hours: int = 24
+    execution_tick_minutes: int = 10
+    execution_broker_crypto: str = "kraken"
+    execution_broker_equity: str = "ibkr"
+    execution_broker_equity_fallback: str = "etoro"
+
+    # Broker API credentials (empty = stub / dry-run only)
+    ibkr_gateway_url: str = ""
+    ibkr_account: str = ""
+    etoro_api_key: str = ""
+    kraken_api_key: str = ""
+    kraken_api_secret: str = ""
+    nexo_api_key: str = ""
+    nexo_api_secret: str = ""
+
+    # Paper portfolio — never auto-restore demo/test positions from backup or legacy DB
+    portfolio_restore_backup: bool = False
+    portfolio_migrate_legacy: bool = False
+
     class Config:
         env_prefix = "CYCLICAL_"
 

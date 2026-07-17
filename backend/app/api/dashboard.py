@@ -10,10 +10,16 @@ router = APIRouter(tags=["dashboard"])
 
 @router.get("/api/dashboard", response_model=DashboardResponse)
 async def dashboard():
-    if not scanner.bitcoin_cycle or not scanner.market_assessments:
-        await scanner.scan()
+    # Never await the full scan lock here — it can block for minutes and makes
+    # the UI look like the server is down. Frontend keeps previous data on 503.
+    if scanner.scan_in_progress and (
+        not scanner.bitcoin_cycle or not scanner.market_assessments
+    ):
+        raise HTTPException(status_code=503, detail="Skan rynków w toku — spróbuj za chwilę")
     if not scanner.bitcoin_cycle or not scanner.presidential_cycle:
         raise HTTPException(status_code=503, detail="Nie udało się pobrać danych cykli")
+    if not scanner.market_assessments:
+        raise HTTPException(status_code=503, detail="Skan rynków w toku — spróbuj za chwilę")
 
     summary = scanner.market_summary or MarketSummary(
         total_assets=0, by_signal={}, by_class={}, by_region={},

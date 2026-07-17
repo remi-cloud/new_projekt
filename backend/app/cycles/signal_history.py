@@ -51,6 +51,10 @@ CHANGE_BARS: dict[str, int] = {
 MIN_WARMUP = 35
 ENTRY_PHASES = frozenset({CyclePhase.BEAR, CyclePhase.ACCUMULATION})
 EXIT_PHASES = frozenset({CyclePhase.DISTRIBUTION})
+# ACCUMULATION starts at ~10% drawdown — that still looks like "the top" on MAX charts.
+# Require a deeper pullback + BUY consensus so WEJ is not painted on local peaks.
+ENTRY_MIN_DRAWDOWN_PCT = 18.0
+ENTRY_CONFIRM_BARS = 2
 
 
 def _candle_date(ts: int) -> date:
@@ -98,6 +102,7 @@ class BarAssessment:
         "rationale",
         "phase_changed",
         "macro_phase_changed",
+        "drawdown_pct",
     )
 
     def __init__(
@@ -111,6 +116,7 @@ class BarAssessment:
         rationale: str,
         phase_changed: bool,
         macro_phase_changed: bool,
+        drawdown_pct: float,
     ):
         self.price_phase = price_phase
         self.macro_phase = macro_phase
@@ -121,7 +127,7 @@ class BarAssessment:
         self.rationale = rationale
         self.phase_changed = phase_changed
         self.macro_phase_changed = macro_phase_changed
-
+        self.drawdown_pct = drawdown_pct
 
 def _assess_at_bar(
     candles: list[ChartCandle],
@@ -138,6 +144,7 @@ def _assess_at_bar(
     high_52w, low_52w = _rolling_extremes(candles, idx, lookback)
     price = candles[idx].close
     as_of = _candle_date(candles[idx].time)
+    drawdown_pct = ((high_52w - price) / high_52w) * 100 if high_52w > 0 else 0.0
 
     price_phase, price_sig, price_conf, price_rat = analyze_price_cycle(price, high_52w, low_52w)
 
@@ -218,17 +225,26 @@ def _assess_at_bar(
         rationale=rationale,
         phase_changed=phase_changed,
         macro_phase_changed=macro_phase_changed,
+        drawdown_pct=drawdown_pct,
     )
 
 
-def _is_entry_moment(assess: BarAssessment, prev_phase: CyclePhase | None) -> bool:
-    if prev_phase is None:
-        return False
+def _is_entry_moment(assess: BarAssessment, *, entry_phase_streak: int) -> bool:
+    """WEJ = confirmed transition into a deep drawdown buy-zone — not a market order.
+
+    Markers are educational phase tags. Without filters they fire as soon as the
+    rolling drawdown crosses ~10% (ACCUMULATION), which often still looks like
+    the local peak on multi-year charts.
+    """
     if assess.price_phase not in ENTRY_PHASES:
         return False
-    if prev_phase in ENTRY_PHASES:
+    if entry_phase_streak < ENTRY_CONFIRM_BARS:
+        return False
+    if assess.drawdown_pct < ENTRY_MIN_DRAWDOWN_PCT:
         return False
     if assess.macro_signal == SignalAction.SELL:
+        return False
+    if assess.final_signal == SignalAction.SELL:
         return False
     return True
 
@@ -269,6 +285,7 @@ def compute_cycle_markers(
     in_position = False
     prev_price_phase: CyclePhase | None = None
     prev_macro_phase: str | None = None
+    entry_phase_streak = 0
 
     for idx in range(MIN_WARMUP, len(candles)):
         assess = _assess_at_bar(
@@ -283,7 +300,12 @@ def compute_cycle_markers(
         )
         candle = candles[idx]
 
-        if not in_position and _is_entry_moment(assess, prev_price_phase):
+        if assess.price_phase in ENTRY_PHASES:
+            entry_phase_streak += 1
+        else:
+            entry_phase_streak = 0
+
+        if not in_position and _is_entry_moment(assess, entry_phase_streak=entry_phase_streak):
             markers.append(
                 CycleMarker(
                     time=candle.time,

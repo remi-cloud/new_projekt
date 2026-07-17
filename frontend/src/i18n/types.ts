@@ -4,7 +4,7 @@ export type Locale = 'pl' | 'de' | 'en' | 'fil' | 'es' | 'fr' | 'it'
 
 export interface Translations {
   lang: Record<Locale, string>
-  nav: Record<'start' | 'panel' | 'markets' | 'opportunities' | 'pearls' | 'cycles' | 'news' | 'alerts' | 'about' | 'portfolio' | 'agent' | 'calculator' | 'live' | 'business' | 'partners' | 'embed' | 'growth', string>
+  nav: Record<'start' | 'panel' | 'markets' | 'opportunities' | 'pearls' | 'cycles' | 'news' | 'alerts' | 'about' | 'portfolio' | 'agent' | 'calculator' | 'live' | 'business' | 'partners' | 'embed' | 'growth' | 'execution', string>
   layout: Record<'scan' | 'scanning' | 'scanDone' | 'scanError' | 'statusScan' | 'statusLive' | 'statusOnline' | 'statusOffline' | 'language' | 'loading' | 'brand' | 'navMain' | 'navMobile' | 'autoRefresh' | 'notFoundTitle' | 'notFoundLead' | 'notFoundHome', string>
   common: Record<'retry' | 'all' | 'world' | 'save' | 'saving' | 'cancel' | 'close' | 'refresh' | 'loading' | 'loadingMarket' | 'seeAll' | 'back' | 'units' | 'pieces' | 'long' | 'short' | 'buy' | 'sell' | 'live' | 'today' | 'tomorrow' | 'inDays', string>
   labels: {
@@ -44,7 +44,17 @@ export interface Translations {
       copyFailed: string
       noUrl: string
       platforms: Record<
-        'native' | 'x' | 'facebook' | 'linkedin' | 'whatsapp' | 'telegram' | 'reddit' | 'bluesky' | 'email' | 'copy',
+        | 'native'
+        | 'x'
+        | 'facebook'
+        | 'linkedin'
+        | 'whatsapp'
+        | 'telegram'
+        | 'reddit'
+        | 'bluesky'
+        | 'substack'
+        | 'email'
+        | 'copy',
         string
       >
     }
@@ -127,6 +137,7 @@ export interface Translations {
   logo: Record<'tagline', string>
   broker: Record<string, string>
   pearl: Record<string, string>
+  execution: Record<string, string>
   agent: {
     eyebrow: string
     title: string

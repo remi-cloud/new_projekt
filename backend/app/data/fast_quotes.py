@@ -19,7 +19,9 @@ YAHOO_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
 }
 BATCH_SIZE = 45
-FETCH_SEMAPHORE = asyncio.Semaphore(8)
+# Cap in-flight Yahoo calls; process in chunks so we never enqueue hundreds of
+# waiters on one shared semaphore (that starved /api/paper/portfolio).
+YAHOO_CONCURRENCY = 8
 INVESTING_SEMAPHORE = asyncio.Semaphore(2)
 
 ASSET_BY_SYMBOL = {a["symbol"]: a for a in MONITORED_ASSETS}
@@ -46,19 +48,27 @@ async def fetch_fast_quotes(
 
     quotes: dict[str, AssetQuote] = {}
 
-    async with httpx.AsyncClient(timeout=20, headers=YAHOO_HEADERS) as client:
+    async with httpx.AsyncClient(timeout=12, headers=YAHOO_HEADERS) as client:
         # Yahoo v7 batch quote often returns 401 — use v8 chart spot directly.
-        v8_tasks = [_fetch_yahoo_v8_spot(client, sym, now) for sym in yahoo_symbols]
-        v8_results = await asyncio.gather(*v8_tasks, return_exceptions=True)
-        for sym, result in zip(yahoo_symbols, v8_results):
-            if isinstance(result, AssetQuote):
-                quotes[sym] = result
+        # Chunk so other API handlers (paper portfolio) are not stuck behind a
+        # 200+ deep semaphore queue during full price ticks.
+        for chunk in _chunks(yahoo_symbols, YAHOO_CONCURRENCY):
+            v8_results = await asyncio.gather(
+                *[_fetch_yahoo_v8_spot(client, sym, now) for sym in chunk],
+                return_exceptions=True,
+            )
+            for sym, result in zip(chunk, v8_results):
+                if isinstance(result, AssetQuote):
+                    quotes[sym] = result
 
-        investing_tasks = [_fetch_investing_fast(sym, now) for sym in investing_symbols]
-        inv_results = await asyncio.gather(*investing_tasks, return_exceptions=True)
-        for sym, result in zip(investing_symbols, inv_results):
-            if isinstance(result, AssetQuote):
-                quotes[sym] = result
+        for chunk in _chunks(investing_symbols, 2):
+            inv_results = await asyncio.gather(
+                *[_fetch_investing_fast(sym, now) for sym in chunk],
+                return_exceptions=True,
+            )
+            for sym, result in zip(chunk, inv_results):
+                if isinstance(result, AssetQuote):
+                    quotes[sym] = result
 
     return quotes
 
@@ -75,16 +85,15 @@ async def _fetch_yahoo_batch(
     if not symbols:
         return {}
 
-    async with FETCH_SEMAPHORE:
-        encoded = ",".join(url_quote(s, safe="") for s in symbols)
-        url = f"https://query1.finance.yahoo.com/v7/finance/quote?symbols={encoded}"
-        try:
-            resp = await client.get(url)
-            resp.raise_for_status()
-            results = resp.json().get("quoteResponse", {}).get("result", [])
-        except Exception as exc:
-            logger.warning("Yahoo batch quote failed: %s", exc)
-            return {}
+    encoded = ",".join(url_quote(s, safe="") for s in symbols)
+    url = f"https://query1.finance.yahoo.com/v7/finance/quote?symbols={encoded}"
+    try:
+        resp = await client.get(url)
+        resp.raise_for_status()
+        results = resp.json().get("quoteResponse", {}).get("result", [])
+    except Exception as exc:
+        logger.warning("Yahoo batch quote failed: %s", exc)
+        return {}
 
     out: dict[str, AssetQuote] = {}
     for item in results:
@@ -117,39 +126,38 @@ async def _fetch_yahoo_v8_spot(
     if not meta:
         return None
 
-    async with FETCH_SEMAPHORE:
-        encoded = url_quote(symbol, safe="")
-        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{encoded}"
-        try:
-            resp = await client.get(url, params={"range": "1d", "interval": "1m"})
-            resp.raise_for_status()
-            result = resp.json().get("chart", {}).get("result")
-            if not result:
-                return None
-            r = result[0]
-            ymeta = r.get("meta") or {}
-            price = ymeta.get("regularMarketPrice")
-            if price is None:
-                q = (r.get("indicators") or {}).get("quote", [{}])[0]
-                closes = [c for c in (q.get("close") or []) if c is not None]
-                if not closes:
-                    return None
-                price = closes[-1]
-            prev = ymeta.get("chartPreviousClose") or ymeta.get("previousClose") or price
-            change_pct = None
-            if prev and float(prev) != 0:
-                change_pct = round((float(price) - float(prev)) / float(prev) * 100, 2)
-            return AssetQuote(
-                symbol=symbol,
-                name=meta["name"],
-                asset_class=AssetClass(meta["asset_class"]),
-                price=round(float(price), 4),
-                change_pct_24h=change_pct,
-                updated_at=now,
-            )
-        except Exception as exc:
-            logger.debug("Yahoo v8 spot failed for %s: %s", symbol, exc)
+    encoded = url_quote(symbol, safe="")
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{encoded}"
+    try:
+        resp = await client.get(url, params={"range": "1d", "interval": "1m"})
+        resp.raise_for_status()
+        result = resp.json().get("chart", {}).get("result")
+        if not result:
             return None
+        r = result[0]
+        ymeta = r.get("meta") or {}
+        price = ymeta.get("regularMarketPrice")
+        if price is None:
+            q = (r.get("indicators") or {}).get("quote", [{}])[0]
+            closes = [c for c in (q.get("close") or []) if c is not None]
+            if not closes:
+                return None
+            price = closes[-1]
+        prev = ymeta.get("chartPreviousClose") or ymeta.get("previousClose") or price
+        change_pct = None
+        if prev and float(prev) != 0:
+            change_pct = round((float(price) - float(prev)) / float(prev) * 100, 2)
+        return AssetQuote(
+            symbol=symbol,
+            name=meta["name"],
+            asset_class=AssetClass(meta["asset_class"]),
+            price=round(float(price), 4),
+            change_pct_24h=change_pct,
+            updated_at=now,
+        )
+    except Exception as exc:
+        logger.debug("Yahoo v8 spot failed for %s: %s", symbol, exc)
+        return None
 
 
 async def _fetch_investing_fast(symbol: str, now: datetime) -> AssetQuote | None:

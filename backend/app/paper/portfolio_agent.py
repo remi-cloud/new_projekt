@@ -53,6 +53,10 @@ async def _new_portfolio_is_empty() -> bool:
 
 async def migrate_legacy_portfolio_if_needed() -> bool:
     """Copy paper tables from trader.db → baza_portfela/portfolio.db on first run."""
+    from app.config import settings
+
+    if not settings.portfolio_migrate_legacy:
+        return False
     if not await _new_portfolio_is_empty():
         return False
     if not await _legacy_has_portfolio_data():
@@ -113,6 +117,10 @@ async def refresh_snapshot() -> dict:
 
 async def restore_repo_backup_if_needed() -> bool:
     """Copy committed backups/portfolio_latest.sqlite when local DB is empty."""
+    from app.config import settings
+
+    if not settings.portfolio_restore_backup:
+        return False
     backup = portfolio_repo_backup_path()
     if not backup.exists():
         return False

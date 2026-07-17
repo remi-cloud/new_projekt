@@ -4,8 +4,9 @@ import { PortfolioSummary, usePaperPortfolio } from '../components/PaperTrading'
 import { OpenOrdersPanel } from '../components/OpenOrdersPanel'
 import { PositionsSection } from '../components/PositionsSection'
 import { ErrorState } from '../components/Loading'
-import { resetPaperPortfolio, cancelPaperOrder, cancelAllPaperOrders } from '../api'
+import { resetPaperPortfolio, purgeAgentPaperPositions, cancelPaperOrder, cancelAllPaperOrders } from '../api'
 import { formatPln } from '../utils/format'
+import { formatThrownError } from '../i18n/utils'
 import { useLocale } from '../context/LocaleContext'
 
 export function PortfolioPage() {
@@ -19,6 +20,8 @@ export function PortfolioPage() {
   }, [location.pathname, reload])
 
   const [resetting, setResetting] = useState(false)
+  const [purging, setPurging] = useState(false)
+  const [purgeMsg, setPurgeMsg] = useState<string | null>(null)
   const [tradingSymbol, setTradingSymbol] = useState<string | null>(null)
   const [cancellingId, setCancellingId] = useState<number | null>(null)
   const [cancellingAll, setCancellingAll] = useState(false)
@@ -61,11 +64,27 @@ export function PortfolioPage() {
   const handleReset = async () => {
     if (!confirm(t('portfolio.confirmReset'))) return
     setResetting(true)
+    setPurgeMsg(null)
     try {
       await resetPaperPortfolio()
       await reload()
     } finally {
       setResetting(false)
+    }
+  }
+
+  const handlePurgeAgent = async () => {
+    if (!confirm(t('portfolio.confirmPurgeAgent'))) return
+    setPurging(true)
+    setPurgeMsg(null)
+    try {
+      const data = (await purgeAgentPaperPositions()) as { purged?: string[] }
+      setPurgeMsg(t('execution.purgeAgentDone', { n: data.purged?.length ?? 0 }))
+      await reload()
+    } catch (e) {
+      alert(formatThrownError(e, t('api.purgeAgentFailed')))
+    } finally {
+      setPurging(false)
     }
   }
 
@@ -87,10 +106,19 @@ export function PortfolioPage() {
       <PortfolioSummary portfolio={portfolio} />
 
       <section className="portfolio-section portfolio-actions-bar">
-        <button type="button" className="btn-link tap-target" onClick={handleReset} disabled={resetting}>
+        <button
+          type="button"
+          className="btn-link tap-target"
+          onClick={() => void handlePurgeAgent()}
+          disabled={purging || resetting}
+        >
+          {purging ? t('execution.purgingAgent') : t('execution.purgeAgent')}
+        </button>
+        <button type="button" className="btn-link tap-target" onClick={() => void handleReset()} disabled={resetting || purging}>
           {t('portfolio.resetAccount')}
         </button>
       </section>
+      {purgeMsg && <p className="portfolio-purge-msg">{purgeMsg}</p>}
 
       <section className="portfolio-section">
         <div className="section-header">

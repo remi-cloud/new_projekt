@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Cyclical Trader — start z Terminala na Macu
 # Użycie:  ./scripts/mac-start.sh
-set -euo pipefail
+set -eo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -11,8 +11,8 @@ ensure_brew_path || true
 resolve_mac_python || { echo "Brak Python 3 — brew install python@3.12"; exit 1; }
 check_python_version || { echo "Python ≥ 3.11 wymagany (masz $($PYTHON_BIN --version)) — brew install python@3.12"; exit 1; }
 
-PORT="${PORT:-8080}"
-OPEN_BROWSER="${OPEN_BROWSER:-1}"
+PORT="${PORT-8080}"
+OPEN_BROWSER="${OPEN_BROWSER-1}"
 
 RED=$'\033[31m'
 GRN=$'\033[32m'
@@ -45,9 +45,18 @@ ok "Node $(node -v) / npm $(npm -v)"
 # ── Port zajęty? ────────────────────────────────────────────
 if command -v lsof >/dev/null 2>&1; then
   if lsof -nP -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
-    warn "Port $PORT już zajęty."
-    info "Zatrzymaj stary proces:  ./scripts/mac-stop.sh"
-    info "Albo inny port:          PORT=8090 ./scripts/mac-start.sh"
+    if command -v curl >/dev/null 2>&1 && curl -sf "http://127.0.0.1:${PORT}/api/health" >/dev/null 2>&1; then
+      ok "Serwer już działa na http://localhost:${PORT}"
+      info "Execution agent: http://localhost:${PORT}/execution"
+      info "Zatrzymaj: ./scripts/mac-stop.sh"
+      if [ "$OPEN_BROWSER" = "1" ] && command -v open >/dev/null 2>&1; then
+        open "http://localhost:${PORT}/execution"
+      fi
+      exit 0
+    fi
+    warn "Port $PORT już zajęty (inny proces)."
+    info "Zatrzymaj:  ./scripts/mac-stop.sh"
+    info "Albo port:  PORT=8090 ./scripts/mac-start.sh"
     fail "Nie mogę wystartować na :$PORT"
   fi
 fi
@@ -86,18 +95,14 @@ if ! pip install -q -r requirements.txt; then
 fi
 ok "Backend gotowy"
 
-# ── Backup portfela (pierwszy start) ────────────────────────
+# ── Portfel (tylko lokalny portfolio.db — bez wklejania backupów z testów) ──
 PF_DIR="data/baza_portfela"
 PF_DB="$PF_DIR/portfolio.db"
-BACKUP="$ROOT/backups/portfolio_latest.sqlite"
 mkdir -p "$PF_DIR"
-if [ ! -f "$PF_DB" ] && [ -f "$BACKUP" ]; then
-  cp "$BACKUP" "$PF_DB"
-  ok "Przywrócono portfel z backups/portfolio_latest.sqlite"
-elif [ -f "$PF_DB" ]; then
+if [ -f "$PF_DB" ]; then
   ok "Portfel lokalny: $PF_DB"
 else
-  warn "Brak backupu — start z pustym kontem 1 000 000 PLN"
+  ok "Nowy portfel — start z kontem 1 000 000 PLN (pozycje tylko z Twoich zleceń)"
 fi
 
 # ── Start ───────────────────────────────────────────────────

@@ -33,6 +33,9 @@ const EmbedWidgetPage = lazy(() => import('./pages/EmbedWidgetPage').then((m) =>
 const PearlHunterPage = lazy(() =>
   import('./pages/PearlHunterPage').then((m) => ({ default: m.PearlHunterPage })),
 )
+const ExecutionAgentPage = lazy(() =>
+  import('./pages/ExecutionAgentPage').then((m) => ({ default: m.ExecutionAgentPage })),
+)
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })))
 
 function PageSuspense() {
@@ -45,13 +48,13 @@ function PageSuspense() {
 }
 
 function AppShell() {
-  const { data, scanning, scan, liveConnected } = useDashboardContext()
+  const { data, health, scanning, scan, liveConnected } = useDashboardContext()
 
   return (
     <Layout
-      scannerRunning={data?.scanner_running}
+      scannerRunning={data?.scanner_running ?? health?.scanner_running}
       scanInProgress={data?.scan_in_progress}
-      liveMode={data?.live_mode}
+      liveMode={data?.live_mode ?? health?.live_mode}
       liveConnected={liveConnected}
       onScan={scan}
       scanning={scanning}
@@ -87,6 +90,7 @@ export default function App() {
                 <Route path="agent" element={<FinanceAgentPage />} />
                 <Route path="okazje" element={<OpportunitiesPage />} />
                 <Route path="perly" element={<PearlHunterPage />} />
+                <Route path="execution" element={<ExecutionAgentPage />} />
                 <Route path="portfel" element={<PortfolioPage />} />
                 <Route path="rynki" element={<MarketsPage />} />
                 <Route path="instrument/:symbol" element={<InstrumentDetailPage />} />

@@ -53,18 +53,23 @@ async def fetch_quotes_with_stats() -> tuple[list[AssetQuote], dict[str, dict]]:
     price_stats: dict[str, dict] = {}
 
     async with httpx.AsyncClient(timeout=25, headers=YAHOO_HEADERS) as client:
-        tasks = [_fetch_asset(client, asset, now) for asset in MONITORED_ASSETS]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-
-    for result in results:
-        if isinstance(result, tuple):
-            asset_quote, stats = result
-            if asset_quote:
-                quotes.append(asset_quote)
-                if stats:
-                    price_stats[asset_quote.symbol] = stats
-        elif isinstance(result, Exception):
-            logger.warning("Asset fetch error: %s", result)
+        # Process in waves so we don't enqueue 246 waiters that starve other handlers.
+        for chunk in [
+            MONITORED_ASSETS[i : i + 12] for i in range(0, len(MONITORED_ASSETS), 12)
+        ]:
+            results = await asyncio.gather(
+                *[_fetch_asset(client, asset, now) for asset in chunk],
+                return_exceptions=True,
+            )
+            for result in results:
+                if isinstance(result, tuple):
+                    asset_quote, stats = result
+                    if asset_quote:
+                        quotes.append(asset_quote)
+                        if stats:
+                            price_stats[asset_quote.symbol] = stats
+                elif isinstance(result, Exception):
+                    logger.warning("Asset fetch error: %s", result)
 
     return quotes, price_stats
 
@@ -77,12 +82,23 @@ async def fetch_quotes() -> list[AssetQuote]:
 async def _fetch_asset(
     client: httpx.AsyncClient, asset: dict, now: datetime
 ) -> tuple[Optional[AssetQuote], dict]:
+    # Prefer Yahoo for full scans — Investing (curl_cffi) is slow/flaky and its
+    # sync calls are hard to cancel, which starved API handlers.
     if uses_investing(asset["symbol"], asset.get("region")):
-        async with INVESTING_SEMAPHORE:
-            quote, stats = await fetch_investing_quote(asset, now)
-            if quote:
-                return quote, stats
-            logger.warning("Investing.com fallback to Yahoo for %s", asset["symbol"])
+        async with FETCH_SEMAPHORE:
+            yahoo_quote, yahoo_stats = await _fetch_yahoo_asset(client, asset, now)
+            if yahoo_quote:
+                return yahoo_quote, yahoo_stats
+        try:
+            async with INVESTING_SEMAPHORE:
+                quote, stats = await asyncio.wait_for(
+                    fetch_investing_quote(asset, now), timeout=3.0
+                )
+                if quote:
+                    return quote, stats
+        except Exception:
+            pass
+        return None, {}
 
     async with FETCH_SEMAPHORE:
         return await _fetch_yahoo_asset(client, asset, now)

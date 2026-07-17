@@ -11,6 +11,7 @@ import { ChartLoader } from './TradingChart'
 import { PriceHeader } from './PriceHeader'
 import { TradingViewChart, TradingViewQuote } from './TradingViewChart'
 import { TagTip } from './TagTip'
+import { InstrumentShareMenu } from './InstrumentShareMenu'
 import { useLocale } from '../context/LocaleContext'
 import { useDomainLabels } from '../i18n/useDomainLabels'
 import type { TranslationPath } from '../i18n'
@@ -20,7 +21,7 @@ interface InstrumentPanelProps {
   expanded?: boolean
 }
 
-type ChartMode = 'live' | 'cycles'
+type ChartMode = 'price' | 'cycles' | 'tv'
 
 type RationaleKind = 'cycle' | 'price' | 'momentum' | 'other'
 
@@ -46,8 +47,8 @@ export function InstrumentPanel({ item, expanded = false }: InstrumentPanelProps
   const { asset, region, signal, phase } = useDomainLabels()
   const { ref, visible } = useLazyVisible()
   const [chartData, setChartData] = useState<ChartResponse | null>(null)
-  const [preset, setPreset] = useState<ChartPreset>('1m')
-  const [chartMode, setChartMode] = useState<ChartMode>('live')
+  const [preset, setPreset] = useState<ChartPreset>('1D')
+  const [chartMode, setChartMode] = useState<ChartMode>('price')
   const [tradesRevision, setTradesRevision] = useState(0)
   const [openTip, setOpenTip] = useState<string | null>(null)
 
@@ -55,7 +56,7 @@ export function InstrumentPanel({ item, expanded = false }: InstrumentPanelProps
 
   const liveQuote = useLiveQuote(
     item.symbol,
-    (visible || expanded) && chartMode === 'cycles',
+    (visible || expanded) && chartMode !== 'tv',
     expanded ? 15_000 : 60_000,
   )
   const displayPrice = liveQuote?.price ?? chartData?.current_price ?? item.price
@@ -92,7 +93,7 @@ export function InstrumentPanel({ item, expanded = false }: InstrumentPanelProps
       tabIndex={expanded ? undefined : 0}
       onKeyDown={expanded ? undefined : (e) => e.key === 'Enter' && openDetail()}
     >
-      {expanded && chartMode === 'live' ? (
+      {expanded && chartMode === 'tv' ? (
         <div className="price-header expanded">
           <div className="price-header-top">
             <div className="price-header-symbol">
@@ -135,10 +136,10 @@ export function InstrumentPanel({ item, expanded = false }: InstrumentPanelProps
           <div className="chart-mode-tabs">
             <button
               type="button"
-              className={`tf-btn ${chartMode === 'live' ? 'active' : ''}`}
-              onClick={() => setChartMode('live')}
+              className={`tf-btn ${chartMode === 'price' ? 'active' : ''}`}
+              onClick={() => setChartMode('price')}
             >
-              {t('chart.liveTv')}
+              {t('chart.priceChart')}
             </button>
             <button
               type="button"
@@ -147,10 +148,17 @@ export function InstrumentPanel({ item, expanded = false }: InstrumentPanelProps
             >
               {t('chart.cyclesRsi')}
             </button>
+            <button
+              type="button"
+              className={`tf-btn ${chartMode === 'tv' ? 'active' : ''}`}
+              onClick={() => setChartMode('tv')}
+            >
+              {t('chart.liveTv')}
+            </button>
           </div>
         )}
 
-        {expanded && chartMode === 'cycles' && (
+        {expanded && chartMode !== 'tv' && (
           <div className="chart-timeframes">
             <div className="chart-tf-row">
               {INTRADAY_CHART_PRESETS.map((p) => (
@@ -181,30 +189,14 @@ export function InstrumentPanel({ item, expanded = false }: InstrumentPanelProps
 
         {(visible || expanded) && (
           <>
-            {expanded && chartMode === 'live' ? (
-              <>
-                <div className="chart-timeframes chart-tv-intervals">
-                  <div className="chart-tf-row">
-                    {(['1m', '5m', '15m', '1H', '4H', '1D', '1W'] as ChartPreset[]).map((p) => (
-                      <button
-                        key={p}
-                        type="button"
-                        className={`tf-btn tf-intraday ${preset === p ? 'active' : ''}`}
-                        onClick={() => setPreset(p)}
-                      >
-                        {p}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <TradingViewChart
-                  symbol={item.symbol}
-                  assetClass={item.asset_class}
-                  region={item.region}
-                  height={400}
-                  interval={presetToTvInterval(preset)}
-                />
-              </>
+            {expanded && chartMode === 'tv' ? (
+              <TradingViewChart
+                symbol={item.symbol}
+                assetClass={item.asset_class}
+                region={item.region}
+                height={400}
+                interval={presetToTvInterval(preset)}
+              />
             ) : (
               <ChartLoader
                 symbol={item.symbol}
@@ -233,6 +225,15 @@ export function InstrumentPanel({ item, expanded = false }: InstrumentPanelProps
       </div>
 
       <div className="instrument-footer">
+        <div className="instrument-share-row" onClick={(e) => e.stopPropagation()}>
+          <InstrumentShareMenu
+            symbol={item.symbol}
+            name={item.name}
+            kind="instrument"
+            signal={signal[item.signal]}
+            compact
+          />
+        </div>
         <p className="tag-tips-hint">{t('tagTips.clickHint')}</p>
         <div className="market-tags" onClick={(e) => e.stopPropagation()}>
           <TagTip

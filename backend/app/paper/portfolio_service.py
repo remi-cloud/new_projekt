@@ -6,7 +6,7 @@ from app.data.broker_map import resolve_broker_info
 from app.paper import paper_db
 from app.paper.currency import get_usd_pln_rate, native_currency, to_pln
 from app.paper.limit_orders import limit_orders_for_portfolio
-from app.paper.pricing import get_live_price_async, refresh_quotes_for_symbols
+from app.paper.pricing import get_live_price, refresh_quotes_for_symbols
 from app.scanners.opportunity_scanner import scanner
 
 
@@ -21,8 +21,9 @@ async def _position_to_view(pos: dict, usd_pln: float) -> dict:
     currency = pos["currency"] or native_currency(symbol)
     asset_class = pos["asset_class"]
 
+    # Cache-only for list views — never block HTTP on Investing/Yahoo here.
     try:
-        current_native, _ = await get_live_price_async(symbol)
+        current_native, _ = get_live_price(symbol)
     except Exception:
         current_native = avg_native
 
@@ -81,7 +82,7 @@ async def build_portfolio() -> dict:
     trades = await paper_db.get_trades(limit=30)
     closed_raw = await paper_db.get_closed_positions(limit=50)
     limit_orders = await limit_orders_for_portfolio()
-    usd_pln = await get_usd_pln_rate()
+    usd_pln = await get_usd_pln_rate(allow_network=False)
     limits_by_symbol: dict[str, list] = {}
     for lo in limit_orders:
         limits_by_symbol.setdefault(lo["symbol"], []).append(lo)

@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import logging
 
-from app.data.assets import MONITORED_ASSETS
 from app.paper import paper_db
 from app.paper.currency import get_usd_pln_rate, native_currency, to_pln
-from app.paper.executor import ASSET_MAP, _round_qty, place_order
-from app.paper.pricing import PaperTradeError, get_live_price
+from app.paper.executor import _round_qty, place_order
+from app.paper.instrument_meta import resolve_instrument_meta
+from app.paper.pricing import PaperTradeError, get_live_price_async
 
 logger = logging.getLogger(__name__)
 
@@ -63,8 +63,7 @@ async def place_open_order(
     amount_pln: float | None = None,
     quantity: float | None = None,
 ) -> dict:
-    if symbol not in ASSET_MAP:
-        raise PaperTradeError(f"Instrument {symbol} nie jest monitorowany", "invalid_symbol")
+    meta = await resolve_instrument_meta(symbol)
     if side not in ("buy", "sell"):
         raise PaperTradeError("Strona musi być buy lub sell", "invalid_side")
     if order_type not in VALID_ORDER_TYPES:
@@ -76,7 +75,6 @@ async def place_open_order(
     if amount_pln is not None and amount_pln <= 0:
         raise PaperTradeError("Wartość zamówienia musi być > 0", "invalid_quantity")
 
-    meta = ASSET_MAP[symbol]
     currency = native_currency(symbol)
     usd_pln = await get_usd_pln_rate()
     trigger_pln = to_pln(trigger_price_native, currency, usd_pln)
@@ -87,7 +85,7 @@ async def place_open_order(
 
     assert amount_pln is not None
 
-    market_price, _ = get_live_price(symbol)
+    market_price, _ = await get_live_price_async(symbol)
     if _order_should_fill(order_type, side, market_price, trigger_price_native):
         trade = await place_order(
             symbol,
@@ -133,7 +131,7 @@ async def process_limit_orders() -> int:
         order_id = int(order["id"])
 
         try:
-            market_price, _ = get_live_price(symbol)
+            market_price, _ = await get_live_price_async(symbol)
         except PaperTradeError:
             continue
 
@@ -180,7 +178,7 @@ async def cancel_all_pending_orders(symbol: str | None = None) -> int:
 
 async def limit_orders_for_portfolio() -> list[dict]:
     orders = await paper_db.get_pending_limit_orders()
-    usd_pln = await get_usd_pln_rate()
+    usd_pln = await get_usd_pln_rate(allow_network=False)
     return [_order_to_view(order, usd_pln) for order in orders]
 
 

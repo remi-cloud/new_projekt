@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ChangeEvent, FocusEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { calculateRoi, fetchRoiAssets } from '../api'
 import { ErrorState } from '../components/Loading'
@@ -20,10 +20,46 @@ function fmtPct(n: number): string {
   return `${sign}${n.toFixed(1)}%`
 }
 
+function useEditableNumber(
+  value: number,
+  onCommit: (next: number) => void,
+  options: { emptyWhenZero?: boolean } = {},
+) {
+  const { emptyWhenZero = false } = options
+  const [draft, setDraft] = useState<string | null>(null)
+
+  const display = draft !== null ? draft : emptyWhenZero && value === 0 ? '' : String(value)
+
+  const onChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setDraft(e.target.value)
+  }
+
+  const onFocus = (e: FocusEvent<HTMLInputElement>) => {
+    const initial = emptyWhenZero && value === 0 ? '' : String(value)
+    setDraft(initial)
+    const el = e.target
+    requestAnimationFrame(() => el.select())
+  }
+
+  const onBlur = () => {
+    if (draft === null) return
+    const trimmed = draft.trim()
+    if (trimmed === '') {
+      onCommit(emptyWhenZero ? 0 : value)
+    } else {
+      const parsed = Number(trimmed)
+      onCommit(Number.isFinite(parsed) ? parsed : value)
+    }
+    setDraft(null)
+  }
+
+  return { value: display, onChange, onFocus, onBlur }
+}
+
 export function RoiCalculatorPage() {
   const { t, dateLocale, locale } = useLocale()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [assets, setAssets] = useState<RoiAssetInfo[]>([])
   const [mode, setMode] = useState<RoiMode>('forward')
   const [symbol, setSymbol] = useState('BTC-USD')
@@ -38,7 +74,7 @@ export function RoiCalculatorPage() {
   const [assetsError, setAssetsError] = useState(false)
   const [result, setResult] = useState<RoiCalculateResult | null>(null)
   const resultsRef = useRef<HTMLElement>(null)
-  const autoRanRef = useRef(false)
+  const backtestAutoKeyRef = useRef<string | null>(null)
 
   const loadAssets = useCallback(async () => {
     setLoadingAssets(true)
@@ -61,10 +97,26 @@ export function RoiCalculatorPage() {
     void loadAssets()
   }, [loadAssets])
 
+  const syncSymbolInUrl = useCallback(
+    (sym: string, calcMode: RoiMode) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          next.set('symbol', sym)
+          if (calcMode === 'backtest') next.set('mode', 'backtest')
+          return next
+        },
+        { replace: true },
+      )
+    },
+    [setSearchParams],
+  )
+
   const runCalculate = useCallback(
-    async (overrides?: { symbol?: string; mode?: RoiMode }) => {
+    async (overrides?: { symbol?: string; mode?: RoiMode; start?: string }) => {
       const sym = overrides?.symbol ?? symbol
       const calcMode = overrides?.mode ?? mode
+      const calcStart = overrides?.start ?? start
       setCalculating(true)
       setError(null)
       try {
@@ -75,7 +127,7 @@ export function RoiCalculatorPage() {
           mode: calcMode,
           years,
           monthly_contribution: monthly,
-          start: calcMode === 'backtest' ? start || undefined : undefined,
+          start: calcMode === 'backtest' ? calcStart || undefined : undefined,
           compare_buy_hold: true,
         })
         setResult(data)
@@ -105,19 +157,31 @@ export function RoiCalculatorPage() {
 
   useEffect(() => {
     const qpMode = searchParams.get('mode')
-    const qpSymbol = searchParams.get('symbol')
-    if (qpMode !== 'backtest' || autoRanRef.current || loadingAssets || assetsError) return
-    autoRanRef.current = true
-    void runCalculate({ symbol: qpSymbol || symbol, mode: 'backtest' })
+    if (qpMode !== 'backtest' || loadingAssets || assetsError) return
+    const sym = searchParams.get('symbol') || symbol
+    if (backtestAutoKeyRef.current === sym) return
+    backtestAutoKeyRef.current = sym
+    void runCalculate({ symbol: sym, mode: 'backtest' })
   }, [searchParams, loadingAssets, assetsError, runCalculate, symbol])
 
   const selected = useMemo(() => assets.find((a) => a.symbol === symbol), [assets, symbol])
   const isForward = mode === 'forward'
+  const amountInput = useEditableNumber(amount, setAmount)
+  const monthlyInput = useEditableNumber(monthly, setMonthly, { emptyWhenZero: true })
 
   const onSymbolChange = (sym: string) => {
-    setSymbol(sym)
     const asset = assets.find((a) => a.symbol === sym)
-    if (asset?.history_from) setStart(asset.history_from)
+    const nextStart = asset?.history_from ?? start
+    setSymbol(sym)
+    if (asset?.history_from) setStart(nextStart)
+    syncSymbolInUrl(sym, mode)
+    if (mode === 'backtest') {
+      backtestAutoKeyRef.current = sym
+      setResult(null)
+      void runCalculate({ symbol: sym, mode: 'backtest', start: nextStart })
+    } else {
+      setResult(null)
+    }
   }
 
   const explainWithAgent = (res: RoiCalculateResult) => {
@@ -190,8 +254,11 @@ export function RoiCalculatorPage() {
             min={100}
             max={100000000}
             step={100}
-            value={amount}
-            onChange={(e) => setAmount(Number(e.target.value) || 0)}
+            inputMode="numeric"
+            value={amountInput.value}
+            onChange={amountInput.onChange}
+            onFocus={amountInput.onFocus}
+            onBlur={amountInput.onBlur}
           />
         </label>
 
@@ -221,8 +288,11 @@ export function RoiCalculatorPage() {
                 min={0}
                 max={1000000}
                 step={50}
-                value={monthly}
-                onChange={(e) => setMonthly(Number(e.target.value) || 0)}
+                inputMode="numeric"
+                value={monthlyInput.value}
+                onChange={monthlyInput.onChange}
+                onFocus={monthlyInput.onFocus}
+                onBlur={monthlyInput.onBlur}
               />
             </label>
           </>

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Zatrzymaj Cyclical Trader na Macu (uvicorn na porcie 8080 / $PORT)
-set -euo pipefail
-PORT="${PORT:-8080}"
+set -eo pipefail
+PORT="${PORT-8080}"
 
-echo "Szukam procesu na porcie $PORT…"
+echo "Szukam procesu na porcie ${PORT}..."
 if ! command -v lsof >/dev/null 2>&1; then
   echo "Brak lsof — użyj Ctrl+C w oknie Terminala z serwerem."
   exit 1

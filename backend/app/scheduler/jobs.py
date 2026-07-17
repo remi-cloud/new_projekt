@@ -164,6 +164,31 @@ async def scheduled_pearl_crypto() -> None:
         logger.exception("Pearl crypto agent failed: %s", exc)
 
 
+async def scheduled_execution_tick() -> None:
+    try:
+        from app.config import settings as cfg
+        from app.execution.agent import run_once
+        from app.scanners.opportunity_scanner import scanner
+
+        if not cfg.execution_enabled:
+            return
+        if scanner.scan_in_progress:
+            return
+        result = await run_once()
+        await broadcaster.publish(
+            "execution_tick",
+            {
+                "processed": result.processed,
+                "created": result.created,
+                "executed": result.executed,
+                "skipped": result.skipped,
+                "errors": result.errors,
+            },
+        )
+    except Exception as exc:
+        logger.exception("Execution agent tick failed: %s", exc)
+
+
 def start_scheduler() -> None:
     global _running, _initialised
     if _running:
@@ -213,18 +238,26 @@ def start_scheduler() -> None:
             id="pearl_crypto_hunter",
             replace_existing=True,
         )
+    scheduler.add_job(
+        scheduled_execution_tick,
+        "interval",
+        minutes=max(5, int(settings.execution_tick_minutes)),
+        id="execution_agent_tick",
+        replace_existing=True,
+    )
     scheduler.start()
     _running = True
     _initialised = True
     logger.info(
         "Scheduler started — prices every %ds, news every %ds, full scan every %d min, "
-        "autosave every %ds, pearl equity %d min, pearl crypto %d min",
+        "autosave every %ds, pearl equity %d min, pearl crypto %d min, execution %d min",
         settings.price_poll_interval_seconds,
         settings.news_refresh_interval_seconds,
         settings.scan_interval_minutes,
         settings.auto_backup_interval_seconds if settings.auto_backup_enabled else 0,
         settings.pearl_equity_interval_minutes if settings.pearl_hunter_enabled else 0,
         settings.pearl_crypto_interval_minutes if settings.pearl_hunter_enabled else 0,
+        settings.execution_tick_minutes,
     )
 
 

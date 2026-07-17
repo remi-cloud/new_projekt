@@ -7,6 +7,7 @@ from app.api import (
     backup,
     cycles,
     dashboard,
+    execution,
     growth,
     health,
     live,
@@ -31,6 +32,7 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(news.router)
     app.include_router(ai.router)
     app.include_router(pearl.router)
+    app.include_router(execution.router)
     app.include_router(notifications.router)
     app.include_router(paper.router)
     app.include_router(live.router)

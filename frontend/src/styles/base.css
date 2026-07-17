@@ -1155,8 +1155,17 @@ body {
 .portfolio-actions-bar {
   display: flex;
   justify-content: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
   padding-top: 0;
   margin-top: -8px;
+}
+
+.portfolio-purge-msg {
+  margin: -4px 0 12px;
+  font-size: 0.875rem;
+  color: var(--accent-green, #22c55e);
+  text-align: right;
 }
 
 .positions-section .section-header-left {

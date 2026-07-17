@@ -56,6 +56,7 @@ export type TranslationPath =
   | `logo.${keyof Translations['logo']}`
   | `broker.${keyof Translations['broker']}`
   | `pearl.${keyof Translations['pearl']}`
+  | `execution.${keyof Translations['execution']}`
   | `agent.${keyof Translations['agent']}`
   | `roi.${keyof Omit<Translations['roi'], 'strategies' | 'strategyDesc' | 'errors' | 'sentiment'>}`
   | `roi.strategies.${keyof Translations['roi']['strategies']}`

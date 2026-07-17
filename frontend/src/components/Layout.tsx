@@ -30,6 +30,7 @@ const NAV_KEYS: Record<string, TranslationPath> = {
   '/embed': 'nav.embed',
   '/news': 'nav.news',
   '/agent': 'nav.agent',
+  '/execution': 'nav.execution',
   '/powiadomienia': 'nav.alerts',
   '/o-nas': 'nav.about',
   '/portfel': 'nav.portfolio',

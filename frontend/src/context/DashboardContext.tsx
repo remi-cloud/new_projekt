@@ -1,7 +1,9 @@
 import { createContext, useContext, ReactNode, useMemo } from 'react'
 import { useLocation } from 'react-router-dom'
+import type { HealthResponse } from '../api'
 import { useDashboard } from '../hooks/useDashboard'
 import { usePaperPortfolioFeed } from '../hooks/usePaperPortfolio'
+import { useSystemHealth } from '../hooks/useSystemHealth'
 import { DashboardResponse, PaperPortfolio } from '../types'
 import { needsDashboardFeed, needsLiveSse, needsPortfolioFeed } from '../utils/routeActivity'
 
@@ -12,6 +14,7 @@ interface DashboardContextValue {
   error: string | null
   liveConnected: boolean
   lastEventAt: string | null
+  health: HealthResponse | null
   reload: () => Promise<void>
   scan: () => Promise<void>
   portfolio: PaperPortfolio | null
@@ -29,6 +32,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const portfolioActive = needsPortfolioFeed(pathname)
   const sseActive = needsLiveSse(pathname)
 
+  const { health } = useSystemHealth(true)
   const dashboard = useDashboard({
     enabled: dashboardActive,
     poll: dashboardActive,
@@ -44,9 +48,10 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     () => ({
       ...dashboard,
       ...portfolioFeed,
+      health,
       dashboardActive,
     }),
-    [dashboard, portfolioFeed, dashboardActive],
+    [dashboard, portfolioFeed, health, dashboardActive],
   )
 
   return <DashboardContext.Provider value={value}>{children}</DashboardContext.Provider>

@@ -69,6 +69,35 @@ async def get_live_price_async(symbol: str) -> tuple[float, str]:
     if symbol in fast:
         return fast[symbol].price, native_currency(symbol)
 
+    # Yahoo chart last close — works for pearls / non-monitored symbols
+    from datetime import datetime, timezone
+
+    from app.data.chart_data import fetch_chart
+    from app.models.schemas import AssetClass, AssetQuote
+
+    chart = await fetch_chart(symbol, "1D")
+    if chart and chart.candles:
+        price = float(chart.candles[-1].close)
+        currency = native_currency(symbol)
+        meta = next((a for a in MONITORED_ASSETS if a["symbol"] == symbol), None)
+        asset_class = AssetClass(meta["asset_class"]) if meta else (
+            AssetClass.CRYPTO if symbol.endswith("-USD") else AssetClass.STOCK
+        )
+        name = meta["name"] if meta else symbol
+        merge_fast_quotes(
+            {
+                symbol: AssetQuote(
+                    symbol=symbol,
+                    name=name,
+                    asset_class=asset_class,
+                    price=round(price, 6),
+                    change_pct_24h=None,
+                    updated_at=datetime.now(timezone.utc),
+                )
+            }
+        )
+        return price, currency
+
     meta = next((a for a in MONITORED_ASSETS if a["symbol"] == symbol), None)
     if meta:
         logger.warning("Live price unavailable for portfolio symbol %s", symbol)

@@ -235,3 +235,25 @@ def test_close_partial_long_position():
     assert trade["quantity"] == 5.0
     assert pos is not None
     assert pos["quantity"] == 5.0
+
+
+def test_place_order_allows_pearl_symbol():
+    """Non-monitored pearls (e.g. SMR) must be tradable in paper mode."""
+
+    async def _run():
+        await init_paper_db()
+        await reset_account()
+        with patch(
+            "app.paper.executor.get_live_price_async", return_value=(7.64, "USD")
+        ), patch("app.paper.executor.get_usd_pln_rate", return_value=4.0):
+            trade = await place_order("SMR", "buy", amount_pln=10_000.0)
+            pos = await get_position("SMR")
+            return trade, pos
+
+    trade, pos = asyncio.run(_run())
+    assert trade["symbol"] == "SMR"
+    assert trade["side"] == "buy"
+    assert trade["quantity"] > 0
+    assert pos is not None
+    assert pos["symbol"] == "SMR"
+    assert float(pos["quantity"]) > 0

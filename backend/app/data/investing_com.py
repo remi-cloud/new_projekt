@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import json
 import logging
 import time
@@ -17,6 +18,18 @@ from app.data.polish_investing_map import POLISH_INVESTING_IDS, POLISH_INVESTING
 from app.models.schemas import AssetClass, AssetQuote, ChartCandle, ChartResponse
 
 logger = logging.getLogger(__name__)
+
+# Dedicated pool so sync curl_cffi work does not starve aiosqlite's default executor.
+_INVESTING_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
+    max_workers=2, thread_name_prefix="investing"
+)
+
+
+async def _investing_to_thread(func, /, *args, **kwargs):
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(
+        _INVESTING_EXECUTOR, lambda: func(*args, **kwargs)
+    )
 
 CACHE_PATH = Path(__file__).resolve().parents[2] / "data" / "polish_investing_cache.json"
 
@@ -260,12 +273,12 @@ async def fetch_investing_quote(
 ) -> tuple[AssetQuote | None, dict]:
     now = now or datetime.now(timezone.utc)
     symbol = asset["symbol"]
-    pair_id = await asyncio.to_thread(_resolve_pair_id_sync, symbol)
+    pair_id = await _investing_to_thread(_resolve_pair_id_sync, symbol)
     if not pair_id:
         return None, {}
 
     period, interval, points = QUOTE_CHART
-    raw = await asyncio.to_thread(_fetch_chart_sync, pair_id, period, interval, points)
+    raw = await _investing_to_thread(_fetch_chart_sync, pair_id, period, interval, points)
     if not raw:
         return None, {}
 
@@ -291,10 +304,10 @@ async def fetch_investing_chart(symbol: str, preset: str, meta: dict) -> ChartRe
     if preset not in INVESTING_CHART_PRESETS:
         preset = "3M"
     period, interval, points = INVESTING_CHART_PRESETS[preset]
-    pair_id = await asyncio.to_thread(_resolve_pair_id_sync, symbol)
+    pair_id = await _investing_to_thread(_resolve_pair_id_sync, symbol)
     if not pair_id:
         return None
-    raw = await asyncio.to_thread(_fetch_chart_sync, pair_id, period, interval, points)
+    raw = await _investing_to_thread(_fetch_chart_sync, pair_id, period, interval, points)
     if not raw:
         return None
     return _candles_to_chart_response(symbol, meta.get("name", symbol), preset, interval, raw)

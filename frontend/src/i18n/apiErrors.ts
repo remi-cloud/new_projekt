@@ -11,6 +11,7 @@ export type ApiErrorCode =
   | 'noData'
   | 'tradeFailed'
   | 'resetFailed'
+  | 'purgeAgentFailed'
   | 'fetchPosition'
   | 'cancelOrder'
   | 'cancelAllOrders'
@@ -44,11 +45,13 @@ export type ApiErrorCode =
 
 export class ApiError extends Error {
   readonly code: ApiErrorCode
+  readonly detail?: string
 
-  constructor(code: ApiErrorCode) {
-    super(code)
+  constructor(code: ApiErrorCode, detail?: string) {
+    super(detail || code)
     this.name = 'ApiError'
     this.code = code
+    this.detail = detail
   }
 }
 

@@ -43,3 +43,33 @@ def test_compute_cycle_markers_short_series_empty():
     candles = _daily_candles([100.0] * 20)
     markers = compute_cycle_markers(candles, preset="3M", symbol="AAPL")
     assert markers == []
+
+
+def test_entry_not_near_local_peak():
+    """Shallow pullback from ATH must not paint WEJ on the top."""
+    # Long flat ATH, tiny 8% dip (ACCUMULATION zone historically, but <18% filter)
+    prices = [100.0] * 40 + [100.0, 99.0, 98.0, 97.0, 96.0, 95.0, 94.0, 93.0, 92.5]
+    candles = _daily_candles(prices, start=date(2023, 1, 1))
+    markers = compute_cycle_markers(
+        candles,
+        preset="3M",
+        asset_class="stock",
+        region="us",
+        symbol="TEST",
+    )
+    buys = [m for m in markers if m.action == SignalAction.BUY]
+    assert buys == []
+
+
+def test_entry_after_deep_drawdown():
+    """Deep drop from peak should still produce a WEJ after confirmation."""
+    prices = [100.0] * 40 + [100.0 - i for i in range(1, 35)]  # down to ~66 = 34% DD
+    candles = _daily_candles(prices, start=date(2023, 1, 1))
+    markers = compute_cycle_markers(
+        candles,
+        preset="3M",
+        asset_class="stock",
+        region="us",
+        symbol="TEST",
+    )
+    assert any(m.action == SignalAction.BUY for m in markers)

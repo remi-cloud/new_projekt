@@ -65,6 +65,22 @@ _BROKERS: dict[str, dict[str, Any]] = {
         "notes": "Spot crypto (US-friendly)",
         "asset_classes": ["crypto"],
     },
+    "etoro": {
+        "id": "etoro",
+        "name": "eToro",
+        "regions": ["global", "eu", "us", "pl"],
+        "url": "https://www.etoro.com/",
+        "notes": "Stocks, ETFs, crypto CFDs",
+        "asset_classes": ["stock", "etf", "crypto", "commodity"],
+    },
+    "nexo": {
+        "id": "nexo",
+        "name": "Nexo",
+        "regions": ["global", "eu"],
+        "url": "https://nexo.com/",
+        "notes": "Crypto spot & earn",
+        "asset_classes": ["crypto"],
+    },
     "bos": {
         "id": "bos",
         "name": "BOŚ Bank",
@@ -180,3 +196,25 @@ def resolve_broker_info(
         "brokers": brokers,
         "disclaimer": "Informacja edukacyjna — nie rekomendacja. Sprawdź dostępność instrumentu i lokalne przepisy u brokera.",
     }
+
+
+def resolve_execution_brokers(
+    symbol: str,
+    asset_class: str = "stock",
+    region: str | None = None,
+    *,
+    broker_crypto: str = "kraken",
+    broker_equity: str = "ibkr",
+    broker_equity_fallback: str = "etoro",
+) -> tuple[str, str | None]:
+    """Pick primary and fallback broker for live execution routing."""
+    if symbol.endswith("-USD") or asset_class == "crypto":
+        primary = broker_crypto
+        fallback = "nexo" if primary != "nexo" else "kraken"
+        return primary, fallback
+
+    if symbol.endswith(".WA") or region == "pl":
+        return broker_equity, broker_equity_fallback
+
+    return broker_equity, broker_equity_fallback
+

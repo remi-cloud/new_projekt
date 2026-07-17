@@ -53,6 +53,7 @@ export const NAV_ITEMS: { path: string; labelKey: TranslationPath }[] = [
   { path: '/news', labelKey: 'nav.news' },
   { path: '/biznes', labelKey: 'nav.business' },
   { path: '/agent', labelKey: 'nav.agent' },
+  { path: '/execution', labelKey: 'nav.execution' },
   { path: '/powiadomienia', labelKey: 'nav.alerts' },
   { path: '/o-nas', labelKey: 'nav.about' },
 ]

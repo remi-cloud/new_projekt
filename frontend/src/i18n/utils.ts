@@ -47,6 +47,7 @@ export function resolveApiMessage(code: ApiErrorCode, locale?: Locale): string {
 
 /** Turn thrown ApiError / Error into a localized user-facing string. */
 export function formatThrownError(err: unknown, fallback: string, locale?: Locale): string {
+  if (isApiError(err) && err.detail) return err.detail
   if (isApiError(err)) return resolveApiMessage(err.code, locale)
   if (err instanceof Error && err.message in en.api) {
     return resolveApiMessage(err.message as ApiErrorCode, locale)

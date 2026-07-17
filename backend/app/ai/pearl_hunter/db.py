@@ -89,6 +89,31 @@ async def upsert_find(find: dict) -> None:
         await db.commit()
 
 
+async def get_find_by_symbol(symbol: str) -> dict | None:
+    """Latest pearl find for a symbol (any agent), if present."""
+    async with db_session() as db:
+        cur = await db.execute(
+            """
+            SELECT * FROM pearl_finds
+            WHERE symbol = ?
+            ORDER BY found_at DESC
+            LIMIT 1
+            """,
+            (symbol,),
+        )
+        row = await cur.fetchone()
+        if not row:
+            return None
+        cols = [d[0] for d in cur.description]
+        item = dict(zip(cols, row))
+        try:
+            item["broker_info"] = json.loads(item.pop("broker_json") or "{}")
+        except Exception:
+            item["broker_info"] = {}
+            item.pop("broker_json", None)
+        return item
+
+
 async def list_finds(limit: int = 40, agent_id: str | None = None) -> list[dict]:
     async with db_session() as db:
         if agent_id:

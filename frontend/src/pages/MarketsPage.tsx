@@ -51,7 +51,9 @@ export function MarketsPage() {
   )
 
   if (error && !data) return <ErrorState message={error} onRetry={reload} />
-  if (loading && !data) return <Loading message={t('layout.loading')} />
+  if ((loading && !data) || (data?.scan_in_progress && !(data.market_assessments?.length))) {
+    return <Loading message={data?.scan_in_progress ? t('layout.statusScan') : t('layout.loading')} />
+  }
   if (!data) return null
 
   return (

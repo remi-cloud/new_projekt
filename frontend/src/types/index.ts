@@ -135,6 +135,59 @@ export interface PearlHunterStatus {
   last_run_at?: string | null
 }
 
+export interface ExecutionBrokerStatus {
+  broker_id: string
+  name: string
+  configured: boolean
+  connected: boolean
+  notes?: string
+}
+
+export interface ExecutionSettings {
+  enabled: boolean
+  dry_run: boolean
+  mirror_paper: boolean
+  require_approval: boolean
+  min_confidence: number
+  amount_pln: number
+  max_daily: number
+  cooldown_hours: number
+  broker_crypto: string
+  broker_equity: string
+  broker_equity_fallback: string
+}
+
+export interface ExecutionStatus {
+  enabled: boolean
+  dry_run: boolean
+  mirror_paper: boolean
+  require_approval: boolean
+  proposals_today: number
+  max_daily: number
+  last_run_at?: string | null
+  settings: ExecutionSettings
+  brokers: ExecutionBrokerStatus[]
+}
+
+export interface ExecutionProposal {
+  id?: number
+  symbol: string
+  name: string
+  asset_class: string
+  region: string
+  broker_id: string
+  source: string
+  confidence: number
+  amount_pln: number
+  rationale: string
+  status: string
+  broker_order_id?: string | null
+  paper_trade_id?: number | null
+  error_message?: string | null
+  created_at: string
+  executed_at?: string | null
+}
+
 export interface MarketSummary {
   total_assets: number
   by_signal: Record<string, number>

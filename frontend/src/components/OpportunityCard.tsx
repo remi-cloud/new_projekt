@@ -4,6 +4,7 @@ import { formatPrice } from '../utils/format'
 import { Opportunity } from '../types'
 import { useLocale } from '../context/LocaleContext'
 import { useDomainLabels } from '../i18n/useDomainLabels'
+import { InstrumentShareMenu } from './InstrumentShareMenu'
 import { TagTip } from './TagTip'
 import type { TranslationPath } from '../i18n'
 
@@ -27,7 +28,16 @@ export function OpportunityCard({ opp }: { opp: Opportunity }) {
           <div className="opp-name">{opp.name}</div>
           <div className="opp-symbol">{opp.symbol}</div>
         </div>
-        <span className={`signal-tag signal-${opp.action}`}>{signal[opp.action]}</span>
+        <div className="opp-header-actions" onClick={(e) => e.stopPropagation()}>
+          <InstrumentShareMenu
+            symbol={opp.symbol}
+            name={opp.name}
+            kind="instrument"
+            signal={signal[opp.action]}
+            compact
+          />
+          <span className={`signal-tag signal-${opp.action}`}>{signal[opp.action]}</span>
+        </div>
       </div>
 
       <div className="price-main-row" style={{ marginBottom: 10 }}>

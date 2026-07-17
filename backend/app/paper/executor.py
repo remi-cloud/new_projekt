@@ -5,15 +5,13 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 
-from app.data.assets import MONITORED_ASSETS
 from app.paper import paper_db
 from app.paper.currency import get_usd_pln_rate, native_currency, to_pln
-from app.paper.pricing import PaperTradeError, get_live_price
-from app.scanners.opportunity_scanner import scanner
+from app.paper.instrument_meta import ASSET_MAP, resolve_instrument_meta
+from app.paper.pricing import PaperTradeError, get_live_price, get_live_price_async
 
 logger = logging.getLogger(__name__)
 
-ASSET_MAP = {a["symbol"]: a for a in MONITORED_ASSETS}
 TRADE_FEE_RATE = 0.001  # 0.1%
 
 
@@ -84,15 +82,14 @@ async def place_order(
     quantity: float | None = None,
     amount_pln: float | None = None,
     price_native_override: float | None = None,
+    trade_source: str = "user",
 ) -> dict:
-    if symbol not in ASSET_MAP:
-        raise PaperTradeError(f"Instrument {symbol} nie jest monitorowany", "invalid_symbol")
     if side not in ("buy", "sell"):
         raise PaperTradeError("Strona musi być buy lub sell", "invalid_side")
     if quantity is not None and quantity <= 0:
         raise PaperTradeError("Ilość musi być > 0", "invalid_quantity")
 
-    meta = ASSET_MAP[symbol]
+    meta = await resolve_instrument_meta(symbol)
     asset_class = meta["asset_class"]
     usd_pln = await get_usd_pln_rate()
 
@@ -100,7 +97,7 @@ async def place_order(
         price_native = price_native_override
         currency = native_currency(symbol)
     else:
-        price_native, currency = _get_live_price(symbol)
+        price_native, currency = await get_live_price_async(symbol)
 
     price_pln = to_pln(price_native, currency, usd_pln)
     if price_pln <= 0:
@@ -197,6 +194,7 @@ async def place_order(
         "fee_pln": round(fee_pln, 2),
         "currency": currency,
         "created_at": now,
+        "trade_source": trade_source,
     }
     await paper_db.insert_trade(trade)
     from app.paper.portfolio_agent import sync_after_trade
@@ -250,11 +248,9 @@ async def _archive_closed_position(
 
 
 async def max_buy_quantity(symbol: str) -> float:
-    meta = ASSET_MAP.get(symbol)
-    if not meta:
-        return 0.0
+    meta = await resolve_instrument_meta(symbol)
     try:
-        price_native, currency = _get_live_price(symbol)
+        price_native, currency = await get_live_price_async(symbol)
     except PaperTradeError:
         return 0.0
     usd_pln = await get_usd_pln_rate()
@@ -271,15 +267,13 @@ async def close_position(symbol: str, percent: float = 100.0) -> dict:
     """Close part or all of a long (sell) or short (buy/cover) position."""
     if percent < 10 or percent > 100:
         raise PaperTradeError("Zamknięcie: wybierz od 10% do 100%", "invalid_percent")
-    if symbol not in ASSET_MAP:
-        raise PaperTradeError(f"Instrument {symbol} nie jest monitorowany", "invalid_symbol")
     position = await paper_db.get_position(symbol)
     if not position:
         raise PaperTradeError(f"Brak otwartej pozycji na {symbol}", "no_position")
     qty = float(position["quantity"])
     if abs(qty) < 1e-9:
         raise PaperTradeError(f"Brak otwartej pozycji na {symbol}", "no_position")
-    meta = ASSET_MAP[symbol]
+    meta = await resolve_instrument_meta(symbol)
     abs_qty = abs(qty)
     if percent >= 100:
         close_qty = _round_qty(abs_qty, meta["asset_class"])

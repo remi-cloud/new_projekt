@@ -31,6 +31,9 @@ async def lifespan(app: FastAPI):
     from app.ai.pearl_hunter.db import init_pearl_db
 
     await init_pearl_db()
+    from app.execution.db import init_execution_db
+
+    await init_execution_db()
     ensure_vapid_keys()
     start_scheduler()
 
@@ -77,8 +80,9 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
+    # Same-origin SPA + Vite proxy; credentials+wildcard is rejected by browsers.
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

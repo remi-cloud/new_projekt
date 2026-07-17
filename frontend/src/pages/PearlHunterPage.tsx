@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { fetchPearlFinds, fetchPearlStatus, runPearlHunt } from '../api'
 import { BrokerPurchaseHint } from '../components/BrokerPurchaseHint'
+import { InstrumentShareMenu } from '../components/InstrumentShareMenu'
 import { ErrorState, Loading } from '../components/Loading'
 import { useLocale } from '../context/LocaleContext'
 import { useDomainLabels } from '../i18n/useDomainLabels'
@@ -9,6 +11,7 @@ import type { PearlFind, PearlHunterStatus } from '../types'
 import { formatPrice } from '../utils/format'
 
 export function PearlHunterPage() {
+  const navigate = useNavigate()
   const { t, dateLocale } = useLocale()
   const { signal } = useDomainLabels()
   const [status, setStatus] = useState<PearlHunterStatus | null>(null)
@@ -124,15 +127,36 @@ export function PearlHunterPage() {
       ) : (
         <div className="pearl-grid">
           {filtered.map((find) => (
-            <article key={`${find.agent_id}-${find.symbol}`} className="pearl-card">
+            <article
+              key={`${find.agent_id}-${find.symbol}`}
+              className="pearl-card pearl-card-clickable"
+              role="link"
+              tabIndex={0}
+              onClick={() => navigate(`/instrument/${encodeURIComponent(find.symbol)}`)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  navigate(`/instrument/${encodeURIComponent(find.symbol)}`)
+                }
+              }}
+            >
               <div className="pearl-card-head">
                 <div>
                   <h3>{find.name}</h3>
                   <div className="pearl-symbol">{find.symbol}</div>
                 </div>
-                <span className={`signal-tag signal-${find.action}`}>
-                  {signal[find.action] ?? find.action}
-                </span>
+                <div className="pearl-card-head-actions" onClick={(e) => e.stopPropagation()}>
+                  <InstrumentShareMenu
+                    symbol={find.symbol}
+                    name={find.name}
+                    kind="pearl"
+                    signal={signal[find.action] ?? find.action}
+                    compact
+                  />
+                  <span className={`signal-tag signal-${find.action}`}>
+                    {signal[find.action] ?? find.action}
+                  </span>
+                </div>
               </div>
               <div className="pearl-price">
                 ${formatPrice(find.price, find.asset_class)}
@@ -155,6 +179,16 @@ export function PearlHunterPage() {
                 <span>{new Date(find.found_at).toLocaleString(dateLocale)}</span>
               </div>
               <BrokerPurchaseHint info={find.broker_info} compact />
+              <button
+                type="button"
+                className="btn btn-secondary tap-target pearl-open-chart"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  navigate(`/instrument/${encodeURIComponent(find.symbol)}`)
+                }}
+              >
+                {t('pearl.openChart')}
+              </button>
             </article>
           ))}
         </div>

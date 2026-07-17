@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException
 
+from app.ai.pearl_hunter.db import get_find_by_symbol
 from app.api.deps import ASSET_MAP
 from app.cycles.signal_history import compute_cycle_markers
 from app.data.broker_map import resolve_broker_info
@@ -20,6 +21,48 @@ def _with_broker(item: AssetCycleAssessment) -> AssetCycleAssessment:
         item.region,
     )
     return item.model_copy(update={"broker_info": info})
+
+
+def _parse_asset_class(raw: str | None) -> AssetClass:
+    try:
+        return AssetClass(raw or "stock")
+    except ValueError:
+        return AssetClass.STOCK
+
+
+def _price_only_assessment(
+    symbol: str,
+    *,
+    name: str,
+    asset_class: str,
+    region: str,
+    price: float,
+    change_pct_24h: float | None,
+    change_pct_7d: float | None,
+    rationale: str,
+) -> AssetCycleAssessment:
+    return AssetCycleAssessment(
+        symbol=symbol,
+        name=name,
+        asset_class=_parse_asset_class(asset_class),
+        region=region or "global",
+        price=price,
+        change_pct_24h=change_pct_24h,
+        change_pct_7d=change_pct_7d,
+        high_52w=None,
+        drawdown_from_high_pct=None,
+        macro_cycle="neutral",
+        macro_phase="neutral",
+        price_phase="neutral",
+        momentum_score=None,
+        momentum_signal=None,
+        momentum_phase=None,
+        is_momentum_pick=False,
+        signal=SignalAction.WATCH,
+        confidence=0,
+        rationale=rationale,
+        updated_at=datetime.now(timezone.utc),
+    )
 
 
 @router.get("/api/markets/assessments")
@@ -42,7 +85,7 @@ async def market_assessments(
 
 @router.get("/api/markets/assessment/{symbol:path}", response_model=AssetCycleAssessment)
 async def market_assessment(symbol: str):
-    """Full cycle assessment or price-only fallback for known symbols."""
+    """Full cycle assessment or price-only fallback (monitored + pearls + Yahoo)."""
     if not scanner.market_assessments:
         await scanner.scan()
     item = next((a for a in scanner.market_assessments if a.symbol == symbol), None)
@@ -50,44 +93,58 @@ async def market_assessment(symbol: str):
         return _with_broker(item)
 
     meta = ASSET_MAP.get(symbol)
-    if not meta:
-        raise HTTPException(status_code=404, detail=f"Nieznany instrument: {symbol}")
+    pearl = None if meta else await get_find_by_symbol(symbol)
+
+    name = (meta or {}).get("name") or (pearl or {}).get("name") or symbol
+    asset_cls = (meta or {}).get("asset_class") or (pearl or {}).get("asset_class") or "stock"
+    region = (meta or {}).get("region") or (pearl or {}).get("region") or "global"
+
+    price: float | None = None
+    change_24h: float | None = None
+    change_7d: float | None = None
 
     try:
         price, _currency = await get_live_price_async(symbol)
-    except PaperTradeError as exc:
-        raise HTTPException(status_code=404, detail=exc.message) from exc
+        q = next((x for x in scanner.quotes if x.symbol == symbol), None)
+        change_24h = q.change_pct_24h if q else None
+        change_7d = q.change_pct_7d if q else None
+    except PaperTradeError:
+        if pearl and pearl.get("price"):
+            price = float(pearl["price"])
+            change_24h = pearl.get("change_pct_24h")
+        else:
+            chart = await fetch_chart(symbol, "1D")
+            if chart and chart.candles:
+                price = float(chart.candles[-1].close)
+                name = chart.name or name
+            elif not meta and not pearl:
+                raise HTTPException(status_code=404, detail=f"Nieznany instrument: {symbol}")
+            else:
+                raise HTTPException(status_code=404, detail=f"Brak ceny dla {symbol}")
 
-    q = next((x for x in scanner.quotes if x.symbol == symbol), None)
-    now = datetime.now(timezone.utc)
-    asset_cls = meta.get("asset_class", "stock")
-    try:
-        parsed_class = AssetClass(asset_cls)
-    except ValueError:
-        parsed_class = AssetClass.STOCK
+    if price is None:
+        raise HTTPException(status_code=404, detail=f"Brak ceny dla {symbol}")
 
+    if pearl and not meta:
+        rationale = (
+            f"[Perełka] {pearl.get('rationale') or 'Instrument z łowców pereł — wykres i cena na żywo.'}"
+        )
+    elif meta:
+        rationale = "[Cena] Instrument poza ostatnim skanem — wyświetlamy dane cenowe i wykres."
+    else:
+        rationale = "[Cena] Instrument spoza listy monitorowanej — wykres Yahoo / cena."
+
+    pearl_chg = (pearl or {}).get("change_pct_24h")
     return _with_broker(
-        AssetCycleAssessment(
-            symbol=symbol,
-            name=meta.get("name", symbol),
-            asset_class=parsed_class,
-            region=meta.get("region", "global"),
+        _price_only_assessment(
+            symbol,
+            name=name,
+            asset_class=str(asset_cls),
+            region=str(region),
             price=price,
-            change_pct_24h=q.change_pct_24h if q else None,
-            change_pct_7d=q.change_pct_7d if q else None,
-            high_52w=None,
-            drawdown_from_high_pct=None,
-            macro_cycle="neutral",
-            macro_phase="neutral",
-            price_phase="neutral",
-            momentum_score=None,
-            momentum_signal=None,
-            momentum_phase=None,
-            is_momentum_pick=False,
-            signal=SignalAction.WATCH,
-            confidence=0,
-            rationale="[Cena] Instrument poza ostatnim skanem — wyświetlamy dane cenowe i wykres.",
-            updated_at=now,
+            change_pct_24h=change_24h if change_24h is not None else pearl_chg,
+            change_pct_7d=change_7d,
+            rationale=rationale,
         )
     )
 
@@ -101,6 +158,13 @@ async def market_chart(symbol: str, range: str = "3M"):
         raise HTTPException(status_code=404, detail=f"Brak danych wykresu dla {symbol}")
 
     meta = ASSET_MAP.get(symbol, {})
+    if not meta:
+        pearl = await get_find_by_symbol(symbol)
+        if pearl:
+            meta = {
+                "asset_class": pearl.get("asset_class", "stock"),
+                "region": pearl.get("region", "global"),
+            }
     btc = scanner.bitcoin_cycle
     markers = compute_cycle_markers(
         chart.candles,
@@ -117,11 +181,21 @@ async def market_chart(symbol: str, range: str = "3M"):
 @router.get("/api/markets/quote/{symbol:path}")
 async def market_quote(symbol: str):
     """Fresh live price (Yahoo v7 quote) — bypasses chart candle cache."""
-    if symbol not in ASSET_MAP:
-        raise HTTPException(status_code=404, detail=f"Nieznany instrument: {symbol}")
+    known = symbol in ASSET_MAP
+    pearl = None if known else await get_find_by_symbol(symbol)
     try:
         price, currency = await get_live_price_async(symbol)
     except PaperTradeError as exc:
+        if pearl and pearl.get("price"):
+            return {
+                "symbol": symbol,
+                "price": float(pearl["price"]),
+                "currency": "USD",
+                "change_pct_24h": pearl.get("change_pct_24h"),
+                "updated_at": pearl.get("found_at"),
+            }
+        if not known and not pearl:
+            raise HTTPException(status_code=404, detail=f"Nieznany instrument: {symbol}") from exc
         raise HTTPException(status_code=404, detail=exc.message) from exc
     q = next((x for x in scanner.quotes if x.symbol == symbol), None)
     return {

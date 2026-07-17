@@ -13,6 +13,7 @@ from app.db.sqlite import portfolio_db_session
 logger = logging.getLogger(__name__)
 
 INITIAL_CASH_PLN = 1_000_000.0
+_paper_trades_has_trade_source: bool | None = None
 
 
 def _now() -> str:
@@ -100,6 +101,7 @@ async def init_paper_db() -> None:
         for alter in (
             "ALTER TABLE paper_limit_orders ADD COLUMN order_type TEXT NOT NULL DEFAULT 'limit'",
             "ALTER TABLE paper_positions ADD COLUMN session_realized_pnl_pln REAL NOT NULL DEFAULT 0",
+            "ALTER TABLE paper_trades ADD COLUMN trade_source TEXT NOT NULL DEFAULT 'user'",
         ):
             try:
                 await db.execute(alter)
@@ -272,19 +274,75 @@ async def delete_position(symbol: str) -> None:
 
 
 async def insert_trade(trade: dict) -> None:
+    source = trade.get("trade_source", "user")
     async with portfolio_db_session() as db:
-        await db.execute(
-            """INSERT INTO paper_trades
-               (symbol, name, asset_class, side, quantity, price_native, price_pln,
-                total_pln, fee_pln, currency, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (
-                trade["symbol"], trade["name"], trade["asset_class"], trade["side"],
-                trade["quantity"], trade["price_native"], trade["price_pln"],
-                trade["total_pln"], trade["fee_pln"], trade["currency"], trade["created_at"],
-            ),
-        )
+        try:
+            await db.execute(
+                """INSERT INTO paper_trades
+                   (symbol, name, asset_class, side, quantity, price_native, price_pln,
+                    total_pln, fee_pln, currency, created_at, trade_source)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    trade["symbol"], trade["name"], trade["asset_class"], trade["side"],
+                    trade["quantity"], trade["price_native"], trade["price_pln"],
+                    trade["total_pln"], trade["fee_pln"], trade["currency"], trade["created_at"],
+                    source,
+                ),
+            )
+        except aiosqlite.OperationalError as exc:
+            if "trade_source" not in str(exc).lower():
+                raise
+            # Backward compatibility for older DB files that do not have trade_source yet.
+            await db.execute(
+                """INSERT INTO paper_trades
+                   (symbol, name, asset_class, side, quantity, price_native, price_pln,
+                    total_pln, fee_pln, currency, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    trade["symbol"], trade["name"], trade["asset_class"], trade["side"],
+                    trade["quantity"], trade["price_native"], trade["price_pln"],
+                    trade["total_pln"], trade["fee_pln"], trade["currency"], trade["created_at"],
+                ),
+            )
         await db.commit()
+
+
+async def _detect_trade_source_column() -> bool:
+    global _paper_trades_has_trade_source
+    if _paper_trades_has_trade_source is not None:
+        return _paper_trades_has_trade_source
+    async with portfolio_db_session() as db:
+        rows = await (await db.execute("PRAGMA table_info(paper_trades)")).fetchall()
+        _paper_trades_has_trade_source = any((r[1] == "trade_source") for r in rows)
+    return bool(_paper_trades_has_trade_source)
+
+
+async def list_symbols_for_trade_source(source: str, *, only_source: bool = False) -> list[str]:
+    if not await _detect_trade_source_column():
+        return []
+    async with portfolio_db_session() as db:
+        db.row_factory = aiosqlite.Row
+        if only_source:
+            rows = await (
+                await db.execute(
+                    """
+                    SELECT symbol
+                    FROM paper_trades
+                    GROUP BY symbol
+                    HAVING SUM(CASE WHEN trade_source = ? THEN 1 ELSE 0 END) > 0
+                       AND SUM(CASE WHEN trade_source != ? THEN 1 ELSE 0 END) = 0
+                    """,
+                    (source, source),
+                )
+            ).fetchall()
+        else:
+            rows = await (
+                await db.execute(
+                    "SELECT DISTINCT symbol FROM paper_trades WHERE trade_source = ?",
+                    (source,),
+                )
+            ).fetchall()
+        return [str(r["symbol"]) for r in rows]
 
 
 async def reset_account() -> dict:

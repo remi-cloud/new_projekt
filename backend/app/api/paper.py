@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, HTTPException
 
 from app.models.schemas import (
@@ -9,34 +11,29 @@ from app.models.schemas import (
 )
 from app.paper.executor import close_position, max_buy_quantity, place_order
 from app.paper.limit_orders import cancel_all_pending_orders, cancel_limit_order, place_open_order
-from app.paper.paper_db import get_positions as get_paper_positions, reset_account
+from app.paper.paper_db import reset_account
 from app.paper.portfolio_agent import sync_after_trade
 from app.paper.portfolio_service import build_portfolio, get_position_for_symbol
-from app.paper.pricing import PaperTradeError, refresh_quotes_for_symbols
-from app.scanners.opportunity_scanner import scanner
+from app.paper.pricing import PaperTradeError
 
+logger = logging.getLogger(__name__)
 router = APIRouter(tags=["paper"])
 
 
 @router.get("/api/paper/portfolio", response_model=PaperPortfolio)
 async def paper_portfolio():
-    from app.paper import paper_db
+    """Mark-to-market from scanner cache only.
 
-    positions = await get_paper_positions()
-    pending = await paper_db.get_pending_limit_orders()
-    symbols = {p["symbol"] for p in positions} | {o["symbol"] for o in pending}
-    if symbols:
-        await refresh_quotes_for_symbols(list(symbols))
-    elif not scanner.quotes:
-        await scanner.scan()
+    Do not await live Yahoo/Investing refresh here — those share semaphores with
+    the full-market scan and curl_cffi calls are not reliably cancellable, which
+    made this endpoint hang and look like the whole server was down.
+    """
     data = await build_portfolio()
     return PaperPortfolio(**data)
 
 
 @router.get("/api/paper/max-buy/{symbol:path}")
 async def paper_max_buy(symbol: str):
-    if not scanner.quotes:
-        await scanner.scan()
     qty = await max_buy_quantity(symbol)
     return {"symbol": symbol, "max_quantity": qty}
 
@@ -59,8 +56,6 @@ async def paper_position(symbol: str):
 
 @router.post("/api/paper/close/{symbol:path}")
 async def paper_close_position(symbol: str, body: PaperCloseRequest | None = None):
-    if not scanner.quotes:
-        await scanner.scan()
     percent = body.percent if body else 100.0
     try:
         trade = await close_position(symbol, percent=percent)
@@ -72,8 +67,7 @@ async def paper_close_position(symbol: str, body: PaperCloseRequest | None = Non
 
 @router.post("/api/paper/order")
 async def paper_order(body: PaperOrderRequest):
-    if not scanner.quotes:
-        await scanner.scan()
+    # Never await a full market scan here — that blocked pearl / ad-hoc trades for minutes.
     try:
         if body.order_type in ("limit", "stop", "take_profit"):
             if body.limit_price_native is None:
@@ -128,3 +122,13 @@ async def paper_reset():
     await reset_account()
     await sync_after_trade()
     return await build_portfolio()
+
+
+@router.post("/api/paper/purge-agent-positions")
+async def paper_purge_agent_positions(force: bool = False):
+    """Close positions created by execution agent (dry-run mirror), not manual user orders."""
+    from app.paper.cleanup import purge_execution_agent_positions
+
+    result = await purge_execution_agent_positions(force=force)
+    portfolio = await build_portfolio()
+    return {**result, "portfolio": portfolio}

@@ -41,12 +41,19 @@ class OpportunityScanner:
         self.scan_in_progress: bool = False
         self._scan_lock = asyncio.Lock()
 
-    async def scan(self) -> list[Opportunity]:
-        if self._scan_lock.locked():
-            logger.info("Full scan already in progress — skipping duplicate request")
-            return self.opportunities
-
+    async def scan(self, *, force: bool = False) -> list[Opportunity]:
+        """Run a full market scan. Concurrent callers wait for the in-flight scan
+        instead of returning empty results (which previously wiped the Markets UI).
+        """
         async with self._scan_lock:
+            if (
+                not force
+                and self.market_assessments
+                and self.bitcoin_cycle
+                and self.presidential_cycle
+            ):
+                return self.opportunities
+
             self.scan_in_progress = True
             try:
                 return await self._run_scan()
@@ -85,6 +92,8 @@ class OpportunityScanner:
 
     async def price_tick(self) -> dict:
         """Lightweight real-time price refresh + signal re-evaluation."""
+        if self.scan_in_progress:
+            return {"updated": 0, "full_scan": False, "deferred": True}
         if not self.bitcoin_cycle or not self._price_stats:
             await self.scan()
             return {"updated": len(self.quotes), "full_scan": True}
