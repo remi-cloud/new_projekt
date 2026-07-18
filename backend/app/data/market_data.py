@@ -21,6 +21,27 @@ COINGECKO_IDS = {
     "SOL-USD": "solana",
 }
 
+MS_PER_DAY = 86_400_000
+
+
+def pct_change(current: float, previous: float | None) -> float | None:
+    if previous is None or previous == 0:
+        return None
+    return round(((current - previous) / previous) * 100, 2)
+
+
+def closest_price_before(
+    series: list[tuple[int, float]], target_ms: int
+) -> float | None:
+    """Return the price at the latest point at or before target_ms."""
+    candidate: float | None = None
+    for ts, price in series:
+        if ts <= target_ms:
+            candidate = price
+        else:
+            break
+    return candidate
+
 
 async def fetch_bitcoin_ath() -> tuple[date, float, float]:
     """Return (ath_date, ath_price, current_price) via CoinGecko."""
@@ -83,14 +104,11 @@ async def _fetch_coingecko_quote(
         if not prices:
             return None
 
-        closes = [p[1] for p in prices]
-        price = float(closes[-1])
-        change_24h = None
-        change_7d = None
-        if len(closes) >= 2:
-            change_24h = round(((price - closes[-2]) / closes[-2]) * 100, 2)
-        if len(closes) >= 2:
-            change_7d = round(((price - closes[0]) / closes[0]) * 100, 2)
+        series = [(int(p[0]), float(p[1])) for p in prices]
+        price = series[-1][1]
+        now_ms = series[-1][0]
+        change_24h = pct_change(price, closest_price_before(series, now_ms - MS_PER_DAY))
+        change_7d = pct_change(price, series[0][1])
 
         return AssetQuote(
             symbol=asset["symbol"],
@@ -111,7 +129,7 @@ async def _fetch_yahoo_quote(
 ) -> Optional[AssetQuote]:
     symbol = asset["symbol"]
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
-    params = {"range": "5d", "interval": "1d"}
+    params = {"range": "1mo", "interval": "1d"}
     try:
         resp = await client.get(url, params=params)
         resp.raise_for_status()
@@ -120,10 +138,15 @@ async def _fetch_yahoo_quote(
             return None
 
         meta = result[0]["meta"]
-        closes = [
-            c for c in result[0]["indicators"]["quote"][0]["close"] if c is not None
+        timestamps = result[0].get("timestamp") or []
+        closes_raw = result[0]["indicators"]["quote"][0]["close"]
+        series = [
+            (int(ts) * 1000, float(close))
+            for ts, close in zip(timestamps, closes_raw)
+            if close is not None
         ]
-        if not closes:
+
+        if not series:
             price = float(meta.get("regularMarketPrice", 0))
             if not price:
                 return None
@@ -135,13 +158,12 @@ async def _fetch_yahoo_quote(
                 updated_at=now,
             )
 
-        price = float(closes[-1])
-        change_24h = None
-        change_7d = None
-        if len(closes) >= 2:
-            change_24h = round(((price - closes[-2]) / closes[-2]) * 100, 2)
-        if len(closes) >= 2:
-            change_7d = round(((price - closes[0]) / closes[0]) * 100, 2)
+        price = series[-1][1]
+        now_ms = series[-1][0]
+        change_24h = pct_change(price, closest_price_before(series, now_ms - MS_PER_DAY))
+        change_7d = pct_change(price, closest_price_before(series, now_ms - 7 * MS_PER_DAY))
+        if change_7d is None and len(series) >= 2:
+            change_7d = pct_change(price, series[0][1])
 
         return AssetQuote(
             symbol=symbol,
@@ -154,17 +176,4 @@ async def _fetch_yahoo_quote(
         )
     except Exception as exc:
         logger.warning("Yahoo quote failed for %s: %s", symbol, exc)
-        return None
-
-
-async def fetch_coingecko_price(coin_id: str = "bitcoin") -> Optional[float]:
-    url = f"{settings.coingecko_base_url}/simple/price"
-    params = {"ids": coin_id, "vs_currencies": "usd"}
-    try:
-        async with httpx.AsyncClient(timeout=15) as client:
-            resp = await client.get(url, params=params)
-            resp.raise_for_status()
-            return float(resp.json()[coin_id]["usd"])
-    except Exception as exc:
-        logger.warning("CoinGecko fetch failed: %s", exc)
         return None

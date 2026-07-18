@@ -62,3 +62,32 @@ export interface DashboardResponse {
   last_scan_at: string | null
   scanner_running: boolean
 }
+
+export interface ScanLogEntry {
+  id: number
+  scanned_at: string
+  opportunities_count: number
+  changes_count: number
+}
+
+export interface SignalChange {
+  id: number
+  scan_id: number
+  symbol: string
+  name: string
+  asset_class: string
+  previous_action: string | null
+  new_action: string
+  previous_confidence: number | null
+  new_confidence: number
+  cycle_source: string
+  phase: string
+  price: number
+  created_at: string
+}
+
+export interface HistoryResponse {
+  scans: ScanLogEntry[]
+  changes: SignalChange[]
+  recent_opportunities: Opportunity[]
+}

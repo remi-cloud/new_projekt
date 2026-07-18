@@ -96,3 +96,32 @@ class DashboardResponse(BaseModel):
     monitored_assets: list[AssetQuote]
     last_scan_at: Optional[datetime] = None
     scanner_running: bool
+
+
+class ScanLogEntry(BaseModel):
+    id: int
+    scanned_at: str
+    opportunities_count: int
+    changes_count: int = 0
+
+
+class SignalChange(BaseModel):
+    id: int
+    scan_id: int
+    symbol: str
+    name: str
+    asset_class: str
+    previous_action: Optional[str] = None
+    new_action: str
+    previous_confidence: Optional[float] = None
+    new_confidence: float
+    cycle_source: str
+    phase: str
+    price: float
+    created_at: str
+
+
+class HistoryResponse(BaseModel):
+    scans: list[ScanLogEntry]
+    changes: list[SignalChange]
+    recent_opportunities: list[dict]

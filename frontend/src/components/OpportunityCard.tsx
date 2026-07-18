@@ -1,0 +1,29 @@
+import { ASSET_LABELS, formatPrice } from '../lib/labels'
+import { Opportunity } from '../types'
+import SignalTag from './SignalTag'
+
+export default function OpportunityCard({ opp }: { opp: Opportunity }) {
+  return (
+    <article className="opp-card">
+      <div className="opp-header">
+        <div>
+          <div className="opp-name">{opp.name}</div>
+          <div className="opp-symbol">{opp.symbol}</div>
+        </div>
+        <SignalTag action={opp.action} />
+      </div>
+      <div className="confidence-bar">
+        <div className="confidence-track">
+          <div className="confidence-fill" style={{ width: `${opp.confidence}%` }} />
+        </div>
+        <span className="confidence-pct">{opp.confidence}%</span>
+      </div>
+      <div className="opp-meta">
+        <span className={`tag ${opp.asset_class}`}>{ASSET_LABELS[opp.asset_class]}</span>
+        <span className="tag">{opp.cycle_source === 'bitcoin_cycle' ? 'Cykl BTC' : 'Cykl prez.'}</span>
+        <span className="tag">${formatPrice(opp.price, opp.asset_class)}</span>
+      </div>
+      <p className="opp-rationale">{opp.rationale}</p>
+    </article>
+  )
+}

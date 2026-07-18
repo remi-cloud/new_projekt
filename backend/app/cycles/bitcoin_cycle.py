@@ -38,24 +38,30 @@ def analyze_bitcoin_cycle(
             "Historycznie okres akumulacji — obserwuj i dokupuj stopniowo."
         )
     elif days_since < bull_end:
-        phase = CyclePhase.BULL
-        phase_start = bear_end
-        phase_length = settings.btc_bull_phase_days
         progress_in_bull = days_since - bear_end
-        if progress_in_bull > phase_length * 0.75:
+        late_bull_start = int(settings.btc_bull_phase_days * 0.75)
+        if progress_in_bull > late_bull_start:
             phase = CyclePhase.DISTRIBUTION
+            phase_start = bear_end + late_bull_start
+            phase_length = max(1, settings.btc_bull_phase_days - late_bull_start)
             signal = SignalAction.SELL
             rationale = (
                 f"Końcówka fali wzrostowej ({days_since}/{bull_end} dni od ATH). "
                 "Rozważ realizację zysków i redukcję ekspozycji."
             )
-        elif progress_in_bull > phase_length * 0.4:
+        elif progress_in_bull > settings.btc_bull_phase_days * 0.4:
+            phase = CyclePhase.BULL
+            phase_start = bear_end
+            phase_length = settings.btc_bull_phase_days
             signal = SignalAction.HOLD
             rationale = (
                 f"Środek fali wzrostowej ({days_since}/{bull_end} dni od ATH). "
                 "Utrzymuj pozycje, unikaj agresywnego dokupywania."
             )
         else:
+            phase = CyclePhase.BULL
+            phase_start = bear_end
+            phase_length = settings.btc_bull_phase_days
             signal = SignalAction.BUY
             rationale = (
                 f"Początek fali wzrostowej ({days_since}/{bull_end} dni od ATH). "
@@ -71,13 +77,9 @@ def analyze_bitcoin_cycle(
             "Faza dystrybucji — ostrożność, czekaj na nowe ATH."
         )
 
-    if phase == CyclePhase.DISTRIBUTION and days_since >= bull_end:
-        phase_progress = min(100.0, ((days_since - bull_end) / 365) * 100)
-        days_remaining = max(0, 365 - (days_since - bull_end))
-    else:
-        elapsed_in_phase = days_since - phase_start
-        phase_progress = min(100.0, (elapsed_in_phase / phase_length) * 100)
-        days_remaining = max(0, phase_length - elapsed_in_phase)
+    elapsed_in_phase = days_since - phase_start
+    phase_progress = min(100.0, (elapsed_in_phase / phase_length) * 100)
+    days_remaining = max(0, phase_length - elapsed_in_phase)
 
     return BitcoinCycleStatus(
         last_ath_date=last_ath_date,

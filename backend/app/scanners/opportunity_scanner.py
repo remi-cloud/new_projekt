@@ -15,13 +15,6 @@ from app.models.schemas import (
 
 logger = logging.getLogger(__name__)
 
-SIGNAL_SCORE = {
-    SignalAction.BUY: 1.0,
-    SignalAction.WATCH: 0.4,
-    SignalAction.HOLD: 0.2,
-    SignalAction.SELL: -0.8,
-}
-
 
 class OpportunityScanner:
     def __init__(self) -> None:
@@ -67,7 +60,7 @@ class OpportunityScanner:
         cycle = self.bitcoin_cycle
         base_confidence = 50.0
 
-        if cycle.phase.value in ("bear", "accumulation"):
+        if cycle.phase.value == "bear":
             if cycle.signal in (SignalAction.BUY, SignalAction.WATCH):
                 action = SignalAction.BUY if cycle.signal == SignalAction.BUY else SignalAction.WATCH
                 confidence = base_confidence + cycle.phase_progress_pct * 0.3
