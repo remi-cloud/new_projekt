@@ -59,15 +59,26 @@ ATH ──► [364 dni BEAR/spadki] ──► [1064 dni BULL/wzrost] ──► [
 
 ## Uruchomienie
 
-### Docker (zalecane)
+### Docker (zalecane) — jeden adres WWW
 
 ```bash
 docker compose up --build
 ```
 
-- Frontend: http://localhost:3000
-- API: http://localhost:8000
-- Dokumentacja API: http://localhost:8000/docs
+- Aplikacja: **http://localhost:8080** (API + UI na jednym porcie)
+- Dokumentacja API: http://localhost:8080/docs
+
+### Telefon (ważne)
+
+`localhost` na telefonie = telefon, **nie** Twój komputer. Żeby otworzyć z telefonu:
+
+```bash
+./scripts/start-public.sh
+```
+
+Skrypt uruchomi apkę i wypisze publiczny link `https://….trycloudflare.com` — ten link otwórz w telefonie.
+
+Albo w tej samej sieci Wi‑Fi użyj IP komputera, np. `http://192.168.0.12:8080`.
 
 ### Lokalnie (dev)
 
