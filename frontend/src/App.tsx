@@ -1,11 +1,13 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
+import AlertsPage from './pages/AlertsPage'
 import CyclesPage from './pages/CyclesPage'
 import DashboardPage from './pages/DashboardPage'
 import HistoryPage from './pages/HistoryPage'
 import HomePage from './pages/HomePage'
 import MarketsPage from './pages/MarketsPage'
 import OpportunitiesPage from './pages/OpportunitiesPage'
+import WatchlistPage from './pages/WatchlistPage'
 
 export default function App() {
   return (
@@ -18,6 +20,8 @@ export default function App() {
           <Route path="cykle" element={<CyclesPage />} />
           <Route path="historia" element={<HistoryPage />} />
           <Route path="rynki" element={<MarketsPage />} />
+          <Route path="watchlista" element={<WatchlistPage />} />
+          <Route path="alerty" element={<AlertsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

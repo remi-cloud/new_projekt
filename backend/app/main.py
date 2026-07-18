@@ -4,15 +4,32 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.data.assets import DEFAULT_ASSETS
 from app.db.database import (
     get_recent_opportunities,
     get_scan_history,
     get_signal_changes,
     init_db,
-    save_opportunities,
 )
-from app.models.schemas import DashboardResponse, HistoryResponse
-from app.scheduler.jobs import is_running, scheduled_scan, start_scheduler, stop_scheduler
+from app.db.settings_store import (
+    add_watchlist_item,
+    get_alert_log,
+    get_alert_settings,
+    get_watchlist,
+    remove_watchlist_item,
+    reset_watchlist,
+    save_alert_settings,
+    set_watchlist_enabled,
+)
+from app.models.schemas import (
+    AlertSettings,
+    DashboardResponse,
+    HistoryResponse,
+    WatchlistAddRequest,
+    WatchlistToggleRequest,
+)
+from app.notifications.dispatcher import dispatch_signal_changes, send_test_alert
+from app.scheduler.jobs import is_running, run_scan_and_alert, scheduled_scan, start_scheduler, stop_scheduler
 from app.scanners.opportunity_scanner import scanner
 
 logging.basicConfig(level=logging.INFO)
@@ -37,7 +54,7 @@ app = FastAPI(
         "Skaner rynkowy oparty na cyklu Bitcoin (364/1064 dni) "
         "i cyklu prezydenckim USA — okazje kupna/sprzedaży 24/7."
     ),
-    version="1.1.0",
+    version="1.2.0",
     lifespan=lifespan,
 )
 
@@ -62,6 +79,7 @@ async def health():
         "scanner_running": is_running(),
         "last_scan_at": scanner.last_scan_at.isoformat() if scanner.last_scan_at else None,
         "opportunities_count": len(scanner.opportunities),
+        "version": "1.2.0",
     }
 
 
@@ -83,8 +101,7 @@ async def dashboard():
 
 @app.post("/api/scan")
 async def trigger_scan():
-    opportunities = await scanner.scan()
-    result = await save_opportunities(opportunities)
+    result = await run_scan_and_alert()
     return {"scanned": True, **result}
 
 
@@ -118,3 +135,99 @@ async def presidential_cycle():
     if not scanner.presidential_cycle:
         await scanner.scan()
     return scanner.presidential_cycle
+
+
+# --- Watchlist ---
+
+
+@app.get("/api/watchlist")
+async def watchlist():
+    items = await get_watchlist()
+    return {
+        "items": [
+            {**item, "enabled": bool(item.get("enabled", 1))}
+            for item in items
+        ],
+        "catalog": DEFAULT_ASSETS,
+    }
+
+
+@app.post("/api/watchlist")
+async def watchlist_add(body: WatchlistAddRequest):
+    item = await add_watchlist_item(
+        body.symbol,
+        body.name,
+        body.asset_class.value if body.asset_class else None,
+    )
+    return {**item, "enabled": bool(item.get("enabled", 1))}
+
+
+@app.delete("/api/watchlist/{symbol}")
+async def watchlist_remove(symbol: str):
+    removed = await remove_watchlist_item(symbol)
+    if not removed:
+        raise HTTPException(status_code=404, detail="Symbol nie jest na watchliście")
+    return {"removed": True, "symbol": symbol}
+
+
+@app.patch("/api/watchlist/{symbol}")
+async def watchlist_toggle(symbol: str, body: WatchlistToggleRequest):
+    item = await set_watchlist_enabled(symbol, body.enabled)
+    if not item:
+        raise HTTPException(status_code=404, detail="Symbol nie jest na watchliście")
+    return {**item, "enabled": bool(item.get("enabled", 1))}
+
+
+@app.post("/api/watchlist/reset")
+async def watchlist_reset():
+    items = await reset_watchlist()
+    return {
+        "items": [{**item, "enabled": bool(item.get("enabled", 1))} for item in items]
+    }
+
+
+# --- Alerts ---
+
+
+@app.get("/api/alerts/settings", response_model=AlertSettings)
+async def alerts_settings_get():
+    return await get_alert_settings()
+
+
+@app.put("/api/alerts/settings", response_model=AlertSettings)
+async def alerts_settings_put(body: AlertSettings):
+    return await save_alert_settings(body.model_dump())
+
+
+@app.get("/api/alerts/log")
+async def alerts_log(limit: int = Query(50, ge=1, le=200)):
+    return await get_alert_log(limit)
+
+
+@app.post("/api/alerts/test")
+async def alerts_test():
+    return await send_test_alert()
+
+
+@app.post("/api/alerts/dispatch-pending")
+async def alerts_dispatch_pending(limit: int = Query(20, ge=1, le=100)):
+    """Re-send alerts for the most recent signal changes (manual)."""
+    changes = await get_signal_changes(limit)
+    # normalize keys to dispatcher shape
+    normalized = [
+        {
+            "symbol": c["symbol"],
+            "name": c["name"],
+            "asset_class": c["asset_class"],
+            "previous_action": c["previous_action"],
+            "new_action": c["new_action"],
+            "previous_confidence": c["previous_confidence"],
+            "new_confidence": c["new_confidence"],
+            "cycle_source": c["cycle_source"],
+            "phase": c["phase"],
+            "price": c["price"],
+            "created_at": c["created_at"],
+        }
+        for c in changes
+    ]
+    return await dispatch_signal_changes(normalized)

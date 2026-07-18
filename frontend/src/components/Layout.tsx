@@ -7,6 +7,8 @@ const NAV = [
   { to: '/cykle', label: 'Cykle' },
   { to: '/historia', label: 'Historia' },
   { to: '/rynki', label: 'Rynki' },
+  { to: '/watchlista', label: 'Watchlista' },
+  { to: '/alerty', label: 'Alerty' },
 ]
 
 export default function Layout() {

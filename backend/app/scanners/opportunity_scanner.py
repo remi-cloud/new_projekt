@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from app.cycles.bitcoin_cycle import analyze_bitcoin_cycle
 from app.cycles.presidential_cycle import analyze_presidential_cycle, presidential_buy_weight
 from app.data.market_data import fetch_bitcoin_ath, fetch_quotes
+from app.db.settings_store import get_watchlist
 from app.models.schemas import (
     AssetClass,
     AssetQuote,
@@ -29,7 +30,17 @@ class OpportunityScanner:
         ath_date, ath_price, btc_price = await fetch_bitcoin_ath()
         self.bitcoin_cycle = analyze_bitcoin_cycle(ath_date, ath_price, btc_price)
         self.presidential_cycle = analyze_presidential_cycle()
-        self.quotes = await fetch_quotes()
+        watchlist = await get_watchlist(enabled_only=True)
+        assets = [
+            {
+                "symbol": item["symbol"],
+                "name": item["name"],
+                "asset_class": item["asset_class"],
+                "source": item.get("source", "yahoo"),
+            }
+            for item in watchlist
+        ]
+        self.quotes = await fetch_quotes(assets)
 
         pres_weight = presidential_buy_weight()
         opportunities: list[Opportunity] = []

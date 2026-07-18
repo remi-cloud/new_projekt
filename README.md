@@ -10,7 +10,21 @@ Skaner rynku 24/7, który buduje gotowy produkt sygnałowy dla osób potrzebują
 | **Cykl Bitcoin** | 364 dni spadków od ATH → 1064 dni fali wzrostowej |
 | **Cykl prezydencki** | Bias lat 1–4 kadencji USA dla akcji, indeksów, obligacji, surowców, forex |
 | **Dashboard WWW** | Start, okazje z filtrami, oś czasu cykli, historia zmian sygnałów, rynki |
+| **Watchlista** | Dodawaj / wyłączaj / usuwaj instrumenty ze skanera |
+| **Alerty** | ntfy (telefon) + webhook przy zmianie sygnału |
 | **Historia** | Log skanów + wykrywanie zmian sygnału między przebiegami |
+
+## Źródła danych
+
+| Źródło | Użycie | Link |
+|---|---|---|
+| **CoinGecko API** | ATH Bitcoina, ceny krypto (BTC/ETH/SOL) | https://www.coingecko.com/en/api |
+| **Yahoo Finance chart API** | Notowania akcji, indeksów, obligacji, surowców, forex | `query1.finance.yahoo.com/v8/finance/chart/{symbol}` |
+| **ntfy.sh** | Opcjonalne push-alerty na telefon | https://ntfy.sh |
+
+Logika cykli (nie zewnętrzne API):
+- Bitcoin: 364 dni bear + 1064 dni bull od ostatniego ATH
+- Prezydencki USA: wzorzec lat 1–4 kadencji (Stock Trader's Almanac)
 
 ## Filozofia
 
@@ -93,6 +107,8 @@ pytest -q
 | Cykle | `/cykle` | Oś czasu BTC + mapa lat kadencji |
 | Historia | `/historia` | Zmiany sygnałów i log skanów |
 | Rynki | `/rynki` | Tabela instrumentów |
+| Watchlista | `/watchlista` | Zarządzanie monitorowanymi symbolami |
+| Alerty | `/alerty` | ntfy + webhook + log dostarczeń |
 
 ## API
 
@@ -104,7 +120,17 @@ pytest -q
 | `GET /api/cycles/presidential` | Status cyklu prezydenckiego |
 | `GET /api/history` | Log skanów + zmiany sygnałów + ostatnie okazje |
 | `GET /api/opportunities/history` | Surowa historia okazji (SQLite) |
+| `GET/POST/PATCH/DELETE /api/watchlist` | Watchlista instrumentów |
+| `GET/PUT /api/alerts/settings` | Konfiguracja alertów |
+| `POST /api/alerts/test` | Test dostarczenia alertu |
+| `GET /api/alerts/log` | Log wysłanych alertów |
 | `GET /api/health` | Health check + status skanera |
+
+## Deploy
+
+- **Docker:** `docker compose up --build`
+- **Render:** zobacz `render.yaml` (API + static frontend)
+- Konfiguracja: skopiuj `.env.example` → `.env`
 
 ## Konfiguracja
 

@@ -5,6 +5,7 @@ from pathlib import Path
 import aiosqlite
 
 from app.config import settings
+from app.db.settings_store import ensure_settings_tables
 from app.models.schemas import Opportunity
 
 logger = logging.getLogger(__name__)
@@ -77,6 +78,7 @@ async def init_db() -> None:
         await db.execute(
             "CREATE INDEX IF NOT EXISTS idx_signal_changes_created_at ON signal_changes(created_at DESC)"
         )
+        await ensure_settings_tables(db)
         await db.commit()
 
 
@@ -173,10 +175,28 @@ async def save_opportunities(opportunities: list[Opportunity]) -> dict:
         await db.execute("DELETE FROM scan_log WHERE scanned_at < ?", (cutoff,))
         await db.commit()
 
+        change_dicts = [
+            {
+                "symbol": c[0],
+                "name": c[1],
+                "asset_class": c[2],
+                "previous_action": c[3],
+                "new_action": c[4],
+                "previous_confidence": c[5],
+                "new_confidence": c[6],
+                "cycle_source": c[7],
+                "phase": c[8],
+                "price": c[9],
+                "created_at": c[10],
+            }
+            for c in changes
+        ]
+
         return {
             "scan_id": scan_id,
             "opportunities_count": len(opportunities),
             "changes_count": len(changes),
+            "changes": change_dicts,
         }
 
 

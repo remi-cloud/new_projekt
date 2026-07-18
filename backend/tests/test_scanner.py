@@ -78,6 +78,20 @@ async def test_scan_crypto_buy_in_bear():
             return_value=1.0,
         ),
         patch(
+            "app.scanners.opportunity_scanner.get_watchlist",
+            new=AsyncMock(
+                return_value=[
+                    {
+                        "symbol": "BTC-USD",
+                        "name": "Bitcoin",
+                        "asset_class": "crypto",
+                        "source": "yahoo",
+                        "enabled": 1,
+                    }
+                ]
+            ),
+        ),
+        patch(
             "app.scanners.opportunity_scanner.fetch_quotes",
             new=AsyncMock(return_value=[_quote("BTC-USD", AssetClass.CRYPTO)]),
         ),
@@ -109,6 +123,20 @@ async def test_scan_equity_year3_boost():
         patch(
             "app.scanners.opportunity_scanner.presidential_buy_weight",
             return_value=1.0,
+        ),
+        patch(
+            "app.scanners.opportunity_scanner.get_watchlist",
+            new=AsyncMock(
+                return_value=[
+                    {
+                        "symbol": "AAPL",
+                        "name": "Apple",
+                        "asset_class": "stock",
+                        "source": "yahoo",
+                        "enabled": 1,
+                    }
+                ]
+            ),
         ),
         patch(
             "app.scanners.opportunity_scanner.fetch_quotes",

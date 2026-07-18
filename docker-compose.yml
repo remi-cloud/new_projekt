@@ -7,6 +7,9 @@ services:
       - "8000:8000"
     environment:
       - CYCLICAL_SCAN_INTERVAL_MINUTES=15
+      - CYCLICAL_ALERTS_ENABLED=${CYCLICAL_ALERTS_ENABLED:-false}
+      - CYCLICAL_NTFY_TOPIC=${CYCLICAL_NTFY_TOPIC:-}
+      - CYCLICAL_WEBHOOK_URL=${CYCLICAL_WEBHOOK_URL:-}
     volumes:
       - trader-data:/app/data
     restart: unless-stopped

@@ -125,3 +125,41 @@ class HistoryResponse(BaseModel):
     scans: list[ScanLogEntry]
     changes: list[SignalChange]
     recent_opportunities: list[dict]
+
+
+class WatchlistItem(BaseModel):
+    symbol: str
+    name: str
+    asset_class: AssetClass
+    source: str = "yahoo"
+    enabled: bool = True
+    created_at: Optional[str] = None
+
+
+class WatchlistAddRequest(BaseModel):
+    symbol: str = Field(min_length=1, max_length=32)
+    name: Optional[str] = None
+    asset_class: Optional[AssetClass] = None
+
+
+class WatchlistToggleRequest(BaseModel):
+    enabled: bool
+
+
+class AlertSettings(BaseModel):
+    enabled: bool = False
+    ntfy_server: str = "https://ntfy.sh"
+    ntfy_topic: str = ""
+    webhook_url: str = ""
+    min_confidence: float = Field(default=50, ge=0, le=100)
+    actions: list[str] = Field(default_factory=lambda: ["buy", "sell"])
+    alert_on_first_seen: bool = False
+
+
+class AlertLogEntry(BaseModel):
+    id: int
+    channel: str
+    status: str
+    message: str
+    detail: Optional[str] = None
+    created_at: str

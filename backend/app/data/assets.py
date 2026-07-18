@@ -1,6 +1,8 @@
-"""Monitored instruments grouped by asset class."""
+"""Default instrument catalog and helpers for the watchlist."""
 
-MONITORED_ASSETS = [
+from __future__ import annotations
+
+DEFAULT_ASSETS: list[dict] = [
     # Crypto
     {"symbol": "BTC-USD", "name": "Bitcoin", "asset_class": "crypto", "source": "yahoo"},
     {"symbol": "ETH-USD", "name": "Ethereum", "asset_class": "crypto", "source": "yahoo"},
@@ -31,3 +33,16 @@ MONITORED_ASSETS = [
     {"symbol": "USDJPY=X", "name": "USD/JPY", "asset_class": "forex", "source": "yahoo"},
     {"symbol": "DX-Y.NYB", "name": "US Dollar Index", "asset_class": "forex", "source": "yahoo"},
 ]
+
+# Backward-compatible alias used by older imports
+MONITORED_ASSETS = DEFAULT_ASSETS
+
+CATALOG_BY_SYMBOL = {a["symbol"].upper(): a for a in DEFAULT_ASSETS}
+
+
+def lookup_asset(symbol: str) -> dict | None:
+    return CATALOG_BY_SYMBOL.get(symbol.strip().upper())
+
+
+def normalize_symbol(symbol: str) -> str:
+    return symbol.strip().upper()

@@ -6,7 +6,7 @@ from typing import Optional
 import httpx
 
 from app.config import settings
-from app.data.assets import MONITORED_ASSETS
+from app.data.assets import DEFAULT_ASSETS
 from app.models.schemas import AssetClass, AssetQuote
 
 logger = logging.getLogger(__name__)
@@ -65,12 +65,13 @@ async def fetch_bitcoin_ath() -> tuple[date, float, float]:
     return ath_date, ath_price, current_price
 
 
-async def fetch_quotes() -> list[AssetQuote]:
+async def fetch_quotes(assets: list[dict] | None = None) -> list[AssetQuote]:
     now = datetime.now(timezone.utc)
     quotes: list[AssetQuote] = []
+    universe = assets if assets is not None else DEFAULT_ASSETS
 
     async with httpx.AsyncClient(timeout=20, headers=YAHOO_HEADERS) as client:
-        tasks = [_fetch_single_quote(client, asset, now) for asset in MONITORED_ASSETS]
+        tasks = [_fetch_single_quote(client, asset, now) for asset in universe]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
     for result in results:

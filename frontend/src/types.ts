@@ -91,3 +91,43 @@ export interface HistoryResponse {
   changes: SignalChange[]
   recent_opportunities: Opportunity[]
 }
+
+export interface WatchlistItem {
+  symbol: string
+  name: string
+  asset_class: AssetClass
+  source: string
+  enabled: boolean
+  created_at?: string
+}
+
+export interface CatalogAsset {
+  symbol: string
+  name: string
+  asset_class: AssetClass
+  source: string
+}
+
+export interface WatchlistResponse {
+  items: WatchlistItem[]
+  catalog: CatalogAsset[]
+}
+
+export interface AlertSettings {
+  enabled: boolean
+  ntfy_server: string
+  ntfy_topic: string
+  webhook_url: string
+  min_confidence: number
+  actions: string[]
+  alert_on_first_seen: boolean
+}
+
+export interface AlertLogEntry {
+  id: number
+  channel: string
+  status: string
+  message: string
+  detail: string | null
+  created_at: string
+}
