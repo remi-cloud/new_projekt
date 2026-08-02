@@ -5,6 +5,7 @@ const NAV = [
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/okazje', label: 'Okazje' },
   { to: '/superokazje', label: 'Superokazje' },
+  { to: '/agenci', label: 'Agenci' },
   { to: '/modele', label: 'Modele' },
   { to: '/historia', label: 'Historia' },
   { to: '/rynki', label: 'Rynki' },
@@ -38,7 +39,7 @@ export default function Layout() {
         <Outlet />
       </main>
       <footer className="footer">
-        Cyclical Trader · Modele Alpha / Beta · Superokazje · Nie jest to porada inwestycyjna
+        Cyclical Trader · Multi-agent LONG/SHORT · Superokazje · Nie jest to porada inwestycyjna
       </footer>
     </div>
   )

@@ -242,3 +242,51 @@ export interface SuperOpportunitiesResponse {
   supers: SuperOpportunity[]
   scanner_last_scan_at: string | null
 }
+
+export interface AgentScoutInfo {
+  id: string
+  label: string
+  symbols: number
+  region: string
+}
+
+export interface AgentVerdictInfo {
+  symbol: string
+  name: string
+  accepted: boolean
+  confidence: number
+  summary: string
+  scout_ids: string[]
+  factors: Array<{ name: string; detail: string; weight?: number }>
+}
+
+export interface AgentsReport {
+  ready?: boolean
+  pipeline?: string
+  long_scouts?: AgentScoutInfo[]
+  short_scouts?: AgentScoutInfo[]
+  counts?: {
+    long_scouts: number
+    short_scouts: number
+    equal: boolean
+  }
+  specialists?: Array<{ id: string; label: string }>
+  orchestrator?: { id: string; label: string }
+  last_scan_at?: string | null
+  last_stats?: Record<string, unknown>
+  opportunities?: { total: number; long: number; short: number }
+  long_verdicts?: AgentVerdictInfo[]
+  short_verdicts?: AgentVerdictInfo[]
+  long_findings_sample?: Array<{
+    scout_id: string
+    symbol: string
+    confidence: number
+    rationale: string
+  }>
+  short_findings_sample?: Array<{
+    scout_id: string
+    symbol: string
+    confidence: number
+    rationale: string
+  }>
+}

@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
 import SingularTracker from './components/SingularTracker'
+import AgentsPage from './pages/AgentsPage'
 import AlertsPage from './pages/AlertsPage'
 import CyclesPage from './pages/CyclesPage'
 import DashboardPage from './pages/DashboardPage'
@@ -23,6 +24,7 @@ export default function App() {
           <Route path="superokazje" element={<SuperOpportunitiesPage />} />
           <Route path="superokazje/:symbol" element={<SuperOpportunitiesPage />} />
           <Route path="pozycja/:symbol" element={<SuperOpportunitiesPage />} />
+          <Route path="agenci" element={<AgentsPage />} />
           <Route path="modele" element={<CyclesPage />} />
           <Route path="cykle" element={<CyclesPage />} />
           <Route path="historia" element={<HistoryPage />} />

@@ -33,6 +33,7 @@ from app.models.schemas import (
     WatchlistAddRequest,
     WatchlistToggleRequest,
 )
+from app.agents import orchestrator
 from app.notifications.dispatcher import dispatch_signal_changes, send_test_alert
 from app.scheduler.jobs import is_running, run_scan_and_alert, scheduled_scan, start_scheduler, stop_scheduler
 from app.scanners.opportunity_scanner import scanner
@@ -61,8 +62,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Cyclical Trader",
-    description="Skaner rynkowy 24/7 — sygnały, superokazje, poziomy wejścia/wyjścia.",
-    version="1.2.0",
+    description="Multi-agent skaner globalny — 6 LONG + 6 SHORT scouts → AI specjaliści → orchestrator.",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
@@ -79,13 +80,33 @@ STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
 @app.get("/api/health")
 async def health():
+    status = orchestrator.roster_status()
     return {
         "status": "ok",
         "scanner_running": is_running(),
         "last_scan_at": scanner.last_scan_at.isoformat() if scanner.last_scan_at else None,
         "opportunities_count": len(scanner.opportunities),
-        "version": "1.2.0",
+        "agents": status.get("counts"),
+        "version": "2.0.0",
     }
+
+
+@app.get("/api/agents")
+async def agents_war_room():
+    """War room: scout roster + specialist verdicts + orchestrator stats."""
+    report = orchestrator.agent_report()
+    if not report.get("ready") and (not scanner.alpha_model or not scanner.beta_model):
+        asyncio.create_task(scanner.scan())
+        raise HTTPException(
+            status_code=503,
+            detail="Agenci skanują świat — odśwież za chwilę",
+        )
+    return report
+
+
+@app.get("/api/agents/status")
+async def agents_status():
+    return orchestrator.roster_status()
 
 
 @app.get("/api/dashboard", response_model=DashboardResponse)

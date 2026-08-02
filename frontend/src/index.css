@@ -1844,3 +1844,93 @@ a.super-list-item {
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Agents war room ───────────────────────────────────────── */
+.agents-pipeline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 22px;
+}
+.agents-pipe-step {
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  background: rgba(0, 0, 0, 0.25);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.agents-pipe-step.hot {
+  border-color: rgba(232, 163, 23, 0.5);
+  color: var(--amber);
+}
+.agents-pipe-arrow { color: var(--text-muted); }
+
+.agents-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-bottom: 24px;
+}
+@media (max-width: 900px) {
+  .agents-grid { grid-template-columns: 1fr; }
+}
+.agents-col {
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid var(--border-strong);
+  background: rgba(8, 14, 12, 0.55);
+}
+.agents-col.long { border-color: rgba(52, 211, 153, 0.28); }
+.agents-col.short { border-color: rgba(248, 113, 113, 0.28); }
+.agents-col h2 {
+  font-size: 1.05rem;
+  margin: 0 0 12px;
+}
+.agents-col h3 {
+  font-size: 0.85rem;
+  margin: 18px 0 8px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.agent-roster, .agent-verdicts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.agent-roster li, .agent-verdicts li {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+.agent-roster li strong { display: block; }
+.agent-roster li span { font-size: 0.75rem; color: var(--text-muted); }
+.agent-verdict-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.agent-verdicts p {
+  margin: 0 0 4px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+.agents-stats {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.35);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  overflow: auto;
+  max-height: 280px;
+  color: var(--text-secondary);
+}

@@ -10,6 +10,7 @@ Skaner rynku 24/7 — sygnały kupna/sprzedaży, superokazje, watchlista i alert
 | **Model Alpha / Beta** | Dwa wewnętrzne silniki scoringu (szczegóły niepubliczne) |
 | **Dashboard WWW** | Modele, okazje, notowania |
 | **Superokazje** | Bid/ask + poziomy wejścia/wyjścia + heatmapa liq |
+| **Agenci** | 6 scoutów LONG + 6 SHORT globalnie → 2 AI specjaliści → orchestrator |
 | **Watchlista** | Dodawaj / wyłączaj / usuwaj instrumenty |
 | **Alerty** | ntfy (telefon) + webhook przy zmianie sygnału |
 | **Historia** | Log skanów + zmiany sygnałów |

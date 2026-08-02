@@ -1,6 +1,7 @@
 import {
   AlertLogEntry,
   AlertSettings,
+  AgentsReport,
   DashboardResponse,
   HistoryResponse,
   SuperOpportunitiesResponse,
@@ -103,4 +104,8 @@ export async function fetchSuperOpportunities(
 
 export async function fetchSuperOpportunity(symbol: string): Promise<SuperOpportunity> {
   return getJson<SuperOpportunity>(`/super-opportunities/${encodeURIComponent(symbol)}`)
+}
+
+export async function fetchAgentsReport(): Promise<AgentsReport> {
+  return getJson<AgentsReport>('/agents')
 }

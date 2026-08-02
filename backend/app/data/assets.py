@@ -19,8 +19,12 @@ DEFAULT_ASSETS: list[dict] = [
     # Global / regional
     {"symbol": "EFA", "name": "iShares MSCI EAFE", "asset_class": "index", "source": "yahoo"},
     {"symbol": "EEM", "name": "iShares MSCI Emerging", "asset_class": "index", "source": "yahoo"},
+    {"symbol": "VXUS", "name": "Vanguard Total Intl", "asset_class": "index", "source": "yahoo"},
+    {"symbol": "IEFA", "name": "iShares Core EAFE", "asset_class": "index", "source": "yahoo"},
     {"symbol": "^FTSE", "name": "FTSE 100", "asset_class": "index", "source": "yahoo"},
     {"symbol": "^N225", "name": "Nikkei 225", "asset_class": "index", "source": "yahoo"},
+    {"symbol": "^HSI", "name": "Hang Seng", "asset_class": "index", "source": "yahoo"},
+    {"symbol": "^GDAXI", "name": "DAX", "asset_class": "index", "source": "yahoo"},
     # Stocks
     {"symbol": "AAPL", "name": "Apple", "asset_class": "stock", "source": "yahoo"},
     {"symbol": "MSFT", "name": "Microsoft", "asset_class": "stock", "source": "yahoo"},
