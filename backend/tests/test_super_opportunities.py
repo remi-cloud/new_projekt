@@ -1,5 +1,6 @@
 from app.data.orderbook import estimate_liquidation_heatmap
 from app.models.schemas import AssetClass, Opportunity, SignalAction
+from app.scanners.ai_trade_advisor import consult_trade_signal
 from app.scanners.liq_prediction import predict_liq_path
 from app.scanners.super_opportunities import compute_entry_exit_levels, score_super_opportunity
 from datetime import datetime, timezone
@@ -66,3 +67,78 @@ def test_super_score_prefers_tight_spread():
         opp, {"bid": 99.0, "ask": 101.0, "mid": 100, "spread_pct": 2.0}, levels, hm
     )
     assert tight > wide
+
+
+def test_ai_advisor_kup_when_aligned_long():
+    hm = estimate_liquidation_heatmap(100.0)
+    levels = compute_entry_exit_levels(100.0, SignalAction.BUY, 85, 99.98, 100.02, hm)
+    pred = predict_liq_path(hm, levels, "buy")
+    # Force bullish prediction features into consultation via a long-biased prediction
+    pred = {**pred, "direction": "up", "confidence": 80, "pull_up": 40, "pull_down": 10, "momentum": 0.4}
+    verdict = consult_trade_signal(
+        action="buy",
+        cycle_confidence=85,
+        cycle_source="alpha",
+        phase="accumulation",
+        super_score=80,
+        levels=levels,
+        spread_pct=0.04,
+        prediction=pred,
+    )
+    assert verdict["signal"] == "kup"
+    assert verdict["label"] == "KUP"
+    assert verdict["buy_score"] > verdict["sell_score"]
+    assert len(verdict["factors"]) >= 5
+
+
+def test_ai_advisor_sprzedaj_when_aligned_short():
+    hm = estimate_liquidation_heatmap(100.0)
+    levels = compute_entry_exit_levels(100.0, SignalAction.SELL, 85, 99.9, 100.1, hm)
+    pred = {
+        "direction": "down",
+        "confidence": 82,
+        "pull_up": 8,
+        "pull_down": 45,
+        "momentum": -0.35,
+        "target_price": 97.0,
+        "summary": "test",
+    }
+    verdict = consult_trade_signal(
+        action="sell",
+        cycle_confidence=85,
+        cycle_source="beta",
+        phase="distribution",
+        super_score=78,
+        levels=levels,
+        spread_pct=0.05,
+        prediction=pred,
+    )
+    assert verdict["signal"] == "sprzedaj"
+    assert verdict["label"] == "SPRZEDAJ"
+    assert verdict["sell_score"] > verdict["buy_score"]
+
+
+def test_ai_advisor_czekaj_on_conflict():
+    hm = estimate_liquidation_heatmap(100.0)
+    levels = compute_entry_exit_levels(100.0, SignalAction.BUY, 60, 99.9, 100.1, hm)
+    pred = {
+        "direction": "down",
+        "confidence": 75,
+        "pull_up": 5,
+        "pull_down": 40,
+        "momentum": -0.3,
+        "target_price": 96.0,
+        "summary": "test conflict",
+    }
+    verdict = consult_trade_signal(
+        action="buy",
+        cycle_confidence=55,
+        cycle_source="alpha",
+        phase="bear",
+        super_score=52,
+        levels=levels,
+        spread_pct=0.5,
+        prediction=pred,
+    )
+    assert verdict["signal"] == "czekaj"
+    assert verdict["conflict"] is True

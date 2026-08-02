@@ -188,6 +188,26 @@ export interface LiqPrediction {
   features?: Record<string, number>
 }
 
+export interface AiTradeFactor {
+  name: string
+  side: string
+  weight: number
+  detail: string
+}
+
+export interface AiTradeSignal {
+  signal: 'kup' | 'sprzedaj' | 'czekaj' | string
+  label: string
+  confidence: number
+  buy_score: number
+  sell_score: number
+  aligned: boolean
+  conflict: boolean
+  summary: string
+  factors: AiTradeFactor[]
+  verdict_detail: string
+}
+
 export interface SuperOpportunity {
   symbol: string
   name: string
@@ -206,6 +226,7 @@ export interface SuperOpportunity {
   levels: TradeLevels
   heatmap: LiquidationHeatmap
   prediction?: LiqPrediction | null
+  ai_signal?: AiTradeSignal | null
   reasons: string[]
   rationale: string
   updated_at: string

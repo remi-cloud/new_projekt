@@ -43,7 +43,8 @@ export default function CyclesPage() {
             <strong>NEUTRAL</strong> — brak jasnego kierunku: nie forsuj nowej pozycji.
           </li>
           <li>
-            <strong>Superokazje</strong> — łączą kierunek z bid/ask, IN/SL/TP i heatmapą liq.
+            <strong>Superokazje + AI</strong> — po konsultacji wszystkich czynników dostajesz{' '}
+            <strong>KUP</strong> albo <strong>SPRZEDAJ</strong> (albo CZEKAJ przy konflikcie).
           </li>
         </ul>
       </section>

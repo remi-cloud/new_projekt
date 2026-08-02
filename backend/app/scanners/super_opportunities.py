@@ -12,6 +12,7 @@ from app.data.orderbook import (
     fetch_volume_profile,
 )
 from app.models.schemas import Opportunity, SignalAction
+from app.scanners.ai_trade_advisor import consult_trade_signal
 from app.scanners.liq_prediction import predict_liq_path
 from app.scanners.opportunity_scanner import scanner
 
@@ -121,14 +122,16 @@ def score_super_opportunity(
     # Action quality
     if opp.action == SignalAction.BUY:
         score += 8
-        reasons.append("Sygnał KUPUJ")
+        reasons.append("Bias modelu: LONG")
     elif opp.action == SignalAction.SELL:
         score += 8
-        reasons.append("Sygnał SPRZEDAJ")
+        reasons.append("Bias modelu: SHORT")
     elif opp.action == SignalAction.WATCH:
         score += 2
+        reasons.append("Bias modelu: LONG (słabszy)")
     else:
         score -= 6
+        reasons.append("Bias modelu: NEUTRAL")
 
     # Bid/ask quality
     if book:
@@ -235,7 +238,17 @@ async def build_super_opportunity(opp: Opportunity) -> dict:
     )
     super_score, reasons = score_super_opportunity(opp, book, levels, heatmap)
     prediction = predict_liq_path(heatmap, levels, opp.action.value)
-    reasons = [prediction["summary"], *reasons]
+    ai_signal = consult_trade_signal(
+        action=opp.action.value,
+        cycle_confidence=opp.confidence,
+        cycle_source=opp.cycle_source,
+        phase=opp.phase,
+        super_score=super_score,
+        levels=levels,
+        spread_pct=book["spread_pct"] if book else None,
+        prediction=prediction,
+    )
+    reasons = [ai_signal["summary"], prediction["summary"], *reasons]
 
     return {
         "symbol": opp.symbol,
@@ -244,7 +257,9 @@ async def build_super_opportunity(opp: Opportunity) -> dict:
         "action": opp.action.value,
         "cycle_confidence": opp.confidence,
         "super_score": super_score,
-        "is_super": super_score >= 72 and opp.action in (SignalAction.BUY, SignalAction.SELL),
+        "is_super": super_score >= 72
+        and ai_signal["signal"] in ("kup", "sprzedaj")
+        and opp.action in (SignalAction.BUY, SignalAction.SELL, SignalAction.WATCH),
         "cycle_source": opp.cycle_source,
         "phase": opp.phase,
         "price": price,
@@ -255,6 +270,7 @@ async def build_super_opportunity(opp: Opportunity) -> dict:
         "levels": levels,
         "heatmap": heatmap,
         "prediction": prediction,
+        "ai_signal": ai_signal,
         "reasons": reasons,
         "rationale": opp.rationale,
         "updated_at": datetime.now(timezone.utc).isoformat(),

@@ -231,6 +231,28 @@ class LiqPrediction(BaseModel):
     features: dict = Field(default_factory=dict)
 
 
+class AiTradeFactor(BaseModel):
+    name: str
+    side: str
+    weight: float
+    detail: str
+
+
+class AiTradeSignal(BaseModel):
+    """AI consultation verdict: kup / sprzedaj / czekaj."""
+
+    signal: str
+    label: str
+    confidence: float
+    buy_score: float
+    sell_score: float
+    aligned: bool = False
+    conflict: bool = False
+    summary: str
+    factors: list[AiTradeFactor] = Field(default_factory=list)
+    verdict_detail: str = ""
+
+
 class SuperOpportunity(BaseModel):
     symbol: str
     name: str
@@ -249,6 +271,7 @@ class SuperOpportunity(BaseModel):
     levels: TradeLevels
     heatmap: LiquidationHeatmap
     prediction: Optional[LiqPrediction] = None
+    ai_signal: Optional[AiTradeSignal] = None
     reasons: list[str]
     rationale: str
     updated_at: str

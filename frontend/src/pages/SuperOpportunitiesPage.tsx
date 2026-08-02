@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { fetchSuperOpportunities, fetchSuperOpportunity, triggerScan } from '../api'
+import AiTradeVerdict from '../components/AiTradeVerdict'
 import LiquidationHeatmapBar from '../components/LiquidationHeatmap'
 import LoadingState, { ErrorState } from '../components/LoadingState'
 import SignalTag from '../components/SignalTag'
@@ -128,8 +129,8 @@ export default function SuperOpportunitiesPage() {
         <div>
           <h1>Superokazje</h1>
           <p className="page-lead">
-            Pełna pozycja: bid/ask, poziomy IN/SL/TP oraz heatmapa liq 3D z głębią (HiDPI).
-            Przeciągnij mapę, żeby obrócić. Linki z Okazji / Rynków / Watchlisty / Historii.
+            Pełna pozycja + konsultacja AI (KUP / SPRZEDAJ) z wagą wszystkich czynników: model,
+            bid/ask, R:R, grawitacja liq, momentum. Heatmapa 3D — przeciągnij, żeby obrócić.
           </p>
         </div>
         <div className="page-actions">
@@ -200,7 +201,13 @@ export default function SuperOpportunitiesPage() {
               >
                 <div className="super-list-top">
                   <strong>{item.symbol}</strong>
-                  <SignalTag action={item.action} />
+                  {item.ai_signal ? (
+                    <span className={`ai-mini-tag ai-mini-${item.ai_signal.signal}`}>
+                      {item.ai_signal.label}
+                    </span>
+                  ) : (
+                    <SignalTag action={item.action} />
+                  )}
                 </div>
                 <div className="super-list-meta">
                   <span className={`tag ${item.asset_class}`}>{ASSET_LABELS[item.asset_class]}</span>
@@ -247,6 +254,8 @@ function SuperDetail({ item }: { item: SuperOpportunity }) {
           {item.is_super && <em>SUPER</em>}
         </div>
       </div>
+
+      {item.ai_signal && <AiTradeVerdict ai={item.ai_signal} />}
 
       <div className="super-grid">
         <div className="stat">
