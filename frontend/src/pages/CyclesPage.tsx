@@ -34,17 +34,16 @@ export default function CyclesPage() {
         <h3>Jak czytać sygnały</h3>
         <ul>
           <li>
-            <strong>Kupuj / Obserwuj:</strong> model wskazuje strefę akumulacji lub kontynuacji.
+            <strong>LONG</strong> — kierunek wzrostowy: szukaj wejścia long (kupno / long futures).
           </li>
           <li>
-            <strong>Trzymaj:</strong> brak agresywnego dokupywania — zarządzaj otwartą ekspozycją.
+            <strong>SHORT</strong> — kierunek spadkowy: szukaj shorta albo redukcji longów.
           </li>
           <li>
-            <strong>Sprzedaj:</strong> preferuj redukcję ryzyka / realizację.
+            <strong>NEUTRAL</strong> — brak jasnego kierunku: nie forsuj nowej pozycji.
           </li>
           <li>
-            <strong>Superokazje:</strong> łączą modele z bid/ask, poziomami wejścia/wyjścia i heatmapą
-            liq.
+            <strong>Superokazje</strong> — łączą kierunek z bid/ask, IN/SL/TP i heatmapą liq.
           </li>
         </ul>
       </section>

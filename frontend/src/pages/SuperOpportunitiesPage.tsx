@@ -4,7 +4,7 @@ import { fetchSuperOpportunities, fetchSuperOpportunity, triggerScan } from '../
 import LiquidationHeatmapBar from '../components/LiquidationHeatmap'
 import LoadingState, { ErrorState } from '../components/LoadingState'
 import SignalTag from '../components/SignalTag'
-import { ASSET_LABELS, formatPrice } from '../lib/labels'
+import { ASSET_LABELS, formatDirection, formatPrice } from '../lib/labels'
 import { positionPath } from '../lib/routes'
 import { SingularEvents, trackEvent } from '../lib/singular'
 import { SuperOpportunity, SuperOpportunitiesResponse } from '../types'
@@ -235,6 +235,10 @@ function SuperDetail({ item }: { item: SuperOpportunity }) {
           <h2>
             {item.name} <span className="cell-sub">{item.symbol}</span>
           </h2>
+          <div className="super-dir-row">
+            <SignalTag action={item.action} />
+            <span className="cell-sub">kierunek pozycji</span>
+          </div>
           <p className="page-lead">{item.rationale}</p>
         </div>
         <div className="super-score-badge">
@@ -287,8 +291,8 @@ function SuperDetail({ item }: { item: SuperOpportunity }) {
       <h3 className="mini-title">Poziomy wejścia / wyjścia</h3>
       <div className="levels-grid" id="levels-anchors">
         <div data-anchor="side">
-          <span>Strona</span>
-          <strong>{levels.side}</strong>
+          <span>Kierunek</span>
+          <strong className={`signal-tag signal-${levels.side}`}>{formatDirection(levels.side)}</strong>
         </div>
         <div data-anchor="entry" className="level-hot">
           <span>Wejście · IN</span>

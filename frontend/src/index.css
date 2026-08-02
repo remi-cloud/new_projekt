@@ -434,10 +434,13 @@ button {
   letter-spacing: 0.05em;
 }
 
-.signal-buy { background: rgba(52, 211, 153, 0.18); color: var(--green); }
+.signal-long,
+.signal-buy,
+.signal-watch { background: rgba(52, 211, 153, 0.18); color: var(--green); }
+.signal-short,
 .signal-sell { background: rgba(248, 113, 113, 0.18); color: var(--red); }
-.signal-hold { background: rgba(251, 191, 36, 0.18); color: var(--yellow); }
-.signal-watch { background: rgba(45, 212, 191, 0.16); color: var(--teal); }
+.signal-neutral,
+.signal-hold { background: rgba(148, 163, 184, 0.2); color: #cbd5e1; }
 
 .cycle-stats {
   display: grid;
@@ -1236,6 +1239,13 @@ a.super-list-item {
 .super-card-head h2 {
   font-family: var(--font-display);
   font-size: 1.45rem;
+}
+
+.super-dir-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 6px;
 }
 
 .super-score-badge {

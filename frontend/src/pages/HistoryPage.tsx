@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { fetchHistory } from '../api'
 import LoadingState, { ErrorState } from '../components/LoadingState'
-import { formatSignal } from '../lib/labels'
+import { formatSignal, signalDirection } from '../lib/labels'
 import { positionPath } from '../lib/routes'
 import { HistoryResponse } from '../types'
 
@@ -75,7 +75,7 @@ export default function HistoryPage() {
                   </td>
                   <td>{c.previous_action ? formatSignal(c.previous_action) : '—'}</td>
                   <td>
-                    <span className={`signal-tag signal-${c.new_action}`}>
+                    <span className={`signal-tag signal-${signalDirection(c.new_action)}`}>
                       {formatSignal(c.new_action)}
                     </span>
                   </td>

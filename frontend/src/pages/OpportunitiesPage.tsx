@@ -3,21 +3,22 @@ import FilterBar from '../components/FilterBar'
 import LoadingState, { ErrorState } from '../components/LoadingState'
 import OpportunityCard from '../components/OpportunityCard'
 import { useDashboard } from '../hooks/useDashboard'
-import { AssetClass, SignalAction } from '../types'
+import { SignalDirection, signalDirection } from '../lib/labels'
+import { AssetClass } from '../types'
 
 export default function OpportunitiesPage() {
   const { data, loading, scanning, error, load, scan } = useDashboard()
   const [assetClass, setAssetClass] = useState<AssetClass | 'all'>('all')
-  const [action, setAction] = useState<SignalAction | 'all'>('all')
+  const [direction, setDirection] = useState<SignalDirection | 'all'>('all')
 
   const filtered = useMemo(() => {
     if (!data) return []
     return data.opportunities.filter((o) => {
       if (assetClass !== 'all' && o.asset_class !== assetClass) return false
-      if (action !== 'all' && o.action !== action) return false
+      if (direction !== 'all' && signalDirection(o.action) !== direction) return false
       return true
     })
-  }, [data, assetClass, action])
+  }, [data, assetClass, direction])
 
   if (loading) return <LoadingState />
   if (error && !data) return <ErrorState message={error} onRetry={load} />
@@ -29,7 +30,8 @@ export default function OpportunitiesPage() {
         <div>
           <h1>Okazje tradingowe</h1>
           <p className="page-lead">
-            Kliknij kartę — otwiera pełną pozycję jak w Superokazjach (bid/ask, poziomy, heatmapa).
+            Każda okazja ma konkretny kierunek: <strong>LONG</strong>, <strong>SHORT</strong> albo{' '}
+            <strong>NEUTRAL</strong>. Kliknij kartę — pełna pozycja (bid/ask, poziomy, heatmapa).
           </p>
         </div>
         <button className="btn btn-primary" onClick={scan} disabled={scanning} type="button">
@@ -39,9 +41,9 @@ export default function OpportunitiesPage() {
 
       <FilterBar
         assetClass={assetClass}
-        action={action}
+        direction={direction}
         onAssetClass={setAssetClass}
-        onAction={setAction}
+        onDirection={setDirection}
       />
 
       <h2 className="section-title">
