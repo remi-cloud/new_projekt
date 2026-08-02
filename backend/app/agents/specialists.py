@@ -56,6 +56,10 @@ class SideSpecialist:
             model_boost, model_note = self._model_alignment(best, alpha, beta)
             conf = max(0.0, min(98.0, conf + model_boost))
 
+            # Trend veto: don't bless SHORT when tape is clearly LONG
+            trend_penalty, trend_note = self._trend_gate(best)
+            conf = max(0.0, min(98.0, conf + trend_penalty))
+
             factors = [
                 {
                     "name": "Scout consensus",
@@ -67,10 +71,15 @@ class SideSpecialist:
                     "detail": model_note,
                     "weight": round(model_boost, 1),
                 },
+                {
+                    "name": "Trend gate",
+                    "detail": trend_note,
+                    "weight": round(trend_penalty, 1),
+                },
                 *best.factors,
             ]
 
-            accepted = conf >= 50.0
+            accepted = conf >= 50.0 and trend_penalty > -20
             action = SignalAction.BUY if self.side == "long" else SignalAction.SELL
             opp = None
             if accepted:
@@ -119,6 +128,24 @@ class SideSpecialist:
             top_n,
         )
         return [v for v in verdicts if v.accepted][:top_n]
+
+    def _trend_gate(self, finding: ScoutFinding) -> tuple[float, str]:
+        """Block nonsense: SHORT while market is climbing / LONG while dumping hard."""
+        chg7 = finding.change_pct_7d
+        chg24 = finding.change_pct_24h
+        if self.side == "short":
+            if chg7 is not None and chg7 >= 1.5 and (chg24 is None or chg24 >= -1.0):
+                if chg7 < 10:
+                    return -25.0, f"Veto SHORT: rynek idzie LONG (7d {chg7:+.1f}%)"
+                return -4.0, f"Ostrożny SHORT przy silnym rajdzie 7d {chg7:+.1f}%"
+            return 0.0, "Trend OK dla SHORT"
+        # long side
+        if chg7 is not None and chg7 <= -3.0 and (chg24 is None or chg24 <= 0):
+            if chg7 > -8:
+                return -8.0, f"Ostrożny LONG przy spadku 7d {chg7:+.1f}%"
+        if chg7 is not None and chg7 >= 1.0:
+            return 6.0, f"Trend LONG potwierdza (7d {chg7:+.1f}%)"
+        return 0.0, "Trend OK dla LONG"
 
     def _model_alignment(
         self,

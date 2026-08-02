@@ -80,21 +80,42 @@ def test_universes_cover_global_indexes():
 
 
 @pytest.mark.asyncio
-async def test_short_scout_finds_index_rally_in_weak_phase():
+async def test_uptrend_is_long_not_short_in_weak_phase():
+    """Rising tape → LONG. Must not fade into SHORT only because Beta phase is weak."""
     roster = build_scout_roster(
         [
             {"symbol": "^GSPC", "name": "S&P", "asset_class": "index"},
             {"symbol": "QQQ", "name": "QQQ", "asset_class": "index"},
         ]
     )
+    quotes = [
+        _q("^GSPC", AssetClass.INDEX, 4.0),
+        _q("QQQ", AssetClass.INDEX, 5.0),
+    ]
+    quotes[0].change_pct_24h = 1.0
+    quotes[1].change_pct_24h = 1.2
+
+    long_us = next(s for s in roster if s.scout_id == "long.us_equity")
     short_us = next(s for s in roster if s.scout_id == "short.us_equity")
-    findings = await short_us.scout(
-        [_q("^GSPC", AssetClass.INDEX, 4.0), _q("QQQ", AssetClass.INDEX, 5.0)],
-        alpha=_alpha(),
-        beta=_beta(),
+    long_f = await long_us.scout(quotes, alpha=_alpha(), beta=_beta())
+    short_f = await short_us.scout(quotes, alpha=_alpha(), beta=_beta())
+
+    assert len(long_f) >= 1
+    assert all(f.side == "long" for f in long_f)
+    assert short_f == []
+
+
+@pytest.mark.asyncio
+async def test_downtrend_is_short():
+    roster = build_scout_roster(
+        [{"symbol": "^GSPC", "name": "S&P", "asset_class": "index"}]
     )
+    short_us = next(s for s in roster if s.scout_id == "short.us_equity")
+    q = _q("^GSPC", AssetClass.INDEX, -4.5)
+    q.change_pct_24h = -1.2
+    findings = await short_us.scout([q], alpha=_alpha(), beta=_beta())
     assert len(findings) >= 1
-    assert all(f.side == "short" for f in findings)
+    assert findings[0].side == "short"
 
 
 @pytest.mark.asyncio
@@ -125,11 +146,32 @@ def test_specialists_accept_and_tag_side():
         phase="phase_2",
         cycle_source="beta",
         rationale="test",
+        change_pct_7d=-4.0,
+        change_pct_24h=-1.5,
     )
     short = ShortSpecialist().evaluate([finding], alpha=_alpha(), beta=_beta(), now=now)
     assert short and short[0].accepted
     assert short[0].opportunity is not None
     assert short[0].opportunity.action == SignalAction.SELL
+
+    # Rising tape must be vetoed for SHORT specialist
+    rising = ScoutFinding(
+        scout_id="short.us_equity",
+        side="short",
+        region="us_equity",
+        symbol="SPY",
+        name="SPY",
+        asset_class=AssetClass.INDEX,
+        price=500,
+        confidence=70,
+        phase="phase_2",
+        cycle_source="beta",
+        rationale="bad fade",
+        change_pct_7d=4.0,
+        change_pct_24h=1.0,
+    )
+    vetoed = ShortSpecialist().evaluate([rising], alpha=_alpha(), beta=_beta(), now=now)
+    assert vetoed == []
 
     long_f = ScoutFinding(
         scout_id="long.us_equity",
@@ -143,6 +185,8 @@ def test_specialists_accept_and_tag_side():
         phase="phase_3",
         cycle_source="beta",
         rationale="test",
+        change_pct_7d=3.0,
+        change_pct_24h=0.8,
     )
     long = LongSpecialist().evaluate(
         [long_f],
@@ -172,6 +216,11 @@ async def test_orchestrator_pipeline_balanced():
         _q("BTC-USD", AssetClass.CRYPTO, -7.0),
         _q("EFA", AssetClass.INDEX, 2.5),
     ]
+    quotes[0].change_pct_24h = 0.8
+    quotes[1].change_pct_24h = 1.0
+    quotes[2].change_pct_24h = -1.5
+    quotes[4].change_pct_24h = -2.0
+    quotes[5].change_pct_24h = 0.6
     with (
         patch(
             "app.agents.orchestrator.fetch_bitcoin_ath",
@@ -186,9 +235,10 @@ async def test_orchestrator_pipeline_balanced():
 
     assert result.scout_stats["scouts_long"] == 6
     assert result.scout_stats["scouts_short"] == 6
-    assert result.scout_stats["short_scout_findings"] >= 1
     status = orch.roster_status()
     assert status["counts"]["equal"] is True
-    # Must have at least one SHORT opportunity in weak regime with rallies
+    longs = [o for o in result.opportunities if o.action in (SignalAction.BUY, SignalAction.WATCH)]
     shorts = [o for o in result.opportunities if o.action == SignalAction.SELL]
-    assert len(shorts) >= 1
+    assert len(longs) >= 1  # rising indexes → LONG
+    assert len(shorts) >= 1  # dumping AAPL/BTC → SHORT
+    assert any(o.symbol in ("^GSPC", "QQQ", "EFA") for o in longs)

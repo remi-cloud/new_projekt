@@ -18,10 +18,10 @@ PHASE_PROFILES = {
     },
     BetaPhase.PHASE_2: {
         "label": "Faza 2",
-        "bias": "Najsłabszy historycznie — SHORT na siłę, LONG dopiero na późne dołki",
-        "signal": SignalAction.SELL,
+        "bias": "Historycznie słabsza — ostrożność, ale trend rynku ma pierwszeństwo",
+        "signal": SignalAction.WATCH,
         "buy_weight": 0.55,
-        "sell_weight": 0.85,
+        "sell_weight": 0.55,
     },
     BetaPhase.PHASE_3: {
         "label": "Faza 3",

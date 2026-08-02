@@ -172,73 +172,112 @@ class ScoutAgent:
         chg24: float | None,
         factors: list[dict],
     ) -> ScoutFinding | None:
+        """
+        Trend-first scoring. Phase prior is a soft bias only — never invert
+        a clear uptrend into SHORT just because Beta says historically weak.
+        """
         phase_n = beta.phase_number
         prior = beta.signal
-        weak = phase_n in (1, 2) or prior == SignalAction.SELL
-        strong = phase_n == 3 or prior == SignalAction.BUY
         conf = 50.0
         wants_long = False
         wants_short = False
 
-        # Bonds often hedge: LONG bonds when equity SHORT regime
+        # Bonds: hedge when equities dump; otherwise follow bond momentum
         if quote.asset_class == AssetClass.BOND:
-            if weak:
+            if chg7 is not None and chg7 <= -2:
                 wants_long = True
-                conf = 58
-                factors.append({"name": "Bond hedge", "detail": "risk-off → LONG bonds"})
-            elif strong and chg7 is not None and chg7 > 2:
+                conf = 58 + min(abs(chg7), 8)
+                factors.append({"name": "Bond dip", "detail": f"7d {chg7:+.1f}% → LONG"})
+            elif chg7 is not None and chg7 >= 2.5 and phase_n == 3:
                 wants_short = True
                 conf = 54
+                factors.append({"name": "Bond stretch", "detail": f"7d {chg7:+.1f}%"})
+            elif chg7 is not None and chg7 >= 0.5:
+                wants_long = True
+                conf = 54
+                factors.append({"name": "Bond bid", "detail": "momentum LONG"})
             else:
                 return None
-        elif weak:
-            # Weak regime: SHORT rallies, LONG deep dumps
-            if chg7 is not None and chg7 >= 1.5:
-                wants_short = True
-                conf = 56 + min(chg7, 12) * 1.6
-                factors.append({"name": "Fade rally", "detail": f"7d {chg7:+.1f}% in weak phase"})
-            elif chg7 is not None and chg7 <= -5:
+        else:
+            uptrend = self._is_uptrend(chg7, chg24)
+            downtrend = self._is_downtrend(chg7, chg24)
+            melt_up = chg7 is not None and chg7 >= 10 and (chg24 is None or chg24 > 1.5)
+
+            if uptrend and not melt_up:
+                # Clear LONG tape — do NOT fade because of weak-phase calendar
                 wants_long = True
-                conf = 54 + min(abs(chg7), 12) * 1.2
-                factors.append({"name": "Bounce dump", "detail": f"7d {chg7:+.1f}%"})
-            elif chg24 is not None and chg24 >= 1.2:
+                conf = 58 + min(max(chg7 or 0, 0), 10) * 1.5
+                if chg24 is not None and chg24 > 0:
+                    conf += min(chg24, 4) * 1.2
+                factors.append(
+                    {
+                        "name": "Trend LONG",
+                        "detail": (
+                            f"Rynek idzie w górę (7d {chg7:+.1f}%"
+                            + (f", 24h {chg24:+.1f}%" if chg24 is not None else "")
+                            + ") — Singularity trzyma LONG"
+                        ),
+                    }
+                )
+                # Soft phase note (not a side flip)
+                if phase_n in (1, 2):
+                    conf -= 3
+                    factors.append(
+                        {
+                            "name": "Phase caution",
+                            "detail": f"Beta faza {phase_n} historycznie słabsza — lekka kara, bez flipu na SHORT",
+                        }
+                    )
+                elif phase_n == 3 or prior == SignalAction.BUY:
+                    conf += 8
+                    factors.append({"name": "Phase align", "detail": "Beta wspiera LONG"})
+
+            elif downtrend:
                 wants_short = True
-                conf = 55 + chg24 * 2
+                conf = 58 + min(abs(chg7 or 0), 10) * 1.5
+                factors.append(
+                    {
+                        "name": "Trend SHORT",
+                        "detail": f"Rynek spada (7d {chg7:+.1f}%) — Singularity SHORT",
+                    }
+                )
+                if phase_n in (1, 2) or prior == SignalAction.SELL:
+                    conf += 6
+                    factors.append({"name": "Phase align", "detail": "Beta wspiera SHORT"})
+
+            elif melt_up:
+                # Only tactical SHORT when truly stretched + still accelerating
+                wants_short = True
+                conf = 56 + min((chg7 or 0) - 10, 8) * 1.2
+                factors.append(
+                    {
+                        "name": "Melt-up fade",
+                        "detail": f"Ekstremalne przegrzanie 7d {chg7:+.1f}% — taktyczny SHORT",
+                    }
+                )
+
             else:
-                # Phase prior alone
-                if prior in (SignalAction.SELL, SignalAction.WATCH):
-                    wants_short = True
-                    conf = 52 + (10 if phase_n in (1, 2) else 0)
-                    factors.append({"name": "Phase prior", "detail": f"Beta {prior.value} → SHORT"})
-                elif prior == SignalAction.BUY:
+                # Flat / mixed tape — soft phase prior only
+                if prior == SignalAction.BUY or (phase_n == 3 and prior != SignalAction.SELL):
                     wants_long = True
                     conf = 52
-        elif strong:
-            if chg7 is not None and chg7 <= -2.5:
-                wants_long = True
-                conf = 56 + min(abs(chg7), 12) * 1.4
-                factors.append({"name": "Dip buy", "detail": f"7d {chg7:+.1f}%"})
-            elif chg7 is not None and chg7 >= 8:
-                wants_short = True
-                conf = 57 + min(chg7 - 8, 10) * 1.4
-                factors.append({"name": "Overbought", "detail": f"7d {chg7:+.1f}%"})
-            else:
-                wants_long = True
-                conf = 55 + (12 if quote.asset_class in (AssetClass.STOCK, AssetClass.INDEX) else 0)
-                factors.append({"name": "Phase 3/BUY prior", "detail": "LONG bias"})
-        else:
-            # Phase 4 mixed
-            if chg7 is not None and chg7 >= 3:
-                wants_short = True
-                conf = 54 + min(chg7, 10) * 1.3
-            elif chg7 is not None and chg7 <= -3:
-                wants_long = True
-                conf = 54 + min(abs(chg7), 10) * 1.3
-            elif prior == SignalAction.SELL:
-                wants_short = True
-                conf = 53
-            else:
-                return None
+                    factors.append({"name": "Phase prior", "detail": "Płaski rynek → LONG z Beta"})
+                elif prior == SignalAction.SELL and phase_n in (1, 2, 4):
+                    wants_short = True
+                    conf = 51
+                    factors.append({"name": "Phase prior", "detail": "Płaski rynek → ostrożny SHORT z Beta"})
+                else:
+                    # WATCH / mixed: prefer LONG if any green, else skip
+                    if chg7 is not None and chg7 > 0:
+                        wants_long = True
+                        conf = 52
+                        factors.append({"name": "Slight green", "detail": "Lekki plus → LONG"})
+                    elif chg7 is not None and chg7 < -1:
+                        wants_short = True
+                        conf = 52
+                        factors.append({"name": "Slight red", "detail": "Lekki minus → SHORT"})
+                    else:
+                        return None
 
         if self.side == "long" and not wants_long:
             return None
@@ -247,12 +286,11 @@ class ScoutAgent:
         if conf < 48:
             return None
 
-        # Index/stock conviction bump for matching side
-        if quote.asset_class in (AssetClass.STOCK, AssetClass.INDEX):
-            if self.side == "short" and phase_n in (1, 2):
-                conf += 10
-            if self.side == "long" and phase_n == 3:
-                conf += 10
+        if quote.asset_class in (AssetClass.STOCK, AssetClass.INDEX) and self.side == "long":
+            if self._is_uptrend(chg7, chg24):
+                conf += 6
+            if phase_n == 3:
+                conf += 6
 
         return self._finding(
             quote,
@@ -260,14 +298,36 @@ class ScoutAgent:
             phase=beta.current_phase.value,
             cycle_source="beta",
             rationale=(
-                f"Scout {self.scout_id}: Model Beta faza {phase_n} → "
-                f"{'LONG' if self.side == 'long' else 'SHORT'}. {beta.historical_bias}"
+                f"Scout {self.scout_id}: "
+                f"{'LONG' if self.side == 'long' else 'SHORT'} "
+                f"(trend-first, Beta faza {phase_n})."
                 + (f" 7d {chg7:+.1f}%." if chg7 is not None else "")
             ),
             factors=factors,
             chg7=chg7,
             chg24=chg24,
         )
+
+    @staticmethod
+    def _is_uptrend(chg7: float | None, chg24: float | None) -> bool:
+        if chg7 is not None and chg7 >= 1.5:
+            # Don't call it uptrend if last day is a hard dump
+            if chg24 is not None and chg24 <= -2.5:
+                return False
+            return True
+        if chg7 is not None and chg7 >= 0.6 and chg24 is not None and chg24 >= 0.8:
+            return True
+        return False
+
+    @staticmethod
+    def _is_downtrend(chg7: float | None, chg24: float | None) -> bool:
+        if chg7 is not None and chg7 <= -2.0:
+            if chg24 is not None and chg24 >= 2.5:
+                return False  # bounce day
+            return True
+        if chg7 is not None and chg7 <= -0.8 and chg24 is not None and chg24 <= -1.0:
+            return True
+        return False
 
     def _finding(
         self,
