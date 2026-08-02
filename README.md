@@ -121,6 +121,7 @@ pytest -q
 | Rynki | `/rynki` | Tabela instrumentów |
 | Watchlista | `/watchlista` | Zarządzanie monitorowanymi symbolami |
 | Alerty | `/alerty` | ntfy + webhook + log dostarczeń |
+| Superokazje | `/superokazje` | Bid/ask + wejście/wyjście + heatmapa liq |
 
 ## API
 
@@ -134,6 +135,7 @@ pytest -q
 | `GET /api/opportunities/history` | Surowa historia okazji (SQLite) |
 | `GET/POST/PATCH/DELETE /api/watchlist` | Watchlista instrumentów |
 | `GET/PUT /api/alerts/settings` | Konfiguracja alertów |
+| `GET /api/super-opportunities` | Superokazje (score, poziomy, heatmapa) |
 | `POST /api/alerts/test` | Test dostarczenia alertu |
 | `GET /api/alerts/log` | Log wysłanych alertów |
 | `GET /api/health` | Health check + status skanera |

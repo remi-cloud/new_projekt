@@ -4,6 +4,7 @@ const NAV = [
   { to: '/', label: 'Start', end: true },
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/okazje', label: 'Okazje' },
+  { to: '/superokazje', label: 'Superokazje' },
   { to: '/cykle', label: 'Cykle' },
   { to: '/historia', label: 'Historia' },
   { to: '/rynki', label: 'Rynki' },

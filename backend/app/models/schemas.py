@@ -163,3 +163,60 @@ class AlertLogEntry(BaseModel):
     message: str
     detail: Optional[str] = None
     created_at: str
+
+
+class TradeLevels(BaseModel):
+    side: str
+    entry: float
+    stop_loss: float
+    take_profit_1: float
+    take_profit_2: float
+    risk_reward: float
+    note: str
+
+
+class HeatmapBin(BaseModel):
+    price: float
+    long_intensity: float
+    short_intensity: float
+    dominant: str
+    intensity: float
+
+
+class LiquidationHeatmap(BaseModel):
+    price: float
+    range_low: float
+    range_high: float
+    bins: list[HeatmapBin]
+    max_intensity: float = 1.0
+
+
+class SuperOpportunity(BaseModel):
+    symbol: str
+    name: str
+    asset_class: str
+    action: str
+    cycle_confidence: float
+    super_score: float
+    is_super: bool
+    cycle_source: str
+    phase: str
+    price: float
+    bid: Optional[float] = None
+    ask: Optional[float] = None
+    spread_pct: Optional[float] = None
+    book_source: Optional[str] = None
+    levels: TradeLevels
+    heatmap: LiquidationHeatmap
+    reasons: list[str]
+    rationale: str
+    updated_at: str
+
+
+class SuperOpportunitiesResponse(BaseModel):
+    generated_at: str
+    count: int
+    super_count: int
+    items: list[SuperOpportunity]
+    supers: list[SuperOpportunity]
+    scanner_last_scan_at: Optional[str] = None

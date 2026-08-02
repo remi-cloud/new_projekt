@@ -7,6 +7,7 @@ import HistoryPage from './pages/HistoryPage'
 import HomePage from './pages/HomePage'
 import MarketsPage from './pages/MarketsPage'
 import OpportunitiesPage from './pages/OpportunitiesPage'
+import SuperOpportunitiesPage from './pages/SuperOpportunitiesPage'
 import WatchlistPage from './pages/WatchlistPage'
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
           <Route index element={<HomePage />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="okazje" element={<OpportunitiesPage />} />
+          <Route path="superokazje" element={<SuperOpportunitiesPage />} />
           <Route path="cykle" element={<CyclesPage />} />
           <Route path="historia" element={<HistoryPage />} />
           <Route path="rynki" element={<MarketsPage />} />

@@ -131,3 +131,60 @@ export interface AlertLogEntry {
   detail: string | null
   created_at: string
 }
+
+export interface TradeLevels {
+  side: string
+  entry: number
+  stop_loss: number
+  take_profit_1: number
+  take_profit_2: number
+  risk_reward: number
+  note: string
+}
+
+export interface HeatmapBin {
+  price: number
+  long_intensity: number
+  short_intensity: number
+  dominant: 'long' | 'short' | string
+  intensity: number
+}
+
+export interface LiquidationHeatmap {
+  price: number
+  range_low: number
+  range_high: number
+  bins: HeatmapBin[]
+  max_intensity: number
+}
+
+export interface SuperOpportunity {
+  symbol: string
+  name: string
+  asset_class: AssetClass
+  action: SignalAction
+  cycle_confidence: number
+  super_score: number
+  is_super: boolean
+  cycle_source: string
+  phase: string
+  price: number
+  bid: number | null
+  ask: number | null
+  spread_pct: number | null
+  book_source: string | null
+  levels: TradeLevels
+  heatmap: LiquidationHeatmap
+  reasons: string[]
+  rationale: string
+  updated_at: string
+}
+
+export interface SuperOpportunitiesResponse {
+  generated_at: string
+  count: number
+  super_count: number
+  items: SuperOpportunity[]
+  supers: SuperOpportunity[]
+  scanner_last_scan_at: string | null
+}

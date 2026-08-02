@@ -3,6 +3,7 @@ import {
   AlertSettings,
   DashboardResponse,
   HistoryResponse,
+  SuperOpportunitiesResponse,
   WatchlistItem,
   WatchlistResponse,
 } from './types'
@@ -91,4 +92,10 @@ export async function fetchAlertLog(): Promise<AlertLogEntry[]> {
 
 export async function testAlert(): Promise<{ ok: boolean; detail?: string }> {
   return sendJson('/alerts/test', 'POST')
+}
+
+export async function fetchSuperOpportunities(
+  minScore = 0,
+): Promise<SuperOpportunitiesResponse> {
+  return getJson<SuperOpportunitiesResponse>(`/super-opportunities?min_score=${minScore}`)
 }

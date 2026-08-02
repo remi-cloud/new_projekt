@@ -29,12 +29,14 @@ from app.models.schemas import (
     AlertSettings,
     DashboardResponse,
     HistoryResponse,
+    SuperOpportunitiesResponse,
     WatchlistAddRequest,
     WatchlistToggleRequest,
 )
 from app.notifications.dispatcher import dispatch_signal_changes, send_test_alert
 from app.scheduler.jobs import is_running, run_scan_and_alert, scheduled_scan, start_scheduler, stop_scheduler
 from app.scanners.opportunity_scanner import scanner
+from app.scanners.super_opportunities import build_super_opportunities, build_super_opportunity
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -131,6 +133,27 @@ async def history(
         changes=await get_signal_changes(changes),
         recent_opportunities=await get_recent_opportunities(opportunities),
     )
+
+
+@app.get("/api/super-opportunities", response_model=SuperOpportunitiesResponse)
+async def super_opportunities(min_score: float = Query(0, ge=0, le=100)):
+    """Superokazje: cykl + bid/ask + poziomy wejścia/wyjścia + heatmapa liq."""
+    if not scanner.bitcoin_cycle or not scanner.presidential_cycle:
+        asyncio.create_task(scanner.scan())
+        raise HTTPException(status_code=503, detail="Skanowanie rynku w toku — odśwież za chwilę")
+    return await build_super_opportunities(min_score=min_score)
+
+
+@app.get("/api/super-opportunities/{symbol}")
+async def super_opportunity_detail(symbol: str):
+    if not scanner.opportunities:
+        if not scanner.bitcoin_cycle:
+            asyncio.create_task(scanner.scan())
+            raise HTTPException(status_code=503, detail="Skanowanie rynku w toku — odśwież za chwilę")
+    match = next((o for o in scanner.opportunities if o.symbol.upper() == symbol.upper()), None)
+    if not match:
+        raise HTTPException(status_code=404, detail="Brak okazji dla symbolu — uruchom skan / dodaj do watchlisty")
+    return await build_super_opportunity(match)
 
 
 @app.get("/api/cycles/bitcoin")
