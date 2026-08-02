@@ -354,12 +354,12 @@ function SuperDetail({ item }: { item: SuperOpportunity }) {
         <span className="path-bridge-dot liq">LIQ</span>
         <span className="path-bridge-caption">
           {item.prediction
-            ? `AI łączy pozycję z ${item.prediction.target_side}-liq @ ${item.prediction.target_price}`
-            : 'Ścieżka pozycja → liq'}
+            ? `Kolejność: wejście → cel → magnet liq (${item.prediction.target_side}) @ ${Number(item.prediction.target_price).toFixed(2)}`
+            : 'Kolejność: wejście → cel → magnet liq'}
         </span>
       </div>
 
-      <h3 className="mini-title">Heatmapa likwidacji 3D + ścieżka AI</h3>
+      <h3 className="mini-title">Heatmapa likwidacji · poziomy + ścieżka</h3>
       <LiquidationHeatmapBar
         heatmap={item.heatmap}
         entry={levels.entry}

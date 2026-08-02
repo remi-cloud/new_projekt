@@ -15,18 +15,17 @@ function rgbFor(cell: HeatmapBin): [number, number, number] {
   // Boost mid intensities so opposite sides read as clearly green vs red
   const raw = side === 'long' ? longI : shortI
   const t = Math.max(0, Math.min(1, Math.pow(raw, 0.72)))
-  if (t < 0.025) return [8, 12, 14]
+  // Dim near-zero cells so markers/path stay readable
+  if (t < 0.04) return [14, 18, 22]
   if (side === 'long') {
-    // Pure emerald → neon green (no yellow bleed — opposite to red)
-    const r = Math.round(4 + 20 * t)
-    const g = Math.round(70 + 185 * t)
-    const b = Math.round(55 + 70 * (1 - t) + 40 * t)
-    return [r, Math.min(255, g), b]
+    const r = Math.round(10 + 28 * t)
+    const g = Math.round(90 + 150 * t)
+    const b = Math.round(70 + 50 * t)
+    return [r, Math.min(255, g), Math.min(255, b)]
   }
-  // Pure crimson → hot red (no orange/yellow — opposite to green)
-  const r = Math.round(120 + 135 * t)
-  const g = Math.round(8 + 12 * (1 - t))
-  const b = Math.round(28 + 18 * (1 - t))
+  const r = Math.round(140 + 110 * t)
+  const g = Math.round(24 + 20 * (1 - t))
+  const b = Math.round(36 + 16 * (1 - t))
   return [Math.min(255, r), g, b]
 }
 
@@ -150,6 +149,42 @@ function priceToZ(price: number, rangeLow: number, rangeHigh: number): number {
   return -((n) * 2 - 1) // match mesh z mapping
 }
 
+function drawLabelPill(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  color: string,
+  opts?: { fontSize?: number; padX?: number; padY?: number },
+) {
+  const fontSize = opts?.fontSize ?? 12
+  const padX = opts?.padX ?? 7
+  const padY = opts?.padY ?? 4
+  ctx.save()
+  ctx.font = `700 ${fontSize}px IBM Plex Mono, monospace`
+  const tw = ctx.measureText(text).width
+  const bx = x
+  const by = y - fontSize - padY
+  const bw = tw + padX * 2
+  const bh = fontSize + padY * 2
+  ctx.fillStyle = 'rgba(4, 10, 12, 0.88)'
+  ctx.strokeStyle = color
+  ctx.lineWidth = 1.4
+  ctx.beginPath()
+  const r = 5
+  ctx.moveTo(bx + r, by)
+  ctx.arcTo(bx + bw, by, bx + bw, by + bh, r)
+  ctx.arcTo(bx + bw, by + bh, bx, by + bh, r)
+  ctx.arcTo(bx, by + bh, bx, by, r)
+  ctx.arcTo(bx, by, bx + bw, by, r)
+  ctx.closePath()
+  ctx.fill()
+  ctx.stroke()
+  ctx.fillStyle = color
+  ctx.fillText(text, bx + padX, by + bh - padY - 1)
+  ctx.restore()
+}
+
 function drawMarkerLine(
   ctx: CanvasRenderingContext2D,
   grid: HeatmapBin[][],
@@ -164,6 +199,7 @@ function drawMarkerLine(
   pitch: number,
   zoom: number,
   heightScale: number,
+  opts?: { dashed?: boolean; alpha?: number; withLabel?: boolean },
 ) {
   const cols = grid.length
   const rows = grid[0]?.length ?? 0
@@ -172,37 +208,55 @@ function drawMarkerLine(
   const ri = Math.round(((price - rangeLow) / span) * (rows - 1))
   if (ri < 0 || ri >= rows) return
 
+  const dashed = opts?.dashed ?? true
+  const alpha = opts?.alpha ?? 0.9
+  const withLabel = opts?.withLabel ?? true
+
   ctx.save()
+  ctx.globalAlpha = alpha
   ctx.strokeStyle = color
   ctx.fillStyle = color
-  ctx.lineWidth = 1.5
-  ctx.setLineDash([5, 4])
+  ctx.lineWidth = 2.2
+  if (dashed) ctx.setLineDash([7, 5])
   ctx.beginPath()
-  for (let ci = 0; ci < cols; ci++) {
+  // Sample fewer points — cleaner line, less visual noise
+  const step = Math.max(1, Math.floor(cols / 28))
+  for (let ci = 0; ci < cols; ci += step) {
     const cell = grid[ci][ri]
     const nx = (ci / (cols - 1)) * 2 - 1
     const ny = (ri / (rows - 1)) * 2 - 1
     const nz = intensityOf(cell) * heightScale
-    const p = project({ x: nx, y: nz + 0.02, z: -ny }, w, h, yaw, pitch, zoom)
+    const p = project({ x: nx, y: nz + 0.03, z: -ny }, w, h, yaw, pitch, zoom)
     if (ci === 0) ctx.moveTo(p.x, p.y)
     else ctx.lineTo(p.x, p.y)
   }
+  // ensure last point
+  {
+    const ci = cols - 1
+    const cell = grid[ci][ri]
+    const nx = 1
+    const ny = (ri / (rows - 1)) * 2 - 1
+    const nz = intensityOf(cell) * heightScale
+    const p = project({ x: nx, y: nz + 0.03, z: -ny }, w, h, yaw, pitch, zoom)
+    ctx.lineTo(p.x, p.y)
+  }
   ctx.stroke()
   ctx.setLineDash([])
-  const end = project(
-    {
-      x: 1,
-      y: intensityOf(grid[cols - 1][ri]) * heightScale + 0.04,
-      z: -((ri / (rows - 1)) * 2 - 1),
-    },
-    w,
-    h,
-    yaw,
-    pitch,
-    zoom,
-  )
-  ctx.font = '600 11px IBM Plex Mono, monospace'
-  ctx.fillText(label, end.x + 6, end.y - 4)
+  if (withLabel) {
+    const end = project(
+      {
+        x: 1,
+        y: intensityOf(grid[cols - 1][ri]) * heightScale + 0.06,
+        z: -((ri / (rows - 1)) * 2 - 1),
+      },
+      w,
+      h,
+      yaw,
+      pitch,
+      zoom,
+    )
+    drawLabelPill(ctx, label, end.x + 4, end.y - 2, color)
+  }
   ctx.restore()
 }
 
@@ -231,38 +285,45 @@ function drawPredictionPath(
     return project({ x, y, z }, w, h, yaw, pitch, zoom)
   })
 
-  // Glow underlay
   ctx.save()
   ctx.lineJoin = 'round'
   ctx.lineCap = 'round'
-  ctx.strokeStyle = prediction.direction === 'down' ? 'rgba(239,68,68,0.35)' : 'rgba(16,185,129,0.35)'
-  ctx.lineWidth = 12
+
+  // Soft underlay (less bloom — clearer on dark terrain)
+  ctx.strokeStyle = prediction.direction === 'down' ? 'rgba(248,113,113,0.22)' : 'rgba(52,211,153,0.22)'
+  ctx.lineWidth = 8
   ctx.beginPath()
   pts.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)))
   ctx.stroke()
 
-  // Main prediction stroke — strong opposite greens/reds
   const grad = ctx.createLinearGradient(pts[0].x, pts[0].y, pts[pts.length - 1].x, pts[pts.length - 1].y)
   if (prediction.direction === 'down') {
-    grad.addColorStop(0, '#f87171')
-    grad.addColorStop(0.5, '#ef4444')
-    grad.addColorStop(1, '#dc2626')
+    grad.addColorStop(0, '#fca5a5')
+    grad.addColorStop(0.55, '#f87171')
+    grad.addColorStop(1, '#fde047')
   } else {
-    grad.addColorStop(0, '#34d399')
-    grad.addColorStop(0.5, '#10b981')
-    grad.addColorStop(1, '#059669')
+    grad.addColorStop(0, '#6ee7b7')
+    grad.addColorStop(0.55, '#34d399')
+    grad.addColorStop(1, '#fde047')
   }
   ctx.strokeStyle = grad
-  ctx.lineWidth = 3.6
-  ctx.shadowColor = prediction.direction === 'down' ? 'rgba(239,68,68,0.7)' : 'rgba(16,185,129,0.7)'
-  ctx.shadowBlur = 14
+  ctx.lineWidth = 3.2
+  ctx.shadowColor = 'rgba(0,0,0,0.45)'
+  ctx.shadowBlur = 6
   ctx.beginPath()
   pts.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)))
   ctx.stroke()
   ctx.shadowBlur = 0
 
-  // Connector stems: each anchor → nearest path point (wskaźnik ↔ mapa)
-  for (const a of prediction.anchors) {
+  // Only unique roles — avoid stacking TP1+TP2+IN stems on top of each other
+  const seenRoles = new Set<string>()
+  const anchors = prediction.anchors.filter((a) => {
+    if (seenRoles.has(a.role)) return false
+    seenRoles.add(a.role)
+    return true
+  })
+
+  for (const a of anchors) {
     const nearest = path.reduce(
       (best, pt, idx) => {
         const d = Math.abs(pt.t - a.t) + Math.abs(pt.price - a.price) / Math.max(a.price, 1)
@@ -274,7 +335,7 @@ function drawPredictionPath(
     const ax = a.t * 2 - 1
     const az = priceToZ(a.price, rangeLow, rangeHigh)
     const ay =
-      sampleHeight(grid, a.t, a.price, rangeLow, rangeHigh, heightScale) + 0.14
+      sampleHeight(grid, a.t, a.price, rangeLow, rangeHigh, heightScale) + 0.16
     const ap = project({ x: ax, y: ay, z: az }, w, h, yaw, pitch, zoom)
 
     const color =
@@ -283,42 +344,45 @@ function drawPredictionPath(
         : a.role === 'liq'
           ? '#fde047'
           : a.role === 'entry'
-            ? '#e8a317'
+            ? '#fbbf24'
             : '#34d399'
 
+    // Short stem only — no long dashed clutter across the map
     ctx.strokeStyle = color
-    ctx.globalAlpha = 0.85
-    ctx.lineWidth = 1.6
-    ctx.setLineDash(a.role === 'stop' ? [4, 3] : [])
+    ctx.globalAlpha = 0.75
+    ctx.lineWidth = 1.8
+    ctx.setLineDash(a.role === 'stop' ? [3, 3] : [])
     ctx.beginPath()
     ctx.moveTo(ap.x, ap.y)
     ctx.lineTo(target.x, target.y)
     ctx.stroke()
     ctx.setLineDash([])
 
-    // Anchor dot + label
-    ctx.fillStyle = color
-    ctx.beginPath()
-    ctx.arc(ap.x, ap.y, a.role === 'liq' ? 5 : 3.5, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.font = '700 10px IBM Plex Mono, monospace'
-    ctx.fillText(a.label, ap.x + 6, ap.y - 6)
     ctx.globalAlpha = 1
+    ctx.fillStyle = color
+    ctx.strokeStyle = 'rgba(4,10,12,0.9)'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.arc(ap.x, ap.y, a.role === 'liq' ? 6 : 4.5, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.stroke()
+    drawLabelPill(ctx, a.label, ap.x + 8, ap.y - 4, color, { fontSize: 11 })
   }
 
-  // Arrow head at LIQ end
   const last = pts[pts.length - 1]
   const prev = pts[Math.max(0, pts.length - 3)]
   const ang = Math.atan2(last.y - prev.y, last.x - prev.x)
   ctx.fillStyle = '#fde047'
+  ctx.strokeStyle = 'rgba(4,10,12,0.85)'
+  ctx.lineWidth = 1.5
   ctx.beginPath()
   ctx.moveTo(last.x, last.y)
-  ctx.lineTo(last.x - 12 * Math.cos(ang - 0.4), last.y - 12 * Math.sin(ang - 0.4))
-  ctx.lineTo(last.x - 12 * Math.cos(ang + 0.4), last.y - 12 * Math.sin(ang + 0.4))
+  ctx.lineTo(last.x - 11 * Math.cos(ang - 0.4), last.y - 11 * Math.sin(ang - 0.4))
+  ctx.lineTo(last.x - 11 * Math.cos(ang + 0.4), last.y - 11 * Math.sin(ang + 0.4))
   ctx.closePath()
   ctx.fill()
-  ctx.font = '700 11px IBM Plex Mono, monospace'
-  ctx.fillText('LIQ', last.x + 8, last.y - 8)
+  ctx.stroke()
+  drawLabelPill(ctx, 'LIQ', last.x + 8, last.y - 2, '#fde047', { fontSize: 12 })
   ctx.restore()
 }
 
@@ -334,6 +398,7 @@ function renderScene(
     tp1?: number
     tp2?: number
     prediction?: LiqPrediction | null
+    showLevelLines?: boolean
   },
   yaw: number,
   pitch: number,
@@ -379,8 +444,8 @@ function renderScene(
   const rows = grid[0]?.length ?? 0
   if (!cols || !rows) return
 
-  // Flatter terrain — głębia still readable, less "wall"
-  const heightScale = 0.48
+  // Flatter terrain — markers stay readable above the mesh
+  const heightScale = 0.38
   const faces: Face[] = []
 
   for (let ci = 0; ci < cols - 1; ci++) {
@@ -462,43 +527,113 @@ function renderScene(
     ctx.stroke()
   }
 
-  // Axis labels
-  ctx.fillStyle = 'rgba(168, 181, 174, 0.85)'
-  ctx.font = '500 11px Outfit, system-ui, sans-serif'
-  ctx.fillText('czas →', cssW * 0.72, cssH * 0.92)
-  ctx.fillText('cena ↑', cssW * 0.06, cssH * 0.22)
-  ctx.fillText('głębia = natężenie liq', cssW * 0.06, cssH * 0.08)
+  // Axis labels with contrast pills
+  drawLabelPill(ctx, 'czas →', cssW * 0.72, cssH * 0.93, 'rgba(226,232,240,0.95)', {
+    fontSize: 11,
+  })
+  drawLabelPill(ctx, 'cena ↑', cssW * 0.05, cssH * 0.2, 'rgba(226,232,240,0.95)', {
+    fontSize: 11,
+  })
+  drawLabelPill(ctx, 'wysokość = siła liq', cssW * 0.05, cssH * 0.09, 'rgba(148,163,184,0.95)', {
+    fontSize: 10,
+  })
 
-  drawMarkerLine(
-    ctx, grid, meta.price, meta.rangeLow, meta.rangeHigh, '#ffffff', 'PX',
-    cssW, cssH, yaw, pitch, zoom, heightScale,
-  )
-  if (meta.entry != null) {
+  const hasPath = Boolean(meta.prediction?.path?.length)
+  const showLines = meta.showLevelLines !== false
+
+  // When AI path is on: only PX + SL lines (anchors cover IN/TP/LIQ) — less spaghetti
+  if (showLines) {
     drawMarkerLine(
-      ctx, grid, meta.entry, meta.rangeLow, meta.rangeHigh, '#e8a317', 'IN',
-      cssW, cssH, yaw, pitch, zoom, heightScale,
+      ctx,
+      grid,
+      meta.price,
+      meta.rangeLow,
+      meta.rangeHigh,
+      '#f8fafc',
+      'PX',
+      cssW,
+      cssH,
+      yaw,
+      pitch,
+      zoom,
+      heightScale,
+      { dashed: false, alpha: 0.75, withLabel: !hasPath },
     )
-  }
-  if (meta.stop != null) {
-    drawMarkerLine(
-      ctx, grid, meta.stop, meta.rangeLow, meta.rangeHigh, '#f87171', 'SL',
-      cssW, cssH, yaw, pitch, zoom, heightScale,
-    )
-  }
-  if (meta.tp1 != null) {
-    drawMarkerLine(
-      ctx, grid, meta.tp1, meta.rangeLow, meta.rangeHigh, '#34d399', 'TP1',
-      cssW, cssH, yaw, pitch, zoom, heightScale,
-    )
-  }
-  if (meta.tp2 != null) {
-    drawMarkerLine(
-      ctx, grid, meta.tp2, meta.rangeLow, meta.rangeHigh, '#2dd4bf', 'TP2',
-      cssW, cssH, yaw, pitch, zoom, heightScale,
-    )
+    if (meta.stop != null) {
+      drawMarkerLine(
+        ctx,
+        grid,
+        meta.stop,
+        meta.rangeLow,
+        meta.rangeHigh,
+        '#f87171',
+        'SL',
+        cssW,
+        cssH,
+        yaw,
+        pitch,
+        zoom,
+        heightScale,
+        { dashed: true, alpha: hasPath ? 0.45 : 0.85, withLabel: !hasPath },
+      )
+    }
+    if (!hasPath) {
+      if (meta.entry != null) {
+        drawMarkerLine(
+          ctx,
+          grid,
+          meta.entry,
+          meta.rangeLow,
+          meta.rangeHigh,
+          '#fbbf24',
+          'IN',
+          cssW,
+          cssH,
+          yaw,
+          pitch,
+          zoom,
+          heightScale,
+        )
+      }
+      if (meta.tp1 != null) {
+        drawMarkerLine(
+          ctx,
+          grid,
+          meta.tp1,
+          meta.rangeLow,
+          meta.rangeHigh,
+          '#34d399',
+          'TP1',
+          cssW,
+          cssH,
+          yaw,
+          pitch,
+          zoom,
+          heightScale,
+        )
+      }
+      if (meta.tp2 != null) {
+        drawMarkerLine(
+          ctx,
+          grid,
+          meta.tp2,
+          meta.rangeLow,
+          meta.rangeHigh,
+          '#2dd4bf',
+          'TP2',
+          cssW,
+          cssH,
+          yaw,
+          pitch,
+          zoom,
+          heightScale,
+          { alpha: 0.7 },
+        )
+      }
+    }
   }
 
-  if (meta.prediction?.path?.length) {
+  if (hasPath && meta.prediction) {
     drawPredictionPath(
       ctx,
       grid,
@@ -537,10 +672,12 @@ export default function LiquidationHeatmapBar({
   )
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
-  // Flatter default camera (more top-down / horizontal board)
-  const [yaw, setYaw] = useState(-0.38)
-  const [pitch, setPitch] = useState(0.28)
-  const [zoom, setZoom] = useState(1.12)
+  // Slightly more top-down — easier to read levels vs peaks
+  const [yaw, setYaw] = useState(-0.32)
+  const [pitch, setPitch] = useState(0.42)
+  const [zoom, setZoom] = useState(1.08)
+  const [showLevelLines, setShowLevelLines] = useState(true)
+  const [showPathMeta, setShowPathMeta] = useState(true)
   const drag = useRef<{ x: number; y: number; yaw: number; pitch: number } | null>(null)
 
   useEffect(() => {
@@ -561,6 +698,7 @@ export default function LiquidationHeatmapBar({
           tp1,
           tp2,
           prediction,
+          showLevelLines,
         },
         yaw,
         pitch,
@@ -580,20 +718,57 @@ export default function LiquidationHeatmapBar({
       ro.disconnect()
       wrap.removeEventListener('wheel', onWheel)
     }
-  }, [grid, price, range_low, range_high, entry, stop, tp1, tp2, prediction, yaw, pitch, zoom])
-
-  const [showPathMeta, setShowPathMeta] = useState(false)
+  }, [
+    grid,
+    price,
+    range_low,
+    range_high,
+    entry,
+    stop,
+    tp1,
+    tp2,
+    prediction,
+    yaw,
+    pitch,
+    zoom,
+    showLevelLines,
+  ])
 
   const dirArrow =
     prediction?.direction === 'up' ? '↑' : prediction?.direction === 'down' ? '↓' : '↔'
 
+  const fmt = (n?: number) => (n == null || Number.isNaN(n) ? '—' : n.toFixed(2))
+
+  const levelKey = [
+    { id: 'px', label: 'PX', value: price, tone: 'px' },
+    { id: 'in', label: 'IN', value: entry, tone: 'in' },
+    { id: 'sl', label: 'SL', value: stop, tone: 'sl' },
+    { id: 'tp1', label: 'TP1', value: tp1, tone: 'tp' },
+    { id: 'tp2', label: 'TP2', value: tp2, tone: 'tp2' },
+    {
+      id: 'liq',
+      label: 'LIQ',
+      value: prediction?.target_price,
+      tone: 'liq',
+    },
+  ].filter((x) => x.value != null)
+
   return (
     <div className="heatmap-wrap hm3">
       <div className="heatmap-legend">
-        <span className="hm-leg long">LONG = zieleń</span>
-        <span className="hm-leg mid">płaska mapa · ścieżka IN → LIQ</span>
-        <span className="hm-leg short">SHORT = czerwień</span>
+        <span className="hm-leg long">LONG · zieleń</span>
+        <span className="hm-leg mid">wyższe = silniejsza liq · ścieżka IN → LIQ</span>
+        <span className="hm-leg short">SHORT · czerwień</span>
       </div>
+
+      <ul className="hm-level-key" aria-label="Poziomy na mapie">
+        {levelKey.map((row) => (
+          <li key={row.id} className={`hm-key-chip tone-${row.tone}`}>
+            <strong>{row.label}</strong>
+            <span>{fmt(row.value)}</span>
+          </li>
+        ))}
+      </ul>
 
       <div className="hm3-toolbar">
         <button type="button" className="btn btn-ghost btn-sm" onClick={() => setYaw((y) => y - 0.15)}>
@@ -618,12 +793,20 @@ export default function LiquidationHeatmapBar({
           type="button"
           className="btn btn-ghost btn-sm"
           onClick={() => {
-            setYaw(-0.38)
-            setPitch(0.28)
-            setZoom(1.12)
+            setYaw(-0.32)
+            setPitch(0.42)
+            setZoom(1.08)
           }}
         >
           Reset
+        </button>
+        <button
+          type="button"
+          className={`btn btn-ghost btn-sm${showLevelLines ? ' active-tool' : ''}`}
+          onClick={() => setShowLevelLines((v) => !v)}
+          title="Linie poziomów na mapie"
+        >
+          Linie
         </button>
         {prediction && (
           <button
@@ -631,7 +814,7 @@ export default function LiquidationHeatmapBar({
             className={`btn btn-ghost btn-sm${showPathMeta ? ' active-tool' : ''}`}
             onClick={() => setShowPathMeta((v) => !v)}
           >
-            Ścieżka AI
+            Opis AI
           </button>
         )}
       </div>
@@ -675,7 +858,7 @@ export default function LiquidationHeatmapBar({
       <div className="heatmap-scale hm2-scale">
         <span>wcześniej</span>
         <span>
-          {range_low.toFixed(2)} — {range_high.toFixed(2)} · HiDPI 3D
+          zakres {range_low.toFixed(2)} — {range_high.toFixed(2)}
         </span>
         <span>teraz</span>
       </div>
