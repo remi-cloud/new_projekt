@@ -107,6 +107,13 @@ export default function MarketsPage() {
         </span>
       </div>
 
+      {data.live_count === 0 && (
+        <div className="inline-error" role="alert">
+          Brak live notowań w SPA.{' '}
+          <a href="/live">Otwórz /live</a> (HTML bez React) albo kliknij Odśwież teraz.
+        </div>
+      )}
+
       {error && (
         <div className="inline-error" role="alert">
           {error} — pokazuję ostatnie dane.{' '}

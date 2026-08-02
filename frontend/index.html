@@ -7,28 +7,50 @@
       name="description"
       content="Cyclical Trader — skaner rynku, sygnały i superokazje 24/7."
     />
+    <meta http-equiv="Cache-Control" content="no-store" />
     <title>Cyclical Trader — Skaner rynku</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Outfit:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap"
-      rel="stylesheet"
-    />
+    <!-- No Google Fonts — external fonts often block phones / PL networks -->
     <style>
       html, body, #root { min-height: 100%; margin: 0; background: #0c1210; color: #eef3ef; }
       #boot {
-        font-family: system-ui, sans-serif;
+        font-family: "Avenir Next", "Segoe UI", sans-serif;
         display: flex; align-items: center; justify-content: center;
         min-height: 100vh; padding: 24px; text-align: center;
       }
       #boot strong { display: block; font-size: 1.4rem; margin-bottom: 8px; }
-      #boot span { color: #a8b5ae; }
+      #boot span { color: #a8b5ae; display: block; margin-bottom: 16px; }
+      #boot a {
+        display: inline-block; margin-top: 8px; padding: 10px 16px;
+        background: #2dd4bf; color: #0c1210; text-decoration: none;
+        font-weight: 700; border-radius: 8px;
+      }
+      #boot .fail { display: none; }
+      #boot.is-stuck .fail { display: block; }
+      #boot.is-stuck .wait { display: none; }
     </style>
   </head>
   <body>
     <div id="root">
-      <div id="boot"><div><strong>Cyclical Trader</strong><span>Ładowanie aplikacji…</span></div></div>
+      <div id="boot">
+        <div>
+          <strong>Cyclical Trader</strong>
+          <span class="wait">Ładowanie aplikacji…</span>
+          <div class="fail">
+            <span>Aplikacja nie wstała — otwórz wersję LIVE bez React:</span>
+            <a href="/live">Otwórz /live · 90 rynków</a>
+          </div>
+        </div>
+      </div>
     </div>
+    <script>
+      // If SPA JS fails (blocked CDN/cache), surface /live after 6s
+      setTimeout(function () {
+        var boot = document.getElementById('boot');
+        if (boot && document.body.contains(boot)) {
+          boot.classList.add('is-stuck');
+        }
+      }, 6000);
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

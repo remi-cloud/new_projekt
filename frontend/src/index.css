@@ -15,9 +15,9 @@
   --green: #34d399;
   --red: #f87171;
   --yellow: #fbbf24;
-  --font-display: 'Syne', sans-serif;
-  --font-sans: 'Outfit', sans-serif;
-  --font-mono: 'IBM Plex Mono', monospace;
+  --font-display: "Avenir Next Condensed", "Segoe UI", "Trebuchet MS", sans-serif;
+  --font-sans: "Avenir Next", "Segoe UI", "Century Gothic", sans-serif;
+  --font-mono: "IBM Plex Mono", "Consolas", "Menlo", monospace;
   --radius: 14px;
   --shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
   --max: 1180px;

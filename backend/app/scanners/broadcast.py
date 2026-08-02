@@ -109,7 +109,7 @@ def _best_setups() -> tuple[BroadcastSetup | None, list[str]]:
             f"WYNIK SHORT · {bs.symbol} SHORT {bs.confidence:.0f}% @ ${_fmt_price(bs.price)}"
         )
     else:
-        lines.append("WYNIK SHORT · brak aktywnego SHORT w tym skanie")
+        lines.append("WYNIK SHORT · brak w tym skanie (trend-first — OK)")
 
     lines.append(
         f"TOP SETUP · {_side_label(best.action)} {best.symbol} "
