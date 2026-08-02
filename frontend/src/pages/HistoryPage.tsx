@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { fetchHistory } from '../api'
 import LoadingState, { ErrorState } from '../components/LoadingState'
 import { formatSignal } from '../lib/labels'
+import { positionPath } from '../lib/routes'
 import { HistoryResponse } from '../types'
 
 export default function HistoryPage() {
@@ -34,7 +36,7 @@ export default function HistoryPage() {
         <div>
           <h1>Historia skanów</h1>
           <p className="page-lead">
-            Zmiany sygnałów między skanami oraz log automatycznych przebiegów (co ~15 min).
+            Kliknij instrument, aby otworzyć pełną pozycję (bid/ask, poziomy, heatmapa).
           </p>
         </div>
         <button className="btn btn-ghost" onClick={load} type="button">
@@ -58,15 +60,18 @@ export default function HistoryPage() {
                 <th>Było</th>
                 <th>Jest</th>
                 <th>Pewność</th>
+                <th />
               </tr>
             </thead>
             <tbody>
               {data.changes.map((c) => (
-                <tr key={c.id}>
+                <tr key={c.id} className="row-link">
                   <td className="cell-sub">{new Date(c.created_at).toLocaleString('pl-PL')}</td>
                   <td>
-                    <strong>{c.name}</strong>
-                    <div className="cell-sub">{c.symbol}</div>
+                    <Link to={positionPath(c.symbol)} className="row-main-link">
+                      <strong>{c.name}</strong>
+                      <div className="cell-sub">{c.symbol}</div>
+                    </Link>
                   </td>
                   <td>{c.previous_action ? formatSignal(c.previous_action) : '—'}</td>
                   <td>
@@ -75,6 +80,11 @@ export default function HistoryPage() {
                     </span>
                   </td>
                   <td className="price-cell">{c.new_confidence}%</td>
+                  <td>
+                    <Link to={positionPath(c.symbol)} className="btn btn-ghost btn-sm">
+                      Otwórz
+                    </Link>
+                  </td>
                 </tr>
               ))}
             </tbody>

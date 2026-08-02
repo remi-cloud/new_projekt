@@ -4,6 +4,7 @@ import {
   DashboardResponse,
   HistoryResponse,
   SuperOpportunitiesResponse,
+  SuperOpportunity,
   WatchlistItem,
   WatchlistResponse,
 } from './types'
@@ -98,4 +99,8 @@ export async function fetchSuperOpportunities(
   minScore = 0,
 ): Promise<SuperOpportunitiesResponse> {
   return getJson<SuperOpportunitiesResponse>(`/super-opportunities?min_score=${minScore}`)
+}
+
+export async function fetchSuperOpportunity(symbol: string): Promise<SuperOpportunity> {
+  return getJson<SuperOpportunity>(`/super-opportunities/${encodeURIComponent(symbol)}`)
 }

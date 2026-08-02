@@ -538,11 +538,71 @@ button {
   border-radius: var(--radius);
   padding: 18px;
   transition: border-color 0.2s, transform 0.2s;
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.opp-card-link {
+  cursor: pointer;
 }
 
 .opp-card:hover {
   border-color: var(--amber);
   transform: translateY(-2px);
+}
+
+.opp-open {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--amber);
+}
+
+.section-link {
+  margin-left: 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--teal);
+  text-decoration: none;
+}
+
+.section-link:hover {
+  color: var(--amber);
+  text-decoration: underline;
+}
+
+.row-main-link {
+  color: inherit;
+  text-decoration: none;
+  display: block;
+}
+
+.row-main-link:hover strong {
+  color: var(--amber);
+}
+
+.row-link:hover td {
+  background: rgba(45, 212, 191, 0.04);
+}
+
+.home-stat-link {
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.2s, transform 0.2s;
+}
+
+.home-stat-link:hover {
+  border-color: var(--amber);
+  transform: translateY(-2px);
+}
+
+a.super-list-item {
+  display: block;
+  text-decoration: none;
+  color: inherit;
 }
 
 .opp-header {

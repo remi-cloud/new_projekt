@@ -1,17 +1,23 @@
-import { useCallback, useEffect, useState } from 'react'
-import { fetchSuperOpportunities, triggerScan } from '../api'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { fetchSuperOpportunities, fetchSuperOpportunity, triggerScan } from '../api'
 import LiquidationHeatmapBar from '../components/LiquidationHeatmap'
 import LoadingState, { ErrorState } from '../components/LoadingState'
 import SignalTag from '../components/SignalTag'
 import { ASSET_LABELS, formatPrice } from '../lib/labels'
+import { positionPath } from '../lib/routes'
 import { SuperOpportunity, SuperOpportunitiesResponse } from '../types'
 
 export default function SuperOpportunitiesPage() {
+  const { symbol: routeSymbol } = useParams()
+  const navigate = useNavigate()
+  const selectedSymbol = routeSymbol ? decodeURIComponent(routeSymbol) : null
+
   const [data, setData] = useState<SuperOpportunitiesResponse | null>(null)
+  const [detail, setDetail] = useState<SuperOpportunity | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [onlySuper, setOnlySuper] = useState(true)
-  const [selected, setSelected] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   const load = useCallback(async () => {
@@ -19,7 +25,6 @@ export default function SuperOpportunitiesPage() {
       setError(null)
       const res = await fetchSuperOpportunities(0)
       setData(res)
-      setSelected((prev) => prev ?? res.items[0]?.symbol ?? null)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Nie udało się pobrać superokazji')
     } finally {
@@ -31,14 +36,76 @@ export default function SuperOpportunitiesPage() {
     load()
   }, [load])
 
+  // Deep-link: URL symbol is source of truth; fetch solo detail if missing from list
+  useEffect(() => {
+    if (!data || !selectedSymbol) {
+      setDetail(null)
+      return
+    }
+    const inList = data.items.find(
+      (i) => i.symbol.toUpperCase() === selectedSymbol.toUpperCase(),
+    )
+    if (inList) {
+      setDetail(inList)
+      if (!inList.is_super) setOnlySuper(false)
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const one = await fetchSuperOpportunity(selectedSymbol)
+        if (!cancelled) {
+          setDetail(one)
+          setOnlySuper(false)
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setDetail(null)
+          setError(e instanceof Error ? e.message : 'Brak pozycji dla symbolu')
+        }
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [data, selectedSymbol])
+
+  // No symbol in URL → open first visible item
+  useEffect(() => {
+    if (!data || selectedSymbol) return
+    const pool = onlySuper && data.supers.length ? data.supers : data.items
+    const first = pool[0]
+    if (first) navigate(positionPath(first.symbol), { replace: true })
+  }, [data, selectedSymbol, onlySuper, navigate])
+
+  const list = useMemo(() => {
+    if (!data) return []
+    const pool = onlySuper ? data.supers : data.items
+    // Always keep the deep-linked symbol visible in the ranking
+    if (
+      selectedSymbol &&
+      !pool.some((i) => i.symbol.toUpperCase() === selectedSymbol.toUpperCase())
+    ) {
+      const extra =
+        detail && detail.symbol.toUpperCase() === selectedSymbol.toUpperCase()
+          ? detail
+          : data.items.find((i) => i.symbol.toUpperCase() === selectedSymbol.toUpperCase())
+      if (extra) return [extra, ...pool]
+    }
+    return pool
+  }, [data, onlySuper, selectedSymbol, detail])
+
+  const active =
+    detail ??
+    list.find((i) => i.symbol.toUpperCase() === (selectedSymbol ?? '').toUpperCase()) ??
+    list[0] ??
+    null
+
   if (loading) {
     return <LoadingState message="Liczenie superokazji (bid/ask + heatmapa liq)…" />
   }
   if (error && !data) return <ErrorState message={error} onRetry={load} />
   if (!data) return null
-
-  const list = onlySuper ? data.supers : data.items
-  const active = list.find((i) => i.symbol === selected) ?? list[0] ?? data.items[0]
 
   return (
     <div className="page super-page">
@@ -46,8 +113,8 @@ export default function SuperOpportunitiesPage() {
         <div>
           <h1>Superokazje</h1>
           <p className="page-lead">
-            Modele Alpha/Beta + bid/ask + poziomy wejścia/wyjścia + heatmapa liq 2D (zieleń = long,
-            czerwień = short; oś X = czas, Y = cena).
+            Kliknij pozycję — otwiera pełny widok: bid/ask, poziomy wejścia/wyjścia i heatmapę liq.
+            Linki działają z Okazji, Dashboardu, Rynków, Watchlisty i Historii.
           </p>
         </div>
         <div className="page-actions">
@@ -93,7 +160,9 @@ export default function SuperOpportunitiesPage() {
           <span>kandydatów</span>
         </div>
         <div className="home-stat">
-          <strong>{data.generated_at ? new Date(data.generated_at).toLocaleTimeString('pl-PL') : '—'}</strong>
+          <strong>
+            {data.generated_at ? new Date(data.generated_at).toLocaleTimeString('pl-PL') : '—'}
+          </strong>
           <span>ostatnie wyliczenie</span>
         </div>
       </div>
@@ -108,11 +177,10 @@ export default function SuperOpportunitiesPage() {
             <p className="empty">Brak pozycji spełniających próg. Odznacz filtr SUPER.</p>
           ) : (
             list.map((item) => (
-              <button
+              <Link
                 key={item.symbol}
-                type="button"
+                to={positionPath(item.symbol)}
                 className={`super-list-item${active?.symbol === item.symbol ? ' active' : ''}${item.is_super ? ' super' : ''}`}
-                onClick={() => setSelected(item.symbol)}
               >
                 <div className="super-list-top">
                   <strong>{item.symbol}</strong>
@@ -122,13 +190,20 @@ export default function SuperOpportunitiesPage() {
                   <span className={`tag ${item.asset_class}`}>{ASSET_LABELS[item.asset_class]}</span>
                   <span className="super-score">{item.super_score}</span>
                 </div>
-              </button>
+              </Link>
             ))
           )}
         </aside>
 
         <section className="super-detail">
-          {active ? <SuperDetail item={active} /> : <p className="empty">Wybierz instrument.</p>}
+          {active ? (
+            <SuperDetail item={active} />
+          ) : (
+            <p className="empty">
+              Brak pozycji. Uruchom skan albo otwórz instrument z{' '}
+              <Link to="/okazje">Okazji</Link> / <Link to="/rynki">Rynków</Link>.
+            </p>
+          )}
         </section>
       </div>
     </div>
@@ -138,7 +213,7 @@ export default function SuperOpportunitiesPage() {
 function SuperDetail({ item }: { item: SuperOpportunity }) {
   const { levels } = item
   return (
-    <div className="super-card">
+    <div className="super-card" id={`pozycja-${item.symbol}`}>
       <div className="super-card-head">
         <div>
           <h2>
@@ -195,12 +270,30 @@ function SuperDetail({ item }: { item: SuperOpportunity }) {
 
       <h3 className="mini-title">Poziomy wejścia / wyjścia</h3>
       <div className="levels-grid">
-        <div><span>Strona</span><strong>{levels.side}</strong></div>
-        <div><span>Wejście</span><strong>{levels.entry}</strong></div>
-        <div><span>Stop</span><strong className="neg">{levels.stop_loss}</strong></div>
-        <div><span>TP1</span><strong className="pos">{levels.take_profit_1}</strong></div>
-        <div><span>TP2</span><strong className="pos">{levels.take_profit_2}</strong></div>
-        <div><span>R:R</span><strong>{levels.risk_reward}</strong></div>
+        <div>
+          <span>Strona</span>
+          <strong>{levels.side}</strong>
+        </div>
+        <div>
+          <span>Wejście</span>
+          <strong>{levels.entry}</strong>
+        </div>
+        <div>
+          <span>Stop</span>
+          <strong className="neg">{levels.stop_loss}</strong>
+        </div>
+        <div>
+          <span>TP1</span>
+          <strong className="pos">{levels.take_profit_1}</strong>
+        </div>
+        <div>
+          <span>TP2</span>
+          <strong className="pos">{levels.take_profit_2}</strong>
+        </div>
+        <div>
+          <span>R:R</span>
+          <strong>{levels.risk_reward}</strong>
+        </div>
       </div>
       <p className="opp-rationale">{levels.note}</p>
 

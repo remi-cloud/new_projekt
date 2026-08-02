@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   addWatchlistItem,
   fetchWatchlist,
@@ -8,6 +9,7 @@ import {
 } from '../api'
 import LoadingState, { ErrorState } from '../components/LoadingState'
 import { ASSET_LABELS } from '../lib/labels'
+import { positionPath } from '../lib/routes'
 import { AssetClass, CatalogAsset, WatchlistItem } from '../types'
 
 export default function WatchlistPage() {
@@ -159,10 +161,12 @@ export default function WatchlistPage() {
           </thead>
           <tbody>
             {items.map((item) => (
-              <tr key={item.symbol} className={item.enabled ? '' : 'row-muted'}>
+              <tr key={item.symbol} className={`row-link${item.enabled ? '' : ' row-muted'}`}>
                 <td>
-                  <strong>{item.name}</strong>
-                  <div className="cell-sub">{item.symbol}</div>
+                  <Link to={positionPath(item.symbol)} className="row-main-link">
+                    <strong>{item.name}</strong>
+                    <div className="cell-sub">{item.symbol}</div>
+                  </Link>
                 </td>
                 <td>
                   <span className={`tag ${item.asset_class}`}>
@@ -171,6 +175,9 @@ export default function WatchlistPage() {
                 </td>
                 <td>{item.enabled ? 'Monitorowany' : 'Wyłączony'}</td>
                 <td className="actions-cell">
+                  <Link to={positionPath(item.symbol)} className="btn btn-ghost btn-sm">
+                    Otwórz
+                  </Link>
                   <button
                     className="btn btn-ghost btn-sm"
                     type="button"

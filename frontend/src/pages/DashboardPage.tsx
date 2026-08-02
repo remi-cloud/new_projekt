@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { CycleCardAlpha, CycleCardBeta } from '../components/CycleCards'
 import LoadingState, { ErrorState } from '../components/LoadingState'
 import OpportunityCard from '../components/OpportunityCard'
@@ -44,6 +45,12 @@ export default function DashboardPage() {
       <h2 className="section-title">
         Top okazje
         <span className="count">{Math.min(6, data.opportunities.length)}</span>
+        <Link to="/okazje" className="section-link">
+          Wszystkie okazje →
+        </Link>
+        <Link to="/superokazje" className="section-link">
+          Superokazje →
+        </Link>
       </h2>
       {data.opportunities.length === 0 ? (
         <p className="empty">Brak aktywnych sygnałów — modele nie wskazują na wyraźne okazje.</p>
@@ -58,8 +65,11 @@ export default function DashboardPage() {
       <h2 className="section-title">
         Notowania
         <span className="count">{data.monitored_assets.length}</span>
+        <Link to="/rynki" className="section-link">
+          Wszystkie rynki →
+        </Link>
       </h2>
-      <AssetsTable assets={data.monitored_assets} />
+      <AssetsTable assets={data.monitored_assets.slice(0, 12)} />
     </div>
   )
 }

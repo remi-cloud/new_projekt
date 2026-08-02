@@ -1,4 +1,6 @@
+import { Link } from 'react-router-dom'
 import { ASSET_LABELS, formatPrice } from '../lib/labels'
+import { positionPath } from '../lib/routes'
 import { AssetQuote } from '../types'
 
 function ChangeCell({ value }: { value: number | null }) {
@@ -23,14 +25,17 @@ export default function AssetsTable({ assets }: { assets: AssetQuote[] }) {
             <th>Cena</th>
             <th>24h</th>
             <th>7d</th>
+            <th />
           </tr>
         </thead>
         <tbody>
           {assets.map((a) => (
-            <tr key={a.symbol}>
+            <tr key={a.symbol} className="row-link">
               <td>
-                <strong>{a.name}</strong>
-                <div className="cell-sub">{a.symbol}</div>
+                <Link to={positionPath(a.symbol)} className="row-main-link">
+                  <strong>{a.name}</strong>
+                  <div className="cell-sub">{a.symbol}</div>
+                </Link>
               </td>
               <td>
                 <span className={`tag ${a.asset_class}`}>{ASSET_LABELS[a.asset_class]}</span>
@@ -41,6 +46,11 @@ export default function AssetsTable({ assets }: { assets: AssetQuote[] }) {
               </td>
               <td>
                 <ChangeCell value={a.change_pct_7d} />
+              </td>
+              <td>
+                <Link to={positionPath(a.symbol)} className="btn btn-ghost btn-sm">
+                  Otwórz
+                </Link>
               </td>
             </tr>
           ))}

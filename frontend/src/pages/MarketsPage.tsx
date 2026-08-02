@@ -25,7 +25,7 @@ export default function MarketsPage() {
         <div>
           <h1>Rynki</h1>
           <p className="page-lead">
-            Instrumenty monitorowane przez skaner: krypto, indeksy, akcje, obligacje, surowce, forex.
+            Kliknij instrument lub „Otwórz”, aby wejść w pełną pozycję (Superokazje).
           </p>
         </div>
       </div>

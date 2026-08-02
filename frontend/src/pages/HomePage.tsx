@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { CycleCardAlpha, CycleCardBeta } from '../components/CycleCards'
 import LoadingState, { ErrorState } from '../components/LoadingState'
+import OpportunityCard from '../components/OpportunityCard'
 import { useDashboard } from '../hooks/useDashboard'
 
 export default function HomePage() {
@@ -20,8 +21,8 @@ export default function HomePage() {
             <Link className="btn btn-primary" to="/dashboard">
               Otwórz dashboard
             </Link>
-            <Link className="btn btn-ghost" to="/okazje">
-              Zobacz okazje
+            <Link className="btn btn-ghost" to="/superokazje">
+              Superokazje
             </Link>
           </div>
         </div>
@@ -45,19 +46,35 @@ export default function HomePage() {
             <CycleCardBeta model={data.beta_model} />
           </div>
           <div className="home-stats">
-            <div className="home-stat">
+            <Link to="/okazje" className="home-stat home-stat-link">
               <strong>{data.opportunities.length}</strong>
               <span>aktywnych sygnałów</span>
-            </div>
-            <div className="home-stat">
+            </Link>
+            <Link to="/rynki" className="home-stat home-stat-link">
               <strong>{data.monitored_assets.length}</strong>
               <span>monitorowanych instrumentów</span>
-            </div>
-            <div className="home-stat">
+            </Link>
+            <Link to="/superokazje" className="home-stat home-stat-link">
               <strong>{data.scanner_running ? 'ON' : 'OFF'}</strong>
               <span>skaner 24/7</span>
-            </div>
+            </Link>
           </div>
+
+          {data.opportunities.length > 0 && (
+            <>
+              <h2 className="section-title">
+                Top pozycje
+                <Link to="/superokazje" className="section-link">
+                  Otwórz ranking →
+                </Link>
+              </h2>
+              <div className="opportunities-grid">
+                {data.opportunities.slice(0, 3).map((opp) => (
+                  <OpportunityCard key={`${opp.symbol}-${opp.created_at}`} opp={opp} />
+                ))}
+              </div>
+            </>
+          )}
         </section>
       )}
     </div>
