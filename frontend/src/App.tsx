@@ -9,6 +9,7 @@ import HomePage from './pages/HomePage'
 import MarketsPage from './pages/MarketsPage'
 import OpportunitiesPage from './pages/OpportunitiesPage'
 import SuperOpportunitiesPage from './pages/SuperOpportunitiesPage'
+import ToolsPage from './pages/ToolsPage'
 import WatchlistPage from './pages/WatchlistPage'
 
 export default function App() {
@@ -22,8 +23,10 @@ export default function App() {
           <Route path="superokazje" element={<SuperOpportunitiesPage />} />
           <Route path="superokazje/:symbol" element={<SuperOpportunitiesPage />} />
           <Route path="pozycja/:symbol" element={<SuperOpportunitiesPage />} />
-          <Route path="singularity" element={<AgentsPage />} />
-          <Route path="agenci" element={<Navigate to="/singularity" replace />} />
+          <Route path="narzedzia" element={<ToolsPage />} />
+          <Route path="narzedzia/singularity" element={<AgentsPage />} />
+          <Route path="singularity" element={<Navigate to="/narzedzia/singularity" replace />} />
+          <Route path="agenci" element={<Navigate to="/narzedzia/singularity" replace />} />
           <Route path="modele" element={<CyclesPage />} />
           <Route path="cykle" element={<CyclesPage />} />
           <Route path="historia" element={<HistoryPage />} />

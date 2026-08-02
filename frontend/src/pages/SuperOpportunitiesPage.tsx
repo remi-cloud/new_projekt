@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { fetchSuperOpportunities, fetchSuperOpportunity, triggerScan } from '../api'
-import AiTradeVerdict from '../components/AiTradeVerdict'
 import LiquidationHeatmapBar from '../components/LiquidationHeatmap'
 import LoadingState, { ErrorState } from '../components/LoadingState'
 import SignalTag from '../components/SignalTag'
+import SingularityTool from '../components/SingularityTool'
 import { ASSET_LABELS, formatDirection, formatPrice } from '../lib/labels'
 import { positionPath } from '../lib/routes'
 import { SuperOpportunity, SuperOpportunitiesResponse } from '../types'
@@ -118,8 +118,8 @@ export default function SuperOpportunitiesPage() {
         <div>
           <h1>Superokazje</h1>
           <p className="page-lead">
-            Pełna pozycja + Singularity (KUP / SPRZEDAJ) z wagą wszystkich czynników: model,
-            bid/ask, R:R, grawitacja liq, momentum. Heatmapa 3D — przeciągnij, żeby obrócić.
+            Pełna pozycja: bid/ask, poziomy IN/SL/TP, heatmapa liq 3D. Singularity jest w{' '}
+            <Link to="/narzedzia">Narzędziach</Link> — nie na banerze.
           </p>
         </div>
         <div className="page-actions">
@@ -263,7 +263,7 @@ function SuperDetail({ item }: { item: SuperOpportunity }) {
         </div>
       </div>
 
-      {item.ai_signal && <AiTradeVerdict ai={item.ai_signal} />}
+      <SingularityTool ai={item.ai_signal} />
 
       <div className="super-grid">
         <div className="stat">

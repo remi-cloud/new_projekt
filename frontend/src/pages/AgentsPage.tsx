@@ -36,11 +36,11 @@ export default function AgentsPage() {
     <div className="page agents-page singularity-page">
       <div className="page-header">
         <div>
-          <p className="singularity-eyebrow">Moduł AI</p>
+          <p className="singularity-eyebrow">Narzędzie</p>
           <h1>Singularity</h1>
           <p className="page-lead">
             {longScouts.length} scoutów LONG + {shortScouts.length} scoutów SHORT globalnie →
-            specjaliści AI LONG/SHORT → orchestrator. Tu zbiegają się wszystkie wnioski.
+            specjaliści → orchestrator. Dostęp z menu Narzędzia.
           </p>
         </div>
         <div className="page-actions">

@@ -582,30 +582,16 @@ export default function LiquidationHeatmapBar({
     }
   }, [grid, price, range_low, range_high, entry, stop, tp1, tp2, prediction, yaw, pitch, zoom])
 
+  const [showPathMeta, setShowPathMeta] = useState(false)
+
   const dirArrow =
     prediction?.direction === 'up' ? '↑' : prediction?.direction === 'down' ? '↓' : '↔'
 
   return (
     <div className="heatmap-wrap hm3">
-      {prediction && (
-        <div className={`ai-pred-banner dir-${prediction.direction}`}>
-          <div className="ai-pred-main">
-            <span className="ai-pred-tag">AI PATH</span>
-            <strong>
-              {dirArrow} {prediction.summary}
-            </strong>
-          </div>
-          <div className="ai-pred-meta">
-            <span>pull↑ {prediction.pull_up.toFixed(1)}</span>
-            <span>pull↓ {prediction.pull_down.toFixed(1)}</span>
-            <span>mom {prediction.momentum.toFixed(2)}</span>
-            <span>{prediction.confidence.toFixed(0)}%</span>
-          </div>
-        </div>
-      )}
       <div className="heatmap-legend">
         <span className="hm-leg long">LONG = zieleń</span>
-        <span className="hm-leg mid">płaska mapa · AI: IN → LIQ</span>
+        <span className="hm-leg mid">płaska mapa · ścieżka IN → LIQ</span>
         <span className="hm-leg short">SHORT = czerwień</span>
       </div>
 
@@ -639,7 +625,28 @@ export default function LiquidationHeatmapBar({
         >
           Reset
         </button>
+        {prediction && (
+          <button
+            type="button"
+            className={`btn btn-ghost btn-sm${showPathMeta ? ' active-tool' : ''}`}
+            onClick={() => setShowPathMeta((v) => !v)}
+          >
+            Ścieżka AI
+          </button>
+        )}
       </div>
+
+      {prediction && showPathMeta && (
+        <div className={`tool-inline-meta dir-${prediction.direction}`}>
+          <strong>
+            {dirArrow} {prediction.summary}
+          </strong>
+          <span>
+            pull↑ {prediction.pull_up.toFixed(1)} · pull↓ {prediction.pull_down.toFixed(1)} · mom{' '}
+            {prediction.momentum.toFixed(2)} · {prediction.confidence.toFixed(0)}%
+          </span>
+        </div>
+      )}
 
       <div
         className="hm3-stage"
