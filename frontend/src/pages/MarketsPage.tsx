@@ -1,25 +1,33 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import AssetsTable from '../components/AssetsTable'
 import LoadingState, { ErrorState } from '../components/LoadingState'
-import { fetchMarkets } from '../api'
+import { fetchMarketStatus, fetchMarkets, MarketStatus } from '../api'
 import { MarketsResponse } from '../types'
 
 type RegionFilter = string
 
+const POLL_MS = 12_000
+
 export default function MarketsPage() {
   const [data, setData] = useState<MarketsResponse | null>(null)
+  const [status, setStatus] = useState<MarketStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  // Default: full book — never hide USA/crypto/FX behind "global" filter
   const [region, setRegion] = useState<RegionFilter>('all')
+  const hasData = useRef(false)
 
   const load = useCallback(async (nextRegion: RegionFilter, refresh = false) => {
     try {
       if (refresh) setRefreshing(true)
-      else setLoading(true)
-      const markets = await fetchMarkets(nextRegion, refresh)
+      else if (!hasData.current) setLoading(true)
+      const [markets, probe] = await Promise.all([
+        fetchMarkets(nextRegion, refresh),
+        fetchMarketStatus().catch(() => null),
+      ])
       setData(markets)
+      hasData.current = true
+      if (probe) setStatus(probe)
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Błąd połączenia z API')
@@ -31,6 +39,13 @@ export default function MarketsPage() {
 
   useEffect(() => {
     void load(region)
+  }, [region, load])
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      void load(region, false)
+    }, POLL_MS)
+    return () => window.clearInterval(id)
   }, [region, load])
 
   const chips = useMemo(() => {
@@ -47,6 +62,15 @@ export default function MarketsPage() {
     return [...base, ...fromApi]
   }, [data])
 
+  const connected = Boolean(status?.connected) || (data?.live_count ?? 0) > 0
+  const providers = [
+    status?.tradingview?.ok ? 'TV' : null,
+    status?.yahoo?.ok ? 'YH' : null,
+    status?.coingecko?.ok ? 'CG' : null,
+  ]
+    .filter(Boolean)
+    .join('+') || '—'
+
   if (loading && !data) return <LoadingState />
   if (error && !data) {
     return <ErrorState message={error} onRetry={() => load(region, true)} />
@@ -59,7 +83,7 @@ export default function MarketsPage() {
         <div>
           <h1>Rynki</h1>
           <p className="page-lead">
-            Pełny katalog na żywo (Yahoo + TradingView). Azja, Rosja, Brazylia, Europa, USA, krypto, FX.
+            Notowania na żywo (TradingView → Yahoo → CoinGecko). Auto-odświeżanie co 12 s.
           </p>
         </div>
         <button
@@ -68,16 +92,17 @@ export default function MarketsPage() {
           disabled={refreshing}
           onClick={() => void load(region, true)}
         >
-          {refreshing ? 'Odświeżam…' : 'Odśwież notowania'}
+          {refreshing ? 'Odświeżam…' : 'Odśwież teraz'}
         </button>
       </div>
 
-      <div className={`markets-status ${data.live_count > 0 ? 'ok' : 'bad'}`}>
+      <div className={`markets-status ${connected && data.live_count > 0 ? 'ok' : 'bad'}`}>
         <strong>
-          {data.live_count}/{data.count} notowań live
+          {connected ? 'POŁĄCZONO' : 'BRAK POŁĄCZENIA'} · {data.live_count}/{data.count} live
         </strong>
         <span>
-          global {data.global_count} · źródła YH/TV/CG · {new Date(data.generated_at).toLocaleTimeString('pl-PL')}
+          źródła {providers} · auto {POLL_MS / 1000}s ·{' '}
+          {new Date(data.generated_at).toLocaleTimeString('pl-PL')}
         </span>
       </div>
 

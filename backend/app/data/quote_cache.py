@@ -13,7 +13,8 @@ from app.models.schemas import AssetQuote
 logger = logging.getLogger(__name__)
 
 # Quotes older than this are refetched on the next markets/dashboard hit.
-QUOTE_TTL_SECONDS = 120
+# Keep short so the Markets page stays near-live while open.
+QUOTE_TTL_SECONDS = 45
 
 
 class QuoteCache:

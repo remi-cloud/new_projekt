@@ -169,13 +169,35 @@ async def dashboard():
     )
 
 
+@app.get("/api/market-status")
+async def market_status():
+    """Live connectivity probe for TradingView / Yahoo / CoinGecko + cache stats."""
+    from app.data.market_data import probe_market_providers
+    from app.data.quote_cache import QUOTE_TTL_SECONDS
+
+    probe = await probe_market_providers()
+    cached = quote_cache.quotes
+    live = sum(1 for q in cached if q.live and q.price > 0)
+    return {
+        **probe,
+        "cached_quotes": len(cached),
+        "cached_live": live,
+        "last_refresh_at": (
+            quote_cache.last_refresh_at.isoformat()
+            if quote_cache.last_refresh_at
+            else None
+        ),
+        "ttl_seconds": QUOTE_TTL_SECONDS,
+    }
+
+
 @app.get("/api/markets", response_model=MarketsResponse)
 async def markets(
     region: str | None = Query(None),
     refresh: bool = Query(False),
 ):
     """
-    Full DEFAULT_ASSETS catalog with live quotes (Yahoo → TradingView fallback).
+    Full DEFAULT_ASSETS catalog with live quotes (TradingView → Yahoo → CoinGecko).
 
     Independent of watchlist toggles and Model Alpha/Beta scan.
     Default region = all (complete book). Use region=global for non-US equity.

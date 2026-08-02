@@ -1,4 +1,4 @@
-"""TradingView scanner — fallback quotes when Yahoo is blocked / empty."""
+"""TradingView scanner — primary live quotes (+ Yahoo fallback in market_data)."""
 
 from __future__ import annotations
 
@@ -16,14 +16,14 @@ TV_HEADERS = {
     "Accept": "application/json",
 }
 
-# Yahoo / catalog symbol → TradingView `EXCHANGE:SYMBOL`
+# Yahoo / catalog symbol → TradingView `EXCHANGE:SYMBOL` (verified live)
 TV_SYMBOL_MAP: dict[str, str] = {
     # Crypto
     "BTC-USD": "BITSTAMP:BTCUSD",
     "ETH-USD": "BITSTAMP:ETHUSD",
     "SOL-USD": "BINANCE:SOLUSDT",
     # US indexes / ETFs
-    "^GSPC": "TVC:SPX",
+    "^GSPC": "SP:SPX",
     "^DJI": "TVC:DJI",
     "^IXIC": "NASDAQ:IXIC",
     "^RUT": "TVC:RUT",
@@ -41,12 +41,12 @@ TV_SYMBOL_MAP: dict[str, str] = {
     "EWW": "AMEX:EWW",
     # Europe
     "^FTSE": "TVC:UKX",
-    "^GDAXI": "TVC:DAX",
-    "^FCHI": "TVC:CAC",
+    "^GDAXI": "XETR:DAX",
+    "^FCHI": "TVC:CAC40",
     "^STOXX50E": "TVC:SX5E",
-    "^IBEX": "TVC:IBEX",
+    "^IBEX": "BME:IB",
     "^AEX": "TVC:AEX",
-    "^SSMI": "TVC:SMI",
+    "^SSMI": "SIX:SMI",
     "^OMXSPI": "OMXSTO:OMXSPI",
     "WIG20.WA": "GPW:WIG20",
     "EWG": "AMEX:EWG",
@@ -54,7 +54,7 @@ TV_SYMBOL_MAP: dict[str, str] = {
     "EZU": "AMEX:EZU",
     # Russia
     "IMOEX.ME": "RUS:IMOEX",
-    "RTSI.ME": "TVC:RTSI",
+    "RTSI.ME": "RUS:RTSI",
     "ERUS": "AMEX:ERUS",
     "RSX": "AMEX:RSX",
     "SBER.ME": "RUS:SBER",
@@ -66,7 +66,7 @@ TV_SYMBOL_MAP: dict[str, str] = {
     "399001.SZ": "SZSE:399001",
     "^KS11": "TVC:KOSPI",
     "^TWII": "TVC:TWII",
-    "^BSESN": "TVC:SENSEX",
+    "^BSESN": "BSE:SENSEX",
     "^NSEI": "NSE:NIFTY",
     "^STI": "TVC:STI",
     "^JKSE": "IDX:COMPOSITE",
@@ -78,7 +78,7 @@ TV_SYMBOL_MAP: dict[str, str] = {
     "MCHI": "NASDAQ:MCHI",
     "EWY": "AMEX:EWY",
     "EWT": "AMEX:EWT",
-    "INDA": "BATS:INDA",
+    "INDA": "AMEX:INDA",
     "EWA": "AMEX:EWA",
     # MEA
     "^TA125.TA": "TASE:TA125",
@@ -89,10 +89,10 @@ TV_SYMBOL_MAP: dict[str, str] = {
     "EFA": "AMEX:EFA",
     "EEM": "AMEX:EEM",
     "VXUS": "NASDAQ:VXUS",
-    "IEFA": "BATS:IEFA",
+    "IEFA": "AMEX:IEFA",
     "ACWX": "NASDAQ:ACWX",
     "VWO": "AMEX:VWO",
-    "IEMG": "BATS:IEMG",
+    "IEMG": "AMEX:IEMG",
     # US stocks
     "AAPL": "NASDAQ:AAPL",
     "MSFT": "NASDAQ:MSFT",
@@ -122,11 +122,12 @@ TV_SYMBOL_MAP: dict[str, str] = {
     "DX-Y.NYB": "TVC:DXY",
 }
 
-TV_COLUMNS = ["close", "change", "change_abs", "name", "description"]
+TV_COLUMNS = ["close", "change", "change_abs", "name", "description", "volume"]
 
 
 def tv_ticker_for(symbol: str) -> str | None:
-    return TV_SYMBOL_MAP.get(symbol.strip().upper()) or TV_SYMBOL_MAP.get(symbol.strip())
+    key = symbol.strip()
+    return TV_SYMBOL_MAP.get(key.upper()) or TV_SYMBOL_MAP.get(key)
 
 
 async def fetch_tradingview_quotes(
@@ -134,8 +135,8 @@ async def fetch_tradingview_quotes(
     symbols: list[str],
 ) -> dict[str, dict[str, Any]]:
     """
-    Batch-fetch quotes from TradingView scanner.
-    Returns map: catalog_symbol → {close, change_pct, name, tv_symbol}.
+    Batch-fetch live quotes from TradingView scanner.
+    Returns map: catalog_symbol → {close, change_pct, name, tv_symbol, source}.
     """
     pairs: list[tuple[str, str]] = []
     for sym in symbols:
@@ -145,7 +146,6 @@ async def fetch_tradingview_quotes(
     if not pairs:
         return {}
 
-    # TV scan accepts ~many tickers; chunk to be safe
     out: dict[str, dict[str, Any]] = {}
     chunk_size = 40
     reverse = {tv: cat for cat, tv in pairs}
@@ -164,14 +164,11 @@ async def fetch_tradingview_quotes(
                 tv_sym = row.get("s") or ""
                 cols = row.get("d") or []
                 cat = reverse.get(tv_sym)
-                if not cat or len(cols) < 1:
+                if not cat or len(cols) < 1 or cols[0] is None:
                     continue
-                close = cols[0]
                 change = cols[1] if len(cols) > 1 else None
-                if close is None:
-                    continue
                 out[cat.upper()] = {
-                    "close": float(close),
+                    "close": float(cols[0]),
                     "change_pct": float(change) if change is not None else None,
                     "name": cols[3] if len(cols) > 3 else cat,
                     "tv_symbol": tv_sym,
@@ -181,3 +178,13 @@ async def fetch_tradingview_quotes(
             logger.warning("TradingView scan failed (chunk %d): %s", i // chunk_size, exc)
 
     return out
+
+
+async def probe_tradingview(client: httpx.AsyncClient) -> dict[str, Any]:
+    """Health probe — one liquid ticker."""
+    try:
+        data = await fetch_tradingview_quotes(client, ["AAPL"])
+        ok = "AAPL" in data and data["AAPL"]["close"] > 0
+        return {"ok": ok, "sample": data.get("AAPL")}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}

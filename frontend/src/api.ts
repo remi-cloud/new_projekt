@@ -55,6 +55,22 @@ export async function fetchMarkets(region?: string, refresh = false): Promise<Ma
   return getJson<MarketsResponse>(`/markets${q}`)
 }
 
+export interface MarketStatus {
+  connected: boolean
+  generated_at: string
+  tradingview?: { ok: boolean; sample?: unknown; error?: string }
+  yahoo?: { ok: boolean; sample_price?: number; error?: string }
+  coingecko?: { ok: boolean; sample_price?: number; error?: string }
+  cached_quotes: number
+  cached_live: number
+  last_refresh_at: string | null
+  ttl_seconds: number
+}
+
+export async function fetchMarketStatus(): Promise<MarketStatus> {
+  return getJson<MarketStatus>('/market-status')
+}
+
 export async function fetchBroadcast(force = false): Promise<BroadcastResponse> {
   const q = force ? '?force=true' : ''
   return getJson<BroadcastResponse>(`/broadcast${q}`)
