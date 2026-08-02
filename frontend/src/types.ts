@@ -86,6 +86,9 @@ export interface BroadcastSetup {
 
 export interface BroadcastResponse {
   visible: boolean
+  mode?: 'live' | 'breaking' | string
+  live_count?: number
+  quote_count?: number
   cycle_minutes: number
   show_minutes: number
   seconds_remaining: number

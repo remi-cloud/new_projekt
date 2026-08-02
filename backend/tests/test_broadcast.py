@@ -22,21 +22,21 @@ def test_normalize_high_impact_event():
 
 def test_ticker_window_math():
     # Align to start of a 20-min cycle: epoch minutes % 20 == 0
-    # Find a timestamp where minute bucket is divisible by 20
     base = datetime(2026, 8, 2, 12, 0, 5, tzinfo=timezone.utc)
-    # Ensure epoch_min % 20 == 0
     epoch_min = int(base.timestamp() // 60)
     adjust = epoch_min % 20
     ts = base.timestamp() - adjust * 60
     now = datetime.fromtimestamp(ts, tz=timezone.utc)
     w = ticker_window(now)
-    assert w["visible"] is True
+    assert w["visible"] is True  # always-on live tape
+    assert w["breaking"] is True
     assert w["seconds_remaining"] > 0
 
-    # 3 minutes into cycle → hidden
+    # 3 minutes into cycle → still visible, not breaking
     later = datetime.fromtimestamp(ts + 3 * 60, tz=timezone.utc)
     w2 = ticker_window(later)
-    assert w2["visible"] is False
+    assert w2["visible"] is True
+    assert w2["breaking"] is False
     assert w2["next_show_in_seconds"] > 0
 
 

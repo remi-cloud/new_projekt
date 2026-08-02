@@ -288,9 +288,8 @@ async def markets(
 @app.get("/api/broadcast", response_model=BroadcastResponse)
 async def broadcast(force: bool = Query(False)):
     """
-    Red TV ticker payload.
-    Visible for 2 minutes at the start of every 20-minute wall-clock window.
-    Carries best Singularity setup + high-impact economic headlines.
+    Always-on live results ticker (prices + LONG/SHORT wyniki).
+    Turns into red BREAKING mode for 2 minutes every 20 minutes.
     """
     return await build_broadcast(force_visible=force)
 

@@ -129,9 +129,12 @@ class BroadcastSetup(BaseModel):
 
 
 class BroadcastResponse(BaseModel):
-    """TV-style red ticker: visible 2 min every 20 min."""
+    """Always-on live results ticker (red breaking window every 20 min)."""
 
     visible: bool
+    mode: str = "live"  # live | breaking
+    live_count: int = 0
+    quote_count: int = 0
     cycle_minutes: int = 20
     show_minutes: int = 2
     seconds_remaining: int
