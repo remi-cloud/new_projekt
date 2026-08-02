@@ -59,26 +59,27 @@ ATH ──► [364 dni BEAR/spadki] ──► [1064 dni BULL/wzrost] ──► [
 
 ## Uruchomienie
 
-### Docker (zalecane) — jeden adres WWW
+### Docker (zalecane) — wszystko pod WWW (jeden adres)
 
 ```bash
 docker compose up --build
 ```
 
-- Aplikacja: **http://localhost:8080** (API + UI na jednym porcie)
-- Dokumentacja API: http://localhost:8080/docs
+- Aplikacja WWW: **http://localhost:8080**
+- API pod tym samym hostem: `/api/*`
+- Docs: http://localhost:8080/docs
 
-### Telefon (ważne)
+Strony: `/` `/dashboard` `/okazje` `/cykle` `/historia` `/rynki` `/watchlista` `/alerty`
 
-`localhost` na telefonie = telefon, **nie** Twój komputer. Żeby otworzyć z telefonu:
+### Telefon / publiczny link
+
+`localhost` na telefonie = telefon, nie serwer. Uruchom:
 
 ```bash
 ./scripts/start-public.sh
 ```
 
-Skrypt uruchomi apkę i wypisze publiczny link `https://….trycloudflare.com` — ten link otwórz w telefonie.
-
-Albo w tej samej sieci Wi‑Fi użyj IP komputera, np. `http://192.168.0.12:8080`.
+Skrypt buduje UI, startuje apkę na `:8080` i wypisze link `https://….trycloudflare.com` — **ten** otwórz w telefonie.
 
 ### Lokalnie (dev)
 

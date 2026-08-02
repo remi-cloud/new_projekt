@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Start Cyclical Trader on :8080 and print a public phone URL (cloudflared).
+# Start Cyclical Trader WWW (API + UI) on :8080 and expose a public phone URL.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
@@ -8,7 +8,8 @@ if [[ ! -f "$ROOT/backend/static/index.html" ]]; then
 fi
 
 cd "$ROOT/backend"
-if [[ ! -d .venv ]]; then
+if [[ ! -d .venv/bin ]]; then
+  rm -rf .venv
   python3 -m venv .venv
   # shellcheck disable=SC1091
   source .venv/bin/activate
@@ -21,23 +22,32 @@ fi
 mkdir -p data
 export CYCLICAL_DATABASE_PATH="${CYCLICAL_DATABASE_PATH:-data/trader.db}"
 
-echo "→ Starting app on http://0.0.0.0:8080 …"
-uvicorn app.main:app --host 0.0.0.0 --port 8080 &
-APP_PID=$!
-trap 'kill $APP_PID 2>/dev/null || true' EXIT
+# Stop previous instance on 8080 if any
+if curl -sf http://127.0.0.1:8080/api/health >/dev/null 2>&1; then
+  echo "→ App already healthy on :8080"
+else
+  echo "→ Starting WWW app on http://0.0.0.0:8080 …"
+  uvicorn app.main:app --host 0.0.0.0 --port 8080 &
+  APP_PID=$!
+  trap 'kill $APP_PID 2>/dev/null || true' EXIT
+  for _ in $(seq 1 60); do
+    if curl -sf http://127.0.0.1:8080/api/health >/dev/null; then
+      break
+    fi
+    sleep 1
+  done
+fi
 
-for i in $(seq 1 40); do
-  if curl -sf http://127.0.0.1:8080/api/health >/dev/null; then
-    break
-  fi
-  sleep 1
-done
+curl -sf http://127.0.0.1:8080/api/health >/dev/null
+curl -sf http://127.0.0.1:8080/ >/dev/null
+echo "✓ Local WWW OK: http://127.0.0.1:8080"
 
 CLOUDFLARED="${CLOUDFLARED:-/tmp/cloudflared}"
 if [[ ! -x "$CLOUDFLARED" ]]; then
+  echo "→ Downloading cloudflared…"
   curl -sL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o "$CLOUDFLARED"
   chmod +x "$CLOUDFLARED"
 fi
 
-echo "→ Opening public tunnel for your phone…"
+echo "→ Public tunnel (open this on your phone):"
 exec "$CLOUDFLARED" tunnel --url http://127.0.0.1:8080
