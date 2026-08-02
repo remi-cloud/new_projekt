@@ -12,6 +12,7 @@ from app.data.orderbook import (
     fetch_volume_profile,
 )
 from app.models.schemas import Opportunity, SignalAction
+from app.scanners.liq_prediction import predict_liq_path
 from app.scanners.opportunity_scanner import scanner
 
 logger = logging.getLogger(__name__)
@@ -233,6 +234,8 @@ async def build_super_opportunity(opp: Opportunity) -> dict:
         heatmap,
     )
     super_score, reasons = score_super_opportunity(opp, book, levels, heatmap)
+    prediction = predict_liq_path(heatmap, levels, opp.action.value)
+    reasons = [prediction["summary"], *reasons]
 
     return {
         "symbol": opp.symbol,
@@ -251,6 +254,7 @@ async def build_super_opportunity(opp: Opportunity) -> dict:
         "book_source": book["source"] if book else None,
         "levels": levels,
         "heatmap": heatmap,
+        "prediction": prediction,
         "reasons": reasons,
         "rationale": opp.rationale,
         "updated_at": datetime.now(timezone.utc).isoformat(),

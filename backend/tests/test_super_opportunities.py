@@ -1,5 +1,6 @@
 from app.data.orderbook import estimate_liquidation_heatmap
 from app.models.schemas import AssetClass, Opportunity, SignalAction
+from app.scanners.liq_prediction import predict_liq_path
 from app.scanners.super_opportunities import compute_entry_exit_levels, score_super_opportunity
 from datetime import datetime, timezone
 
@@ -25,6 +26,22 @@ def test_entry_exit_long_rr():
     assert levels["side"] == "long"
     assert levels["stop_loss"] < levels["entry"] < levels["take_profit_1"]
     assert levels["risk_reward"] > 0
+
+
+def test_liq_prediction_builds_path_to_target():
+    highs = [98 + i * 0.15 for i in range(30)]
+    lows = [96 + i * 0.15 for i in range(30)]
+    volumes = [8 + i for i in range(30)]
+    hm = estimate_liquidation_heatmap(100.0, highs=highs, lows=lows, volumes=volumes)
+    levels = compute_entry_exit_levels(100.0, SignalAction.BUY, 80, 99.9, 100.1, hm)
+    pred = predict_liq_path(hm, levels, "buy")
+    assert pred["direction"] in ("up", "down", "neutral")
+    assert 0 < pred["confidence"] <= 98
+    assert len(pred["path"]) >= 8
+    assert pred["path"][0]["role"] == "entry"
+    assert pred["path"][-1]["role"] == "liq_target"
+    assert any(a["label"] == "LIQ" for a in pred["anchors"])
+    assert any(a["label"] == "IN" for a in pred["anchors"])
 
 
 def test_super_score_prefers_tight_spread():

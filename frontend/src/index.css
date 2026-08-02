@@ -1352,6 +1352,108 @@ a.super-list-item {
   margin-bottom: 8px;
 }
 
+.ai-pred-banner {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(232, 163, 23, 0.35);
+  background: linear-gradient(120deg, rgba(232, 163, 23, 0.12), rgba(45, 212, 191, 0.08));
+}
+
+.ai-pred-banner.dir-down {
+  border-color: rgba(248, 113, 113, 0.4);
+  background: linear-gradient(120deg, rgba(232, 163, 23, 0.1), rgba(248, 113, 113, 0.1));
+}
+
+.ai-pred-banner.dir-up {
+  border-color: rgba(52, 211, 153, 0.4);
+  background: linear-gradient(120deg, rgba(232, 163, 23, 0.1), rgba(52, 211, 153, 0.12));
+}
+
+.ai-pred-tag {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  background: rgba(232, 163, 23, 0.2);
+  color: var(--amber);
+}
+
+.ai-pred-main strong {
+  font-size: 0.92rem;
+}
+
+.ai-pred-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.path-bridge {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0 18px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px dashed rgba(45, 212, 191, 0.28);
+  background: rgba(8, 16, 14, 0.45);
+}
+
+.path-bridge-dot {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+}
+
+.path-bridge-dot.in { background: rgba(232, 163, 23, 0.2); color: var(--amber); }
+.path-bridge-dot.tp { background: rgba(52, 211, 153, 0.18); color: #34d399; }
+.path-bridge-dot.liq { background: rgba(253, 224, 71, 0.2); color: #fde047; }
+
+.path-bridge-line {
+  flex: 1;
+  min-width: 28px;
+  height: 2px;
+  background: linear-gradient(90deg, #e8a317, #34d399);
+  border-radius: 2px;
+}
+
+.path-bridge-line.ai {
+  background: linear-gradient(90deg, #34d399, #fde047);
+  box-shadow: 0 0 10px rgba(253, 224, 71, 0.35);
+  height: 3px;
+}
+
+.path-bridge-caption {
+  width: 100%;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.level-hot {
+  outline: 1px solid rgba(232, 163, 23, 0.2);
+  border-radius: 10px;
+}
+
+.neg-box {
+  outline-color: rgba(248, 113, 113, 0.25);
+}
+
 .hm3-toolbar {
   display: flex;
   flex-wrap: wrap;

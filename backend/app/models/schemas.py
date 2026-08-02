@@ -201,6 +201,36 @@ class LiquidationHeatmap(BaseModel):
     max_intensity: float = 1.0
 
 
+class LiqPathPoint(BaseModel):
+    t: float
+    price: float
+    role: str
+    intensity: float = 0
+
+
+class LiqAnchor(BaseModel):
+    price: float
+    role: str
+    label: str
+    t: float
+    liq_side: Optional[str] = None
+
+
+class LiqPrediction(BaseModel):
+    direction: str
+    confidence: float
+    summary: str
+    target_price: float
+    target_side: str
+    target_intensity: float = 0
+    pull_up: float = 0
+    pull_down: float = 0
+    momentum: float = 0
+    path: list[LiqPathPoint] = Field(default_factory=list)
+    anchors: list[LiqAnchor] = Field(default_factory=list)
+    features: dict = Field(default_factory=dict)
+
+
 class SuperOpportunity(BaseModel):
     symbol: str
     name: str
@@ -218,6 +248,7 @@ class SuperOpportunity(BaseModel):
     book_source: Optional[str] = None
     levels: TradeLevels
     heatmap: LiquidationHeatmap
+    prediction: Optional[LiqPrediction] = None
     reasons: list[str]
     rationale: str
     updated_at: str

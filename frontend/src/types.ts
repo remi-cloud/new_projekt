@@ -158,6 +158,36 @@ export interface LiquidationHeatmap {
   max_intensity: number
 }
 
+export interface LiqPathPoint {
+  t: number
+  price: number
+  role: string
+  intensity: number
+}
+
+export interface LiqAnchor {
+  price: number
+  role: string
+  label: string
+  t: number
+  liq_side?: string
+}
+
+export interface LiqPrediction {
+  direction: string
+  confidence: number
+  summary: string
+  target_price: number
+  target_side: string
+  target_intensity: number
+  pull_up: number
+  pull_down: number
+  momentum: number
+  path: LiqPathPoint[]
+  anchors: LiqAnchor[]
+  features?: Record<string, number>
+}
+
 export interface SuperOpportunity {
   symbol: string
   name: string
@@ -175,6 +205,7 @@ export interface SuperOpportunity {
   book_source: string | null
   levels: TradeLevels
   heatmap: LiquidationHeatmap
+  prediction?: LiqPrediction | null
   reasons: string[]
   rationale: string
   updated_at: string

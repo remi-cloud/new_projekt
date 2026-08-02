@@ -269,41 +269,55 @@ function SuperDetail({ item }: { item: SuperOpportunity }) {
       </div>
 
       <h3 className="mini-title">Poziomy wejścia / wyjścia</h3>
-      <div className="levels-grid">
-        <div>
+      <div className="levels-grid" id="levels-anchors">
+        <div data-anchor="side">
           <span>Strona</span>
           <strong>{levels.side}</strong>
         </div>
-        <div>
-          <span>Wejście</span>
+        <div data-anchor="entry" className="level-hot">
+          <span>Wejście · IN</span>
           <strong>{levels.entry}</strong>
         </div>
-        <div>
-          <span>Stop</span>
+        <div data-anchor="stop" className="level-hot neg-box">
+          <span>Stop · SL</span>
           <strong className="neg">{levels.stop_loss}</strong>
         </div>
-        <div>
+        <div data-anchor="tp1" className="level-hot">
           <span>TP1</span>
           <strong className="pos">{levels.take_profit_1}</strong>
         </div>
-        <div>
+        <div data-anchor="tp2" className="level-hot">
           <span>TP2</span>
           <strong className="pos">{levels.take_profit_2}</strong>
         </div>
-        <div>
+        <div data-anchor="rr">
           <span>R:R</span>
           <strong>{levels.risk_reward}</strong>
         </div>
       </div>
       <p className="opp-rationale">{levels.note}</p>
 
-      <h3 className="mini-title">Heatmapa likwidacji 3D</h3>
+      <div className="path-bridge" aria-hidden>
+        <span className="path-bridge-dot in">IN</span>
+        <span className="path-bridge-line" />
+        <span className="path-bridge-dot tp">TP</span>
+        <span className="path-bridge-line ai" />
+        <span className="path-bridge-dot liq">LIQ</span>
+        <span className="path-bridge-caption">
+          {item.prediction
+            ? `AI łączy pozycję z ${item.prediction.target_side}-liq @ ${item.prediction.target_price}`
+            : 'Ścieżka pozycja → liq'}
+        </span>
+      </div>
+
+      <h3 className="mini-title">Heatmapa likwidacji 3D + ścieżka AI</h3>
       <LiquidationHeatmapBar
         heatmap={item.heatmap}
         entry={levels.entry}
         stop={levels.stop_loss}
         tp1={levels.take_profit_1}
         tp2={levels.take_profit_2}
+        prediction={item.prediction}
       />
 
       <h3 className="mini-title">Dlaczego ta ocena</h3>

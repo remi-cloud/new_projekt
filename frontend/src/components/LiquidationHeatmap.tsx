@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { HeatmapBin, LiquidationHeatmap as Heatmap } from '../types'
+import { HeatmapBin, LiqPrediction, LiquidationHeatmap as Heatmap } from '../types'
 
 type Vec3 = { x: number; y: number; z: number }
 type Face = { a: Vec3; b: Vec3; c: Vec3; d: Vec3; color: [number, number, number]; depth: number }
@@ -124,6 +124,29 @@ function shadeRgb(
   return `rgb(${r},${g},${b})`
 }
 
+function sampleHeight(
+  grid: HeatmapBin[][],
+  t: number,
+  price: number,
+  rangeLow: number,
+  rangeHigh: number,
+  heightScale: number,
+): number {
+  const cols = grid.length
+  const rows = grid[0]?.length ?? 0
+  if (!cols || !rows) return 0
+  const ci = Math.max(0, Math.min(cols - 1, Math.round(t * (cols - 1))))
+  const span = rangeHigh - rangeLow || 1
+  const ri = Math.max(0, Math.min(rows - 1, Math.round(((price - rangeLow) / span) * (rows - 1))))
+  return intensityOf(grid[ci][ri]) * heightScale
+}
+
+function priceToZ(price: number, rangeLow: number, rangeHigh: number): number {
+  const span = rangeHigh - rangeLow || 1
+  const n = (price - rangeLow) / span // 0..1 low→high
+  return -((n) * 2 - 1) // match mesh z mapping
+}
+
 function drawMarkerLine(
   ctx: CanvasRenderingContext2D,
   grid: HeatmapBin[][],
@@ -180,6 +203,122 @@ function drawMarkerLine(
   ctx.restore()
 }
 
+/** Glowing AI path: position levels → liquidation magnet. */
+function drawPredictionPath(
+  ctx: CanvasRenderingContext2D,
+  grid: HeatmapBin[][],
+  prediction: LiqPrediction,
+  rangeLow: number,
+  rangeHigh: number,
+  w: number,
+  h: number,
+  yaw: number,
+  pitch: number,
+  zoom: number,
+  heightScale: number,
+) {
+  const path = prediction.path
+  if (!path.length) return
+
+  const pts = path.map((pt) => {
+    const x = pt.t * 2 - 1
+    const z = priceToZ(pt.price, rangeLow, rangeHigh)
+    const y =
+      sampleHeight(grid, pt.t, pt.price, rangeLow, rangeHigh, heightScale) + 0.06 + pt.intensity * 0.08
+    return project({ x, y, z }, w, h, yaw, pitch, zoom)
+  })
+
+  // Glow underlay
+  ctx.save()
+  ctx.lineJoin = 'round'
+  ctx.lineCap = 'round'
+  ctx.strokeStyle = prediction.direction === 'down' ? 'rgba(248,113,113,0.25)' : 'rgba(52,211,153,0.28)'
+  ctx.lineWidth = 10
+  ctx.beginPath()
+  pts.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)))
+  ctx.stroke()
+
+  // Main prediction stroke
+  const grad = ctx.createLinearGradient(pts[0].x, pts[0].y, pts[pts.length - 1].x, pts[pts.length - 1].y)
+  if (prediction.direction === 'down') {
+    grad.addColorStop(0, '#e8a317')
+    grad.addColorStop(0.55, '#fb923c')
+    grad.addColorStop(1, '#f87171')
+  } else {
+    grad.addColorStop(0, '#e8a317')
+    grad.addColorStop(0.55, '#34d399')
+    grad.addColorStop(1, '#fde047')
+  }
+  ctx.strokeStyle = grad
+  ctx.lineWidth = 3.2
+  ctx.shadowColor = prediction.direction === 'down' ? 'rgba(248,113,113,0.55)' : 'rgba(52,211,153,0.55)'
+  ctx.shadowBlur = 12
+  ctx.beginPath()
+  pts.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)))
+  ctx.stroke()
+  ctx.shadowBlur = 0
+
+  // Connector stems: each anchor → nearest path point (wskaźnik ↔ mapa)
+  for (const a of prediction.anchors) {
+    const nearest = path.reduce(
+      (best, pt, idx) => {
+        const d = Math.abs(pt.t - a.t) + Math.abs(pt.price - a.price) / Math.max(a.price, 1)
+        return d < best.d ? { d, idx } : best
+      },
+      { d: Infinity, idx: 0 },
+    )
+    const target = pts[nearest.idx]
+    const ax = a.t * 2 - 1
+    const az = priceToZ(a.price, rangeLow, rangeHigh)
+    const ay =
+      sampleHeight(grid, a.t, a.price, rangeLow, rangeHigh, heightScale) + 0.14
+    const ap = project({ x: ax, y: ay, z: az }, w, h, yaw, pitch, zoom)
+
+    const color =
+      a.role === 'stop'
+        ? '#f87171'
+        : a.role === 'liq'
+          ? '#fde047'
+          : a.role === 'entry'
+            ? '#e8a317'
+            : '#34d399'
+
+    ctx.strokeStyle = color
+    ctx.globalAlpha = 0.85
+    ctx.lineWidth = 1.6
+    ctx.setLineDash(a.role === 'stop' ? [4, 3] : [])
+    ctx.beginPath()
+    ctx.moveTo(ap.x, ap.y)
+    ctx.lineTo(target.x, target.y)
+    ctx.stroke()
+    ctx.setLineDash([])
+
+    // Anchor dot + label
+    ctx.fillStyle = color
+    ctx.beginPath()
+    ctx.arc(ap.x, ap.y, a.role === 'liq' ? 5 : 3.5, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.font = '700 10px IBM Plex Mono, monospace'
+    ctx.fillText(a.label, ap.x + 6, ap.y - 6)
+    ctx.globalAlpha = 1
+  }
+
+  // Arrow head at LIQ end
+  const last = pts[pts.length - 1]
+  const prev = pts[Math.max(0, pts.length - 3)]
+  const ang = Math.atan2(last.y - prev.y, last.x - prev.x)
+  ctx.fillStyle = '#fde047'
+  ctx.beginPath()
+  ctx.moveTo(last.x, last.y)
+  ctx.lineTo(last.x - 12 * Math.cos(ang - 0.4), last.y - 12 * Math.sin(ang - 0.4))
+  ctx.lineTo(last.x - 12 * Math.cos(ang + 0.4), last.y - 12 * Math.sin(ang + 0.4))
+  ctx.closePath()
+  ctx.fill()
+  ctx.font = '700 11px IBM Plex Mono, monospace'
+  ctx.fillText('LIQ', last.x + 8, last.y - 8)
+  ctx.restore()
+}
+
 function renderScene(
   canvas: HTMLCanvasElement,
   gridIn: HeatmapBin[][],
@@ -191,6 +330,7 @@ function renderScene(
     stop?: number
     tp1?: number
     tp2?: number
+    prediction?: LiqPrediction | null
   },
   yaw: number,
   pitch: number,
@@ -353,6 +493,22 @@ function renderScene(
       cssW, cssH, yaw, pitch, zoom, heightScale,
     )
   }
+
+  if (meta.prediction?.path?.length) {
+    drawPredictionPath(
+      ctx,
+      grid,
+      meta.prediction,
+      meta.rangeLow,
+      meta.rangeHigh,
+      cssW,
+      cssH,
+      yaw,
+      pitch,
+      zoom,
+      heightScale,
+    )
+  }
 }
 
 export default function LiquidationHeatmapBar({
@@ -361,12 +517,14 @@ export default function LiquidationHeatmapBar({
   stop,
   tp1,
   tp2,
+  prediction,
 }: {
   heatmap: Heatmap
   entry?: number
   stop?: number
   tp1?: number
   tp2?: number
+  prediction?: LiqPrediction | null
 }) {
   const { bins, columns, price, range_low, range_high } = heatmap
   const grid = useMemo(
@@ -397,6 +555,7 @@ export default function LiquidationHeatmapBar({
           stop,
           tp1,
           tp2,
+          prediction,
         },
         yaw,
         pitch,
@@ -416,13 +575,32 @@ export default function LiquidationHeatmapBar({
       ro.disconnect()
       wrap.removeEventListener('wheel', onWheel)
     }
-  }, [grid, price, range_low, range_high, entry, stop, tp1, tp2, yaw, pitch, zoom])
+  }, [grid, price, range_low, range_high, entry, stop, tp1, tp2, prediction, yaw, pitch, zoom])
+
+  const dirArrow =
+    prediction?.direction === 'up' ? '↑' : prediction?.direction === 'down' ? '↓' : '↔'
 
   return (
     <div className="heatmap-wrap hm3">
+      {prediction && (
+        <div className={`ai-pred-banner dir-${prediction.direction}`}>
+          <div className="ai-pred-main">
+            <span className="ai-pred-tag">AI PATH</span>
+            <strong>
+              {dirArrow} {prediction.summary}
+            </strong>
+          </div>
+          <div className="ai-pred-meta">
+            <span>pull↑ {prediction.pull_up.toFixed(1)}</span>
+            <span>pull↓ {prediction.pull_down.toFixed(1)}</span>
+            <span>mom {prediction.momentum.toFixed(2)}</span>
+            <span>{prediction.confidence.toFixed(0)}%</span>
+          </div>
+        </div>
+      )}
       <div className="heatmap-legend">
         <span className="hm-leg long">Long liq (zieleń) ↓</span>
-        <span className="hm-leg mid">3D · głębia = natężenie · przeciągnij aby obrócić</span>
+        <span className="hm-leg mid">linia AI: IN → TP → LIQ · przeciągnij mapę</span>
         <span className="hm-leg short">Short liq (czerwień) ↑</span>
       </div>
 
