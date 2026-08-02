@@ -413,7 +413,39 @@ button {
 .inline-error {
   color: var(--red);
   margin-bottom: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  border-radius: 10px;
+  background: rgba(127, 29, 29, 0.2);
 }
+
+.empty-block {
+  color: var(--text-secondary);
+  padding: 28px 18px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.tag.source {
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.tag.source.tradingview { color: #60a5fa; }
+.tag.source.yahoo { color: var(--teal); }
+.tag.source.coingecko { color: var(--amber); }
+.tag.source.stub { opacity: 0.5; }
 
 .empty {
   color: var(--text-muted);

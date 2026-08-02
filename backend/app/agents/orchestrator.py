@@ -23,6 +23,7 @@ from app.agents.types import AgentScanResult, ScoutFinding, SpecialistVerdict
 from app.cycles.bitcoin_cycle import analyze_bitcoin_cycle
 from app.cycles.presidential_cycle import analyze_presidential_cycle
 from app.data.market_data import fetch_bitcoin_ath, fetch_quotes
+from app.data.quote_cache import quote_cache
 from app.db.settings_store import get_watchlist
 from app.models.schemas import (
     AlphaModelStatus,
@@ -128,6 +129,7 @@ class AgentOrchestrator:
             for item in watchlist
         ]
         self.quotes = await fetch_quotes(assets)
+        quote_cache.seed_from_scanner(self.quotes)
         self._scouts = build_scout_roster(watchlist)
 
         long_scouts = [s for s in self._scouts if s.side == "long"]

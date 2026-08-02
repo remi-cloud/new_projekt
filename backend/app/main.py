@@ -12,9 +12,8 @@ from app.data.assets import (
     DEFAULT_ASSETS,
     GLOBAL_MARKET_REGIONS,
     REGION_LABELS,
-    enrich_asset,
 )
-from app.data.market_data import build_markets_quotes
+from app.data.quote_cache import quote_cache
 from app.db.database import (
     get_recent_opportunities,
     get_scan_history,
@@ -69,6 +68,11 @@ async def lifespan(app: FastAPI):
 
     # Never block WWW startup on market APIs — scan in background.
     async def _initial_scan() -> None:
+        try:
+            # Warm full catalog quotes so /rynki is never empty on first paint
+            await quote_cache.get_catalog_quotes(force=True)
+        except Exception as exc:
+            logger.warning("Quote cache warmup failed: %s", exc)
         try:
             await scheduled_economic_sync()
         except Exception as exc:
@@ -151,45 +155,49 @@ async def dashboard():
             status_code=503,
             detail="Skanowanie rynku w toku — odśwież za chwilę",
         )
+    # Same quote catalog as Markets — never show empty "monitored" when scanner lagged
+    monitored = await quote_cache.get_catalog_quotes(force=False)
+    if not monitored and scanner.quotes:
+        monitored = scanner.quotes
     return DashboardResponse(
         alpha_model=scanner.alpha_model,
         beta_model=scanner.beta_model,
         opportunities=scanner.opportunities,
-        monitored_assets=scanner.quotes,
+        monitored_assets=monitored,
         last_scan_at=scanner.last_scan_at,
         scanner_running=is_running(),
     )
 
 
 @app.get("/api/markets", response_model=MarketsResponse)
-async def markets(region: str | None = Query(None)):
+async def markets(
+    region: str | None = Query(None),
+    refresh: bool = Query(False),
+):
     """
-    Full markets catalog with region tags.
+    Full DEFAULT_ASSETS catalog with live quotes (Yahoo → TradingView fallback).
 
-    Independent of Model Alpha/Beta scan — always lists global indexes
-    (Asia, Russia, Brazil, Europe, EM) even before the first orchestrator run.
+    Independent of watchlist toggles and Model Alpha/Beta scan.
+    Default region = all (complete book). Use region=global for non-US equity.
     """
     from datetime import datetime, timezone
 
-    watchlist = await get_watchlist(enabled_only=True)
-    assets = [
-        enrich_asset(
-            {
-                "symbol": item["symbol"],
-                "name": item["name"],
-                "asset_class": item["asset_class"],
-                "source": item.get("source", "yahoo"),
-            }
-        )
+    # Merge catalog + any extra watchlist symbols user added
+    watchlist = await get_watchlist(enabled_only=False)
+    extras = [
+        {
+            "symbol": item["symbol"],
+            "name": item["name"],
+            "asset_class": item["asset_class"],
+            "source": item.get("source", "yahoo"),
+        }
         for item in watchlist
+        if item["symbol"].upper() not in {a["symbol"].upper() for a in DEFAULT_ASSETS}
     ]
-    if not assets:
-        assets = [enrich_asset(a) for a in DEFAULT_ASSETS]
 
-    all_quotes = await build_markets_quotes(
-        assets,
-        cached=scanner.quotes or None,
-        fetch_missing=True,
+    all_quotes = await quote_cache.get_catalog_quotes(
+        extra_assets=extras,
+        force=refresh,
     )
 
     region_order = {
@@ -206,7 +214,7 @@ async def markets(region: str | None = Query(None)):
         "forex": 10,
     }
 
-    selected = region or "global"
+    selected = region or "all"
     if selected == "all":
         items = list(all_quotes)
     elif selected == "global":

@@ -47,8 +47,11 @@ export async function fetchDashboard(): Promise<DashboardResponse> {
   return getJson<DashboardResponse>('/dashboard')
 }
 
-export async function fetchMarkets(region?: string): Promise<MarketsResponse> {
-  const q = region ? `?region=${encodeURIComponent(region)}` : ''
+export async function fetchMarkets(region?: string, refresh = false): Promise<MarketsResponse> {
+  const params = new URLSearchParams()
+  if (region) params.set('region', region)
+  if (refresh) params.set('refresh', 'true')
+  const q = params.toString() ? `?${params.toString()}` : ''
   return getJson<MarketsResponse>(`/markets${q}`)
 }
 

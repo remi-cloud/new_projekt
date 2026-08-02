@@ -251,6 +251,7 @@ def stub_quote(asset: dict, now: datetime | None = None) -> AssetQuote:
         price=0.0,
         now=now or datetime.now(timezone.utc),
         live=False,
+        quote_source="stub",
     )
 
 
@@ -259,10 +260,18 @@ async def build_markets_quotes(
     cached: list[AssetQuote] | None = None,
     *,
     fetch_missing: bool = True,
+    max_cache_age_seconds: int = 120,
 ) -> list[AssetQuote]:
-    """Merge watchlist/catalog with live quotes; stubs for anything still missing."""
+    """Merge catalog with live quotes; refetch stale cache; stubs for gaps."""
     now = datetime.now(timezone.utc)
-    by_sym = {q.symbol.upper(): q for q in (cached or [])}
+    by_sym: dict[str, AssetQuote] = {}
+    for q in cached or []:
+        updated = q.updated_at
+        if updated.tzinfo is None:
+            updated = updated.replace(tzinfo=timezone.utc)
+        age = (now - updated).total_seconds()
+        if q.live and q.price > 0 and age <= max_cache_age_seconds:
+            by_sym[q.symbol.upper()] = q
 
     missing = [a for a in assets if a["symbol"].upper() not in by_sym]
     if fetch_missing and missing:
@@ -277,7 +286,6 @@ async def build_markets_quotes(
         if quote is None:
             out.append(stub_quote(asset, now))
             continue
-        # Ensure region fields are present (older cached quotes).
         if not quote.region:
             region = resolve_region(asset)
             quote = quote.model_copy(

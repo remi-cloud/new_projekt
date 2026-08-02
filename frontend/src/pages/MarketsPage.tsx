@@ -9,19 +9,23 @@ type RegionFilter = string
 export default function MarketsPage() {
   const [data, setData] = useState<MarketsResponse | null>(null)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [region, setRegion] = useState<RegionFilter>('global')
+  // Default: full book — never hide USA/crypto/FX behind "global" filter
+  const [region, setRegion] = useState<RegionFilter>('all')
 
-  const load = useCallback(async (nextRegion: RegionFilter) => {
+  const load = useCallback(async (nextRegion: RegionFilter, refresh = false) => {
     try {
-      setLoading(true)
-      const markets = await fetchMarkets(nextRegion)
+      if (refresh) setRefreshing(true)
+      else setLoading(true)
+      const markets = await fetchMarkets(nextRegion, refresh)
       setData(markets)
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Błąd połączenia z API')
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }, [])
 
@@ -34,7 +38,7 @@ export default function MarketsPage() {
     const allCount = regionRows
       .filter((r) => r.id !== 'global')
       .reduce((n, r) => n + r.count, 0)
-    const base = [{ id: 'all', label: 'Wszystkie', count: allCount }]
+    const base = [{ id: 'all', label: 'Wszystkie', count: allCount || data?.count || 0 }]
     const fromApi = regionRows.map((r) => ({
       id: r.id,
       label: r.label,
@@ -44,7 +48,9 @@ export default function MarketsPage() {
   }, [data])
 
   if (loading && !data) return <LoadingState />
-  if (error && !data) return <ErrorState message={error} onRetry={() => load(region)} />
+  if (error && !data) {
+    return <ErrorState message={error} onRetry={() => load(region, true)} />
+  }
   if (!data) return null
 
   return (
@@ -53,10 +59,27 @@ export default function MarketsPage() {
         <div>
           <h1>Rynki</h1>
           <p className="page-lead">
-            Azja, Rosja, Brazylia, Europa, EM — osobno od USA. Kliknij instrument, aby otworzyć pozycję.
+            Pełny katalog na żywo (Yahoo + TradingView). Azja, Rosja, Brazylia, Europa, USA, krypto, FX.
           </p>
         </div>
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={refreshing}
+          onClick={() => void load(region, true)}
+        >
+          {refreshing ? 'Odświeżam…' : 'Odśwież notowania'}
+        </button>
       </div>
+
+      {error && (
+        <div className="inline-error" role="alert">
+          {error} — pokazuję ostatnie dane.{' '}
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => void load(region, true)}>
+            Spróbuj ponownie
+          </button>
+        </div>
+      )}
 
       <div className="filters">
         <div className="filter-group">
@@ -82,9 +105,19 @@ export default function MarketsPage() {
           ? 'Rynki globalne'
           : chips.find((c) => c.id === region)?.label ?? 'Instrumenty'}
         <span className="count">{data.count}</span>
-        <span className="count-sub">{data.live_count} live</span>
+        <span className="count-sub">{data.live_count} live / {data.global_count} global</span>
       </h2>
-      <AssetsTable assets={data.items} showRegion />
+
+      {data.items.length === 0 ? (
+        <div className="empty-block">
+          <p>Brak instrumentów dla tego filtra.</p>
+          <button type="button" className="btn btn-primary" onClick={() => setRegion('all')}>
+            Pokaż wszystkie rynki
+          </button>
+        </div>
+      ) : (
+        <AssetsTable assets={data.items} showRegion showSource />
+      )}
     </div>
   )
 }
