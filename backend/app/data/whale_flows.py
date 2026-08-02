@@ -252,6 +252,8 @@ def classify_whale_bias(
             factors.append(f"Taker futures agresywny SELL (ratio {taker:.2f})")
         else:
             factors.append(f"Taker futures neutralny (ratio {taker:.2f})")
+    elif futures.get("source"):
+        factors.append("Futures L/S niedostępne z tej lokalizacji — ocena z printów CEX/on-chain")
 
     ls = float(futures.get("accounts_long_short_ratio") or 0)
     if ls > 0:
