@@ -22,23 +22,24 @@ export const DIRECTION_LABELS: Record<SignalDirection, string> = {
 export function signalDirection(action: string): SignalDirection {
   const a = action.toLowerCase()
   if (a === 'sell' || a === 'short') return 'short'
-  if (a === 'hold' || a === 'neutral') return 'neutral'
-  if (a === 'buy' || a === 'watch' || a === 'long') return 'long'
+  if (a === 'buy' || a === 'long') return 'long'
+  // watch / hold = wait — NOT an aggressive LONG
+  if (a === 'hold' || a === 'watch' || a === 'neutral' || a === 'czekaj') return 'neutral'
   return 'neutral'
 }
 
 /** API actions that belong to a direction (for filters / alerts). */
 export function actionsForDirection(dir: SignalDirection): SignalAction[] {
-  if (dir === 'long') return ['buy', 'watch']
+  if (dir === 'long') return ['buy']
   if (dir === 'short') return ['sell']
-  return ['hold']
+  return ['hold', 'watch']
 }
 
 export const SIGNAL_LABELS: Record<SignalAction, string> = {
   buy: 'LONG',
   sell: 'SHORT',
   hold: 'NEUTRAL',
-  watch: 'LONG',
+  watch: 'CZEKAJ',
 }
 
 export const PHASE_LABELS: Record<string, string> = {
@@ -70,6 +71,8 @@ export function formatPrice(price: number, assetClass: AssetClass): string {
 }
 
 export function formatSignal(action: string): string {
+  const a = action.toLowerCase() as keyof typeof SIGNAL_LABELS
+  if (a in SIGNAL_LABELS) return SIGNAL_LABELS[a]
   return DIRECTION_LABELS[signalDirection(action)]
 }
 

@@ -486,8 +486,75 @@ a{{color:#2dd4bf}} .ok{{color:#34d399}} .wait{{color:#fbbf24}}</style></head>
 <body>
 <h1>Cyclical Trader</h1>
 <p class="{'ok' if ready else 'wait'}">API: OK · Skaner: {'gotowy' if ready else 'pierwsze skanowanie…'} · Okazje: {len(scanner.opportunities)}</p>
-<p><a href="/">Otwórz aplikację</a> · <a href="/dashboard">Dashboard</a> · <a href="/api/health">/api/health</a></p>
+<p><a href="/live"><strong>Otwórz LIVE (bez JS)</strong></a> · <a href="/">Aplikacja</a> · <a href="/rynki">Rynki</a> · <a href="/api/health">health</a></p>
 <meta http-equiv="refresh" content="5">
+</body></html>"""
+
+
+@app.get("/live", response_class=HTMLResponse)
+async def live_plain():
+    """
+    Plain HTML markets — works on any phone even if React/CDN/fonts fail.
+    This is the fallback when the SPA looks 'empty'.
+    """
+    from html import escape
+
+    quotes = await quote_cache.get_catalog_quotes(force=False)
+    live_n = sum(1 for q in quotes if q.live and q.price > 0)
+    alpha = scanner.alpha_model
+    beta = scanner.beta_model
+    alpha_txt = (
+        f"{escape(alpha.signal.value.upper())} · {escape(alpha.phase.value)} · "
+        f"{escape(alpha.rationale[:180])}"
+        if alpha
+        else "czekam na skan…"
+    )
+    beta_txt = (
+        f"{escape(beta.signal.value.upper())} · faza {beta.phase_number}"
+        if beta
+        else "—"
+    )
+    rows = []
+    for q in quotes[:40]:
+        ch = q.change_pct_24h
+        ch_s = f"{ch:+.2f}%" if ch is not None else "—"
+        rows.append(
+            "<tr>"
+            f"<td>{escape(q.name)}<br/><small>{escape(q.symbol)}</small></td>"
+            f"<td>{escape(q.region_label or q.region or '—')}</td>"
+            f"<td>{q.price:,.4f}</td>"
+            f"<td>{ch_s}</td>"
+            f"<td>{escape(q.quote_source or '—')}</td>"
+            "</tr>"
+        )
+    opps = []
+    for o in scanner.opportunities[:12]:
+        opps.append(
+            f"<li><strong>{escape(o.symbol)}</strong> · {escape(o.action.value.upper())} · "
+            f"{o.confidence:.0f}% — {escape(o.name)}</li>"
+        )
+
+    return f"""<!doctype html>
+<html lang="pl"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>LIVE — Cyclical Trader</title>
+<style>
+body{{margin:0;font-family:system-ui,-apple-system,sans-serif;background:#0c1210;color:#eef3ef;padding:16px}}
+h1{{font-size:1.4rem;margin:0 0 8px}} a{{color:#2dd4bf}}
+.ok{{color:#34d399;font-weight:700}} .box{{background:#15201c;padding:12px;border-radius:10px;margin:12px 0}}
+table{{width:100%;border-collapse:collapse;font-size:14px}} th,td{{padding:8px 6px;border-bottom:1px solid #24322c;text-align:left}}
+small{{color:#9aada3}} .meta{{color:#9aada3;font-size:13px}}
+</style></head><body>
+<h1>Cyclical Trader · LIVE</h1>
+<p class="ok">POŁĄCZONO · {live_n}/{len(quotes)} notowań live</p>
+<p class="meta">Strona bez React — jeśli tu coś widać, serwer działa. <a href="/">Pełna aplikacja</a> · <a href="/rynki">Rynki SPA</a></p>
+<div class="box"><strong>Alpha:</strong> {alpha_txt}<br/><strong>Beta:</strong> {beta_txt}</div>
+<div class="box"><strong>Okazje ({len(scanner.opportunities)})</strong><ul>{''.join(opps) or '<li>Brak — odśwież za chwilę</li>'}</ul></div>
+<h2>Notowania (pierwsze 40)</h2>
+<table><thead><tr><th>Instrument</th><th>Region</th><th>Cena</th><th>24h</th><th>Src</th></tr></thead>
+<tbody>{''.join(rows)}</tbody></table>
+<p class="meta">Odświeżanie strony: co 20 s</p>
+<meta http-equiv="refresh" content="20"/>
 </body></html>"""
 
 
@@ -504,8 +571,10 @@ if STATIC_DIR.is_dir():
 
     @app.get("/{full_path:path}")
     async def spa_fallback(full_path: str):
-        # Never steal API routes (registered above); this catches client routes.
-        if full_path.startswith("api/") or full_path.startswith("docs") or full_path.startswith("openapi") or full_path == "status":
+        # Never steal API / plain pages (registered above); this catches client routes.
+        if full_path.startswith("api/") or full_path.startswith("docs") or full_path.startswith("openapi"):
+            raise HTTPException(status_code=404, detail="Not found")
+        if full_path in ("status", "live"):
             raise HTTPException(status_code=404, detail="Not found")
         candidate = STATIC_DIR / full_path
         if candidate.is_file():
@@ -516,7 +585,7 @@ else:
     async def missing_static():
         return HTMLResponse(
             "<h1>Brak UI</h1><p>Uruchom <code>./scripts/build-www.sh</code> albo Docker build.</p>"
-            "<p><a href='/status'>/status</a> · <a href='/api/health'>/api/health</a></p>",
+            "<p><a href='/live'>/live</a> · <a href='/status'>/status</a> · <a href='/api/health'>/api/health</a></p>",
             status_code=503,
         )
 
