@@ -2,13 +2,13 @@ export type AssetClass = 'crypto' | 'stock' | 'index' | 'bond' | 'commodity' | '
 export type SignalAction = 'buy' | 'sell' | 'hold' | 'watch'
 export type CyclePhase = 'bear' | 'accumulation' | 'bull' | 'distribution' | 'neutral'
 
-export interface BitcoinCycleStatus {
-  last_ath_date: string
-  last_ath_price: number
+export interface AlphaModelStatus {
+  reference_date: string
+  reference_price: number
   current_price: number
-  days_since_ath: number
-  bear_phase_end_day: number
-  bull_phase_end_day: number
+  days_since_reference: number
+  phase_a_end_day: number
+  phase_b_end_day: number
   phase: CyclePhase
   phase_progress_pct: number
   days_remaining_in_phase: number
@@ -16,15 +16,14 @@ export interface BitcoinCycleStatus {
   rationale: string
 }
 
-export interface PresidentialCycleStatus {
-  term_start: string
-  term_end: string
-  president: string
-  current_year: string
-  year_number: number
-  days_into_year: number
-  days_remaining_in_year: number
-  year_progress_pct: number
+export interface BetaModelStatus {
+  period_start: string
+  period_end: string
+  current_phase: string
+  phase_number: number
+  days_into_phase: number
+  days_remaining_in_phase: number
+  phase_progress_pct: number
   historical_bias: string
   signal: SignalAction
   rationale: string
@@ -55,8 +54,8 @@ export interface Opportunity {
 }
 
 export interface DashboardResponse {
-  bitcoin_cycle: BitcoinCycleStatus
-  presidential_cycle: PresidentialCycleStatus
+  alpha_model: AlphaModelStatus
+  beta_model: BetaModelStatus
   opportunities: Opportunity[]
   monitored_assets: AssetQuote[]
   last_scan_at: string | null

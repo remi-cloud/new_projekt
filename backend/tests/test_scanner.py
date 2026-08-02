@@ -4,23 +4,23 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.models.schemas import (
+    AlphaModelStatus,
     AssetClass,
     AssetQuote,
-    BitcoinCycleStatus,
+    BetaModelStatus,
+    BetaPhase,
     CyclePhase,
-    PresidentialCycleStatus,
-    PresidentialYear,
     SignalAction,
 )
 from app.scanners.opportunity_scanner import OpportunityScanner
 
 
-def _btc_cycle(phase: CyclePhase, signal: SignalAction, progress: float = 50) -> BitcoinCycleStatus:
-    return BitcoinCycleStatus(
-        last_ath_date="2024-01-01",
-        last_ath_price=100_000,
+def _alpha(phase: CyclePhase, signal: SignalAction, progress: float = 50) -> AlphaModelStatus:
+    return AlphaModelStatus(
+        reference_date="2024-01-01",
+        reference_price=100_000,
         current_price=80_000,
-        days_since_ath=200,
+        days_since_reference=200,
         phase=phase,
         phase_progress_pct=progress,
         days_remaining_in_phase=100,
@@ -29,16 +29,15 @@ def _btc_cycle(phase: CyclePhase, signal: SignalAction, progress: float = 50) ->
     )
 
 
-def _pres_cycle(year: int = 3) -> PresidentialCycleStatus:
-    return PresidentialCycleStatus(
-        term_start="2025-01-20",
-        term_end="2029-01-20",
-        president="Trump II",
-        current_year=PresidentialYear(f"year_{year}"),
-        year_number=year,
-        days_into_year=100,
-        days_remaining_in_year=265,
-        year_progress_pct=27.0,
+def _beta(phase: int = 3) -> BetaModelStatus:
+    return BetaModelStatus(
+        period_start="2025-01-20",
+        period_end="2029-01-20",
+        current_phase=BetaPhase(f"phase_{phase}"),
+        phase_number=phase,
+        days_into_phase=100,
+        days_remaining_in_phase=265,
+        phase_progress_pct=27.0,
         historical_bias="test",
         signal=SignalAction.BUY,
         rationale="test",
@@ -67,11 +66,11 @@ async def test_scan_crypto_buy_in_bear():
         ),
         patch(
             "app.scanners.opportunity_scanner.analyze_bitcoin_cycle",
-            return_value=_btc_cycle(CyclePhase.BEAR, SignalAction.BUY, 70),
+            return_value=_alpha(CyclePhase.BEAR, SignalAction.BUY, 70),
         ),
         patch(
             "app.scanners.opportunity_scanner.analyze_presidential_cycle",
-            return_value=_pres_cycle(3),
+            return_value=_beta(3),
         ),
         patch(
             "app.scanners.opportunity_scanner.presidential_buy_weight",
@@ -105,7 +104,7 @@ async def test_scan_crypto_buy_in_bear():
 
 
 @pytest.mark.asyncio
-async def test_scan_equity_year3_boost():
+async def test_scan_equity_phase3_boost():
     scanner = OpportunityScanner()
     with (
         patch(
@@ -114,11 +113,11 @@ async def test_scan_equity_year3_boost():
         ),
         patch(
             "app.scanners.opportunity_scanner.analyze_bitcoin_cycle",
-            return_value=_btc_cycle(CyclePhase.BULL, SignalAction.HOLD),
+            return_value=_alpha(CyclePhase.BULL, SignalAction.HOLD),
         ),
         patch(
             "app.scanners.opportunity_scanner.analyze_presidential_cycle",
-            return_value=_pres_cycle(3),
+            return_value=_beta(3),
         ),
         patch(
             "app.scanners.opportunity_scanner.presidential_buy_weight",
@@ -148,3 +147,4 @@ async def test_scan_equity_year3_boost():
     assert len(opps) == 1
     assert opps[0].action == SignalAction.BUY
     assert opps[0].confidence >= 60
+    assert opps[0].phase == "phase_3"

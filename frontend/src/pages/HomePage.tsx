@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { CycleCardBitcoin, CycleCardPresidential } from '../components/CycleCards'
+import { CycleCardAlpha, CycleCardBeta } from '../components/CycleCards'
 import LoadingState, { ErrorState } from '../components/LoadingState'
 import { useDashboard } from '../hooks/useDashboard'
 
@@ -41,8 +41,8 @@ export default function HomePage() {
         <section className="home-cycles">
           <h2 className="section-title">Status modeli</h2>
           <div className="cycles-grid">
-            <CycleCardBitcoin cycle={data.bitcoin_cycle} />
-            <CycleCardPresidential cycle={data.presidential_cycle} />
+            <CycleCardAlpha model={data.alpha_model} />
+            <CycleCardBeta model={data.beta_model} />
           </div>
           <div className="home-stats">
             <div className="home-stat">

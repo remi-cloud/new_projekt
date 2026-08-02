@@ -1,4 +1,4 @@
-import { CycleCardBitcoin, CycleCardPresidential } from '../components/CycleCards'
+import { CycleCardAlpha, CycleCardBeta } from '../components/CycleCards'
 import LoadingState, { ErrorState } from '../components/LoadingState'
 import OpportunityCard from '../components/OpportunityCard'
 import AssetsTable from '../components/AssetsTable'
@@ -37,8 +37,8 @@ export default function DashboardPage() {
       {error && <p className="inline-error">{error}</p>}
 
       <div className="cycles-grid">
-        <CycleCardBitcoin cycle={data.bitcoin_cycle} />
-        <CycleCardPresidential cycle={data.presidential_cycle} />
+        <CycleCardAlpha model={data.alpha_model} />
+        <CycleCardBeta model={data.beta_model} />
       </div>
 
       <h2 className="section-title">

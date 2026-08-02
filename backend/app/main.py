@@ -92,15 +92,15 @@ async def health():
 async def dashboard():
     # Fast path: if cache empty, kick a scan but do not block the HTTP request
     # (tunnel / phone clients time out on long first scans).
-    if not scanner.bitcoin_cycle or not scanner.presidential_cycle:
+    if not scanner.alpha_model or not scanner.beta_model:
         asyncio.create_task(scanner.scan())
         raise HTTPException(
             status_code=503,
             detail="Skanowanie rynku w toku — odśwież za chwilę",
         )
     return DashboardResponse(
-        bitcoin_cycle=scanner.bitcoin_cycle,
-        presidential_cycle=scanner.presidential_cycle,
+        alpha_model=scanner.alpha_model,
+        beta_model=scanner.beta_model,
         opportunities=scanner.opportunities,
         monitored_assets=scanner.quotes,
         last_scan_at=scanner.last_scan_at,
@@ -135,7 +135,7 @@ async def history(
 @app.get("/api/super-opportunities", response_model=SuperOpportunitiesResponse)
 async def super_opportunities(min_score: float = Query(0, ge=0, le=100)):
     """Superokazje: cykl + bid/ask + poziomy wejścia/wyjścia + heatmapa liq."""
-    if not scanner.bitcoin_cycle or not scanner.presidential_cycle:
+    if not scanner.alpha_model or not scanner.beta_model:
         asyncio.create_task(scanner.scan())
         raise HTTPException(status_code=503, detail="Skanowanie rynku w toku — odśwież za chwilę")
     return await build_super_opportunities(min_score=min_score)
@@ -144,7 +144,7 @@ async def super_opportunities(min_score: float = Query(0, ge=0, le=100)):
 @app.get("/api/super-opportunities/{symbol}")
 async def super_opportunity_detail(symbol: str):
     if not scanner.opportunities:
-        if not scanner.bitcoin_cycle:
+        if not scanner.alpha_model:
             asyncio.create_task(scanner.scan())
             raise HTTPException(status_code=503, detail="Skanowanie rynku w toku — odśwież za chwilę")
     match = next((o for o in scanner.opportunities if o.symbol.upper() == symbol.upper()), None)
@@ -153,20 +153,20 @@ async def super_opportunity_detail(symbol: str):
     return await build_super_opportunity(match)
 
 
-@app.get("/api/cycles/bitcoin")
-async def bitcoin_cycle():
-    if not scanner.bitcoin_cycle:
+@app.get("/api/models/alpha")
+async def alpha_model():
+    if not scanner.alpha_model:
         asyncio.create_task(scanner.scan())
         raise HTTPException(status_code=503, detail="Skanowanie rynku w toku — odśwież za chwilę")
-    return scanner.bitcoin_cycle
+    return scanner.alpha_model
 
 
-@app.get("/api/cycles/presidential")
-async def presidential_cycle():
-    if not scanner.presidential_cycle:
+@app.get("/api/models/beta")
+async def beta_model():
+    if not scanner.beta_model:
         asyncio.create_task(scanner.scan())
         raise HTTPException(status_code=503, detail="Skanowanie rynku w toku — odśwież za chwilę")
-    return scanner.presidential_cycle
+    return scanner.beta_model
 
 
 # --- Watchlist ---
@@ -268,7 +268,7 @@ async def alerts_dispatch_pending(limit: int = Query(20, ge=1, le=100)):
 @app.get("/status", response_class=HTMLResponse)
 async def status_page():
     """No-JS status page — proves WWW works even if React fails to load."""
-    ready = bool(scanner.bitcoin_cycle and scanner.presidential_cycle)
+    ready = bool(scanner.alpha_model and scanner.beta_model)
     return f"""<!doctype html>
 <html lang="pl"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Cyclical Trader — status</title>

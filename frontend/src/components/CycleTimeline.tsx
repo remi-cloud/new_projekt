@@ -1,24 +1,28 @@
-import { BitcoinCycleStatus, PresidentialCycleStatus } from '../types'
+import { AlphaModelStatus, BetaModelStatus } from '../types'
 
-export function BitcoinTimeline({ cycle }: { cycle: BitcoinCycleStatus }) {
-  const total = cycle.bull_phase_end_day
-  const pos = Math.min(100, (cycle.days_since_ath / total) * 100)
-  const bearPct = (cycle.bear_phase_end_day / total) * 100
+export function AlphaTimeline({ model }: { model: AlphaModelStatus }) {
+  const total = model.phase_b_end_day
+  const pos = Math.min(100, (model.days_since_reference / total) * 100)
+  const phaseAPct = (model.phase_a_end_day / total) * 100
 
   return (
     <div className="timeline reveal">
       <div className="timeline-header">
         <h3>Oś czasu — Model Alpha</h3>
-        <span>Dzień {cycle.days_since_ath}</span>
+        <span>Dzień {model.days_since_reference}</span>
       </div>
       <div className="timeline-track">
-        <div className="timeline-seg bear" style={{ width: `${bearPct}%` }}>
+        <div className="timeline-seg bear" style={{ width: `${phaseAPct}%` }}>
           <span>Faza spadkowa</span>
         </div>
-        <div className="timeline-seg bull" style={{ width: `${100 - bearPct}%` }}>
+        <div className="timeline-seg bull" style={{ width: `${100 - phaseAPct}%` }}>
           <span>Faza wzrostowa</span>
         </div>
-        <div className="timeline-marker" style={{ left: `${pos}%` }} title={`Dzień ${cycle.days_since_ath}`} />
+        <div
+          className="timeline-marker"
+          style={{ left: `${pos}%` }}
+          title={`Dzień ${model.days_since_reference}`}
+        />
       </div>
       <div className="timeline-legend">
         <span className="dot bear" /> Spadki / akumulacja
@@ -29,8 +33,8 @@ export function BitcoinTimeline({ cycle }: { cycle: BitcoinCycleStatus }) {
   )
 }
 
-export function PresidentialTimeline({ cycle }: { cycle: PresidentialCycleStatus }) {
-  const years = [
+export function BetaTimeline({ model }: { model: BetaModelStatus }) {
+  const phases = [
     { n: 1, label: 'Faza 1', bias: 'Słabszy', signal: 'Obserwuj' },
     { n: 2, label: 'Faza 2', bias: 'Najsłabszy → kupuj dołki', signal: 'Kupuj' },
     { n: 3, label: 'Faza 3', bias: 'Najsilniejszy', signal: 'Kupuj' },
@@ -38,23 +42,23 @@ export function PresidentialTimeline({ cycle }: { cycle: PresidentialCycleStatus
   ]
 
   return (
-    <div className="pres-years reveal">
+    <div className="beta-phases reveal">
       <div className="timeline-header">
         <h3>Fazy — Model Beta</h3>
-        <span>Faza {cycle.year_number}</span>
+        <span>Faza {model.phase_number}</span>
       </div>
-      <div className="pres-grid">
-        {years.map((y) => (
+      <div className="beta-grid">
+        {phases.map((y) => (
           <div
             key={y.n}
-            className={`pres-year${y.n === cycle.year_number ? ' current' : ''}`}
+            className={`beta-phase${y.n === model.phase_number ? ' current' : ''}`}
           >
-            <div className="pres-year-label">{y.label}</div>
-            <div className="pres-year-bias">{y.bias}</div>
-            <div className="pres-year-signal">{y.signal}</div>
-            {y.n === cycle.year_number && (
-              <div className="pres-year-progress">
-                <div style={{ width: `${cycle.year_progress_pct}%` }} />
+            <div className="beta-phase-label">{y.label}</div>
+            <div className="beta-phase-bias">{y.bias}</div>
+            <div className="beta-phase-signal">{y.signal}</div>
+            {y.n === model.phase_number && (
+              <div className="beta-phase-progress">
+                <div style={{ width: `${model.phase_progress_pct}%` }} />
               </div>
             )}
           </div>
@@ -63,3 +67,7 @@ export function PresidentialTimeline({ cycle }: { cycle: PresidentialCycleStatus
     </div>
   )
 }
+
+/** @deprecated aliases */
+export const BitcoinTimeline = AlphaTimeline
+export const PresidentialTimeline = BetaTimeline

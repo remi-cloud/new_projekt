@@ -6,11 +6,11 @@ from app.cycles.presidential_cycle import analyze_presidential_cycle, presidenti
 from app.data.market_data import fetch_bitcoin_ath, fetch_quotes
 from app.db.settings_store import get_watchlist
 from app.models.schemas import (
+    AlphaModelStatus,
     AssetClass,
     AssetQuote,
-    BitcoinCycleStatus,
+    BetaModelStatus,
     Opportunity,
-    PresidentialCycleStatus,
     SignalAction,
 )
 
@@ -21,15 +21,24 @@ class OpportunityScanner:
     def __init__(self) -> None:
         self.last_scan_at: datetime | None = None
         self.opportunities: list[Opportunity] = []
-        self.bitcoin_cycle: BitcoinCycleStatus | None = None
-        self.presidential_cycle: PresidentialCycleStatus | None = None
+        self.alpha_model: AlphaModelStatus | None = None
+        self.beta_model: BetaModelStatus | None = None
         self.quotes: list[AssetQuote] = []
+
+    # Compatibility aliases used by a few call sites
+    @property
+    def bitcoin_cycle(self) -> AlphaModelStatus | None:
+        return self.alpha_model
+
+    @property
+    def presidential_cycle(self) -> BetaModelStatus | None:
+        return self.beta_model
 
     async def scan(self) -> list[Opportunity]:
         logger.info("Starting market scan...")
         ath_date, ath_price, btc_price = await fetch_bitcoin_ath()
-        self.bitcoin_cycle = analyze_bitcoin_cycle(ath_date, ath_price, btc_price)
-        self.presidential_cycle = analyze_presidential_cycle()
+        self.alpha_model = analyze_bitcoin_cycle(ath_date, ath_price, btc_price)
+        self.beta_model = analyze_presidential_cycle()
         watchlist = await get_watchlist(enabled_only=True)
         assets = [
             {
@@ -65,10 +74,10 @@ class OpportunityScanner:
         return self._evaluate_traditional(quote, pres_weight, now)
 
     def _evaluate_crypto(self, quote: AssetQuote, now: datetime) -> Opportunity | None:
-        if not self.bitcoin_cycle:
+        if not self.alpha_model:
             return None
 
-        cycle = self.bitcoin_cycle
+        cycle = self.alpha_model
         base_confidence = 50.0
 
         if cycle.phase.value == "bear":
@@ -78,7 +87,7 @@ class OpportunityScanner:
                 if quote.change_pct_7d and quote.change_pct_7d < -5:
                     confidence += 10
                 rationale = (
-                    f"Model Alpha · faza {cycle.phase.value} ({cycle.days_since_ath}d). "
+                    f"Model Alpha · faza {cycle.phase.value} ({cycle.days_since_reference}d). "
                     f"{cycle.rationale}"
                 )
                 return self._make_opp(quote, action, confidence, "alpha", cycle.phase.value, rationale, now)
@@ -106,67 +115,63 @@ class OpportunityScanner:
     def _evaluate_traditional(
         self, quote: AssetQuote, pres_weight: float, now: datetime
     ) -> Opportunity | None:
-        if not self.presidential_cycle:
+        if not self.beta_model:
             return None
 
-        pres = self.presidential_cycle
-        year_key = pres.current_year.value
+        beta = self.beta_model
+        phase_key = beta.current_phase.value
 
-        # Asset-class adjustments within presidential cycle
         class_modifier = {
             AssetClass.INDEX: 1.0,
             AssetClass.STOCK: 0.95,
-            AssetClass.BOND: self._bond_modifier(pres.year_number),
-            AssetClass.COMMODITY: self._commodity_modifier(pres.year_number),
+            AssetClass.BOND: self._bond_modifier(beta.phase_number),
+            AssetClass.COMMODITY: self._commodity_modifier(beta.phase_number),
             AssetClass.FOREX: 0.7,
         }.get(quote.asset_class, 0.8)
 
         confidence = 40 + pres_weight * 40 * class_modifier
 
-        if pres.signal == SignalAction.BUY:
+        if beta.signal == SignalAction.BUY:
             action = SignalAction.BUY
             if quote.change_pct_7d and quote.change_pct_7d < -3:
                 confidence += 8
-        elif pres.signal == SignalAction.WATCH:
+        elif beta.signal == SignalAction.WATCH:
             action = SignalAction.WATCH
             confidence -= 10
-        elif pres.signal == SignalAction.HOLD:
+        elif beta.signal == SignalAction.HOLD:
             action = SignalAction.HOLD
         else:
             action = SignalAction.SELL
             confidence -= 20
 
-        # Year 2 midterm: bonds often outperform — flip for bonds
-        if quote.asset_class == AssetClass.BOND and pres.year_number == 2:
+        if quote.asset_class == AssetClass.BOND and beta.phase_number == 2:
             action = SignalAction.BUY
             confidence += 15
 
-        # Year 3: strongest for equities
-        if quote.asset_class in (AssetClass.STOCK, AssetClass.INDEX) and pres.year_number == 3:
+        if quote.asset_class in (AssetClass.STOCK, AssetClass.INDEX) and beta.phase_number == 3:
             confidence += 12
 
         if confidence < 45:
             return None
 
         rationale = (
-            f"Model Beta · {year_key.replace('year_', 'faza ')}. "
-            f"{pres.historical_bias}."
+            f"Model Beta · {phase_key.replace('phase_', 'faza ')}. "
+            f"{beta.historical_bias}."
         )
         if quote.change_pct_7d is not None:
             rationale += f" Zmiana 7d: {quote.change_pct_7d:+.1f}%."
 
         return self._make_opp(
-            quote, action, min(confidence, 95), "beta", year_key, rationale, now
+            quote, action, min(confidence, 95), "beta", phase_key, rationale, now
         )
 
     @staticmethod
-    def _bond_modifier(year_number: int) -> float:
-        # Bonds tend to do well in year 2 (flight to safety) and year 1 weakness
-        return {1: 0.9, 2: 1.2, 3: 0.6, 4: 0.8}.get(year_number, 0.8)
+    def _bond_modifier(phase_number: int) -> float:
+        return {1: 0.9, 2: 1.2, 3: 0.6, 4: 0.8}.get(phase_number, 0.8)
 
     @staticmethod
-    def _commodity_modifier(year_number: int) -> float:
-        return {1: 0.8, 2: 1.0, 3: 1.1, 4: 0.9}.get(year_number, 0.9)
+    def _commodity_modifier(phase_number: int) -> float:
+        return {1: 0.8, 2: 1.0, 3: 1.1, 4: 0.9}.get(phase_number, 0.9)
 
     @staticmethod
     def _make_opp(

@@ -1,5 +1,5 @@
-import { CycleCardBitcoin, CycleCardPresidential } from '../components/CycleCards'
-import { BitcoinTimeline, PresidentialTimeline } from '../components/CycleTimeline'
+import { CycleCardAlpha, CycleCardBeta } from '../components/CycleCards'
+import { AlphaTimeline, BetaTimeline } from '../components/CycleTimeline'
 import LoadingState, { ErrorState } from '../components/LoadingState'
 import { useDashboard } from '../hooks/useDashboard'
 
@@ -23,12 +23,12 @@ export default function CyclesPage() {
       </div>
 
       <div className="cycles-grid">
-        <CycleCardBitcoin cycle={data.bitcoin_cycle} />
-        <CycleCardPresidential cycle={data.presidential_cycle} />
+        <CycleCardAlpha model={data.alpha_model} />
+        <CycleCardBeta model={data.beta_model} />
       </div>
 
-      <BitcoinTimeline cycle={data.bitcoin_cycle} />
-      <PresidentialTimeline cycle={data.presidential_cycle} />
+      <AlphaTimeline model={data.alpha_model} />
+      <BetaTimeline model={data.beta_model} />
 
       <section className="info-block reveal">
         <h3>Jak czytać sygnały</h3>

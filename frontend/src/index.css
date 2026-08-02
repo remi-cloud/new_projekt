@@ -397,11 +397,11 @@ button {
   box-shadow: var(--shadow);
 }
 
-.cycle-card.bitcoin {
+.cycle-card.alpha {
   border-top: 3px solid var(--amber);
 }
 
-.cycle-card.presidential {
+.cycle-card.beta {
   border-top: 3px solid var(--teal);
 }
 
@@ -720,6 +720,7 @@ button {
 }
 
 .timeline,
+.beta-phases,
 .pres-years,
 .info-block {
   background: rgba(26, 36, 32, 0.85);
@@ -801,12 +802,14 @@ button {
 .dot.bull { background: var(--green); }
 .dot.now { background: #fff; }
 
+.beta-grid,
 .pres-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 12px;
 }
 
+.beta-phase,
 .pres-year {
   padding: 14px;
   border-radius: 12px;
@@ -814,16 +817,19 @@ button {
   background: rgba(12, 18, 16, 0.35);
 }
 
+.beta-phase.current,
 .pres-year.current {
   border-color: var(--teal);
   background: rgba(45, 212, 191, 0.08);
 }
 
+.beta-phase-label,
 .pres-year-label {
   font-weight: 700;
   margin-bottom: 6px;
 }
 
+.beta-phase-bias,
 .pres-year-bias {
   font-size: 0.82rem;
   color: var(--text-secondary);
@@ -831,6 +837,7 @@ button {
   min-height: 2.4em;
 }
 
+.beta-phase-signal,
 .pres-year-signal {
   font-size: 0.78rem;
   font-weight: 700;
@@ -839,6 +846,7 @@ button {
   color: var(--amber-soft);
 }
 
+.beta-phase-progress,
 .pres-year-progress {
   margin-top: 10px;
   height: 4px;
@@ -847,6 +855,7 @@ button {
   overflow: hidden;
 }
 
+.beta-phase-progress > div,
 .pres-year-progress > div {
   height: 100%;
   background: var(--teal);
@@ -911,6 +920,7 @@ button {
     padding-bottom: 4px;
   }
 
+  .beta-grid,
   .pres-grid {
     grid-template-columns: 1fr 1fr;
   }
@@ -1376,6 +1386,7 @@ button {
     grid-template-columns: 1fr;
   }
 
+  .beta-grid,
   .pres-grid {
     grid-template-columns: 1fr;
   }

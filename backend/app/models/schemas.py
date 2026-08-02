@@ -29,13 +29,15 @@ class CyclePhase(str, Enum):
     NEUTRAL = "neutral"
 
 
-class BitcoinCycleStatus(BaseModel):
-    last_ath_date: date
-    last_ath_price: float
+class AlphaModelStatus(BaseModel):
+    """Public status for Model Alpha (crypto scoring layer)."""
+
+    reference_date: date
+    reference_price: float
     current_price: float
-    days_since_ath: int
-    bear_phase_end_day: int = 364
-    bull_phase_end_day: int = 1428
+    days_since_reference: int
+    phase_a_end_day: int = 364
+    phase_b_end_day: int = 1428
     phase: CyclePhase
     phase_progress_pct: float
     days_remaining_in_phase: int
@@ -43,25 +45,32 @@ class BitcoinCycleStatus(BaseModel):
     rationale: str
 
 
-class PresidentialYear(str, Enum):
-    YEAR_1 = "year_1"
-    YEAR_2 = "year_2"
-    YEAR_3 = "year_3"
-    YEAR_4 = "year_4"
+class BetaPhase(str, Enum):
+    PHASE_1 = "phase_1"
+    PHASE_2 = "phase_2"
+    PHASE_3 = "phase_3"
+    PHASE_4 = "phase_4"
 
 
-class PresidentialCycleStatus(BaseModel):
-    term_start: date
-    term_end: date
-    president: str
-    current_year: PresidentialYear
-    year_number: int
-    days_into_year: int
-    days_remaining_in_year: int
-    year_progress_pct: float
+class BetaModelStatus(BaseModel):
+    """Public status for Model Beta (traditional markets scoring layer)."""
+
+    period_start: date
+    period_end: date
+    current_phase: BetaPhase
+    phase_number: int
+    days_into_phase: int
+    days_remaining_in_phase: int
+    phase_progress_pct: float
     historical_bias: str
     signal: SignalAction
     rationale: str
+
+
+# Internal aliases kept for gradual migration in engine modules
+BitcoinCycleStatus = AlphaModelStatus
+PresidentialCycleStatus = BetaModelStatus
+PresidentialYear = BetaPhase
 
 
 class AssetQuote(BaseModel):
@@ -90,8 +99,8 @@ class Opportunity(BaseModel):
 
 
 class DashboardResponse(BaseModel):
-    bitcoin_cycle: BitcoinCycleStatus
-    presidential_cycle: PresidentialCycleStatus
+    alpha_model: AlphaModelStatus
+    beta_model: BetaModelStatus
     opportunities: list[Opportunity]
     monitored_assets: list[AssetQuote]
     last_scan_at: Optional[datetime] = None
