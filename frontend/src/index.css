@@ -423,6 +423,34 @@ button {
   background: rgba(127, 29, 29, 0.2);
 }
 
+.markets-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px 16px;
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 0.92rem;
+}
+
+.markets-status.ok {
+  background: rgba(45, 212, 191, 0.12);
+  border: 1px solid rgba(45, 212, 191, 0.35);
+  color: var(--teal);
+}
+
+.markets-status.bad {
+  background: rgba(248, 113, 113, 0.12);
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  color: var(--red);
+}
+
+.markets-status span {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
 .empty-block {
   color: var(--text-secondary);
   padding: 28px 18px;

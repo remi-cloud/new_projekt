@@ -72,6 +72,15 @@ export default function MarketsPage() {
         </button>
       </div>
 
+      <div className={`markets-status ${data.live_count > 0 ? 'ok' : 'bad'}`}>
+        <strong>
+          {data.live_count}/{data.count} notowań live
+        </strong>
+        <span>
+          global {data.global_count} · źródła YH/TV/CG · {new Date(data.generated_at).toLocaleTimeString('pl-PL')}
+        </span>
+      </div>
+
       {error && (
         <div className="inline-error" role="alert">
           {error} — pokazuję ostatnie dane.{' '}
