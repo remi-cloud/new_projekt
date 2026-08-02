@@ -43,7 +43,7 @@ export default function CyclesPage() {
             <strong>NEUTRAL</strong> — brak jasnego kierunku: nie forsuj nowej pozycji.
           </li>
           <li>
-            <strong>Superokazje + AI</strong> — po konsultacji wszystkich czynników dostajesz{' '}
+            <strong>Superokazje + Singularity</strong> — po konsultacji wszystkich czynników dostajesz{' '}
             <strong>KUP</strong> albo <strong>SPRZEDAJ</strong> (albo CZEKAJ przy konflikcie).
           </li>
         </ul>
