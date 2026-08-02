@@ -24,7 +24,9 @@ class SideSpecialist:
     def __init__(self, side: str) -> None:
         assert side in ("long", "short")
         self.side = side
-        self.label = "AI Specjalista LONG" if side == "long" else "AI Specjalista SHORT"
+        self.label = (
+            "Singularity LONG" if side == "long" else "Singularity SHORT"
+        )
 
     def evaluate(
         self,

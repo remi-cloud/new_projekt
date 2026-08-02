@@ -362,7 +362,7 @@ def consult_trade_signal(
     factors_sorted = sorted(factors, key=lambda f: abs(float(f["weight"])), reverse=True)
 
     summary = (
-        f"AI konsultacja → {label} ({confidence:.0f}%): {verb}. "
+        f"Singularity → {label} ({confidence:.0f}%): {verb}. "
         f"Score KUP {buy:.0f} vs SPRZEDAJ {sell:.0f}."
     )
 

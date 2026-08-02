@@ -1,23 +1,12 @@
 import { Link } from 'react-router-dom'
 import { ASSET_LABELS, formatModel, formatPrice } from '../lib/labels'
 import { positionPath } from '../lib/routes'
-import { SingularEvents, trackEvent } from '../lib/singular'
 import { Opportunity } from '../types'
 import SignalTag from './SignalTag'
 
 export default function OpportunityCard({ opp }: { opp: Opportunity }) {
   return (
-    <Link
-      to={positionPath(opp.symbol)}
-      className="opp-card opp-card-link"
-      onClick={() =>
-        trackEvent(SingularEvents.OPPORTUNITY_CLICK, {
-          symbol: opp.symbol,
-          action: opp.action,
-          confidence: opp.confidence,
-        })
-      }
-    >
+    <Link to={positionPath(opp.symbol)} className="opp-card opp-card-link">
       <div className="opp-header">
         <div>
           <div className="opp-name">{opp.name}</div>

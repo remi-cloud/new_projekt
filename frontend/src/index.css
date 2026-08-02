@@ -1934,3 +1934,15 @@ a.super-list-item {
   max-height: 280px;
   color: var(--text-secondary);
 }
+
+.singularity-eyebrow {
+  margin: 0 0 4px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+.singularity-page h1 {
+  letter-spacing: 0.02em;
+}

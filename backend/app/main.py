@@ -91,23 +91,24 @@ async def health():
     }
 
 
+@app.get("/api/singularity")
 @app.get("/api/agents")
-async def agents_war_room():
-    """War room: scout roster + specialist verdicts + orchestrator stats."""
+async def singularity_war_room():
+    """Singularity module: scout roster + specialist verdicts + orchestrator."""
     report = orchestrator.agent_report()
     if not report.get("ready") and (not scanner.alpha_model or not scanner.beta_model):
         asyncio.create_task(scanner.scan())
         raise HTTPException(
             status_code=503,
-            detail="Agenci skanują świat — odśwież za chwilę",
+            detail="Singularity skanuje świat — odśwież za chwilę",
         )
     return report
 
 
+@app.get("/api/singularity/status")
 @app.get("/api/agents/status")
-async def agents_status():
+async def singularity_status():
     return orchestrator.roster_status()
-
 
 @app.get("/api/dashboard", response_model=DashboardResponse)
 async def dashboard():

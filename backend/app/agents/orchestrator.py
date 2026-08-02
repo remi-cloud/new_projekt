@@ -59,7 +59,8 @@ class AgentOrchestrator:
         long_scouts = [s for s in self._scouts if s.side == "long"]
         short_scouts = [s for s in self._scouts if s.side == "short"]
         return {
-            "pipeline": "scouts → specialists → orchestrator",
+            "module": "Singularity",
+            "pipeline": "scouts → specialists → Singularity orchestrator",
             "long_scouts": [
                 {
                     "id": s.scout_id,
@@ -87,7 +88,7 @@ class AgentOrchestrator:
                 {"id": "specialist.long", "label": self.long_specialist.label},
                 {"id": "specialist.short", "label": self.short_specialist.label},
             ],
-            "orchestrator": {"id": "orchestrator.final", "label": "Final Developer"},
+            "orchestrator": {"id": "singularity.orchestrator", "label": "Singularity"},
             "last_scan_at": self.last_scan_at.isoformat() if self.last_scan_at else None,
             "last_stats": result.scout_stats if result else None,
             "opportunities": {

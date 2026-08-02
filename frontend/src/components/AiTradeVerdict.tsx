@@ -6,9 +6,9 @@ export default function AiTradeVerdict({ ai }: { ai: AiTradeSignal }) {
   const sellShare = 100 - buyShare
 
   return (
-    <section className={`ai-verdict ai-verdict-${ai.signal}`} aria-label="Konsultacja AI">
+    <section className={`ai-verdict ai-verdict-${ai.signal}`} aria-label="Singularity">
       <div className="ai-verdict-head">
-        <span className="ai-verdict-tag">Konsultacja AI</span>
+        <span className="ai-verdict-tag">Singularity</span>
         <div className="ai-verdict-main">
           <strong className={`ai-verdict-label signal-${ai.signal}`}>{ai.label}</strong>
           <span className="ai-verdict-conf">{ai.confidence.toFixed(0)}% pewności</span>

@@ -15,7 +15,7 @@ export default function AgentsPage() {
       const report = await fetchAgentsReport()
       setData(report)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Nie udało się pobrać agentów')
+      setError(e instanceof Error ? e.message : 'Nie udało się połączyć z Singularity')
     } finally {
       setLoading(false)
     }
@@ -25,7 +25,7 @@ export default function AgentsPage() {
     load()
   }, [load])
 
-  if (loading) return <LoadingState message="Łączenie z war room agentów…" />
+  if (loading) return <LoadingState message="Budzenie Singularity…" />
   if (error && !data) return <ErrorState message={error} onRetry={load} />
   if (!data) return null
 
@@ -33,13 +33,14 @@ export default function AgentsPage() {
   const shortScouts = data.short_scouts ?? []
 
   return (
-    <div className="page agents-page">
+    <div className="page agents-page singularity-page">
       <div className="page-header">
         <div>
-          <h1>Agenci · War Room</h1>
+          <p className="singularity-eyebrow">Moduł AI</p>
+          <h1>Singularity</h1>
           <p className="page-lead">
-            {longScouts.length} scoutów LONG + {shortScouts.length} scoutów SHORT globalnie → 2
-            specjaliści AI → Final Developer (orchestrator).
+            {longScouts.length} scoutów LONG + {shortScouts.length} scoutów SHORT globalnie →
+            specjaliści AI LONG/SHORT → orchestrator. Tu zbiegają się wszystkie wnioski.
           </p>
         </div>
         <div className="page-actions">
@@ -57,7 +58,7 @@ export default function AgentsPage() {
               }
             }}
           >
-            {busy ? 'Agenci w terenie…' : 'Odpal polowanie'}
+            {busy ? 'Singularity liczy…' : 'Odpal Singularity'}
           </button>
         </div>
       </div>
@@ -84,9 +85,9 @@ export default function AgentsPage() {
       <div className="agents-pipeline">
         <div className="agents-pipe-step">1 · Scouts</div>
         <div className="agents-pipe-arrow">→</div>
-        <div className="agents-pipe-step">2 · Specjaliści AI</div>
+        <div className="agents-pipe-step">2 · Specjaliści</div>
         <div className="agents-pipe-arrow">→</div>
-        <div className="agents-pipe-step hot">3 · Orchestrator</div>
+        <div className="agents-pipe-step hot">3 · Singularity</div>
       </div>
 
       <div className="agents-grid">
@@ -115,7 +116,7 @@ export default function AgentsPage() {
               </li>
             ))}
             {(data.long_verdicts ?? []).length === 0 && (
-              <li className="empty">Brak zaakceptowanych LONG — odpal polowanie.</li>
+              <li className="empty">Brak zaakceptowanych LONG — odpal Singularity.</li>
             )}
           </ul>
         </section>
@@ -145,18 +146,20 @@ export default function AgentsPage() {
               </li>
             ))}
             {(data.short_verdicts ?? []).length === 0 && (
-              <li className="empty">Brak zaakceptowanych SHORT — odpal polowanie.</li>
+              <li className="empty">Brak zaakceptowanych SHORT — odpal Singularity.</li>
             )}
           </ul>
         </section>
       </div>
 
       <section className="info-block">
-        <h3>Orchestrator · Final Developer</h3>
+        <h3>Singularity · Final Developer</h3>
         <p>
-          Scala werdykty LONG i SHORT 1:1 (interleave), deduplikuje symbole i przekazuje torpedę do
-          Superokazji / AI KUP·SPRZEDAJ. Ostatni skan:{' '}
-          <strong>{data.last_scan_at ? new Date(data.last_scan_at).toLocaleString('pl-PL') : '—'}</strong>
+          Scala werdykty LONG i SHORT 1:1, deduplikuje symbole i przekazuje torpedę do Superokazji /
+          sygnałów KUP·SPRZEDAJ. Ostatni skan:{' '}
+          <strong>
+            {data.last_scan_at ? new Date(data.last_scan_at).toLocaleString('pl-PL') : '—'}
+          </strong>
         </p>
         {data.last_stats && (
           <pre className="agents-stats">{JSON.stringify(data.last_stats, null, 2)}</pre>

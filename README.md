@@ -10,11 +10,10 @@ Skaner rynku 24/7 — sygnały kupna/sprzedaży, superokazje, watchlista i alert
 | **Model Alpha / Beta** | Dwa wewnętrzne silniki scoringu (szczegóły niepubliczne) |
 | **Dashboard WWW** | Modele, okazje, notowania |
 | **Superokazje** | Bid/ask + poziomy wejścia/wyjścia + heatmapa liq |
-| **Agenci** | 6 scoutów LONG + 6 SHORT globalnie → 2 AI specjaliści → orchestrator |
+| **Singularity** | Moduł AI: 6 scoutów LONG + 6 SHORT → specjaliści → orchestrator |
 | **Watchlista** | Dodawaj / wyłączaj / usuwaj instrumenty |
 | **Alerty** | ntfy (telefon) + webhook przy zmianie sygnału |
 | **Historia** | Log skanów + zmiany sygnałów |
-| **Singular** | Opcjonalny Web SDK (atrybucja / eventy) — włącz przez `VITE_SINGULAR_*` |
 
 ## Źródła danych rynkowych
 
@@ -102,13 +101,14 @@ cd backend && pip install -r requirements.txt && pytest -q
 | `GET /api/history` | Historia skanów / zmian |
 | `GET/POST/PATCH/DELETE /api/watchlist` | Watchlista |
 | `GET/PUT /api/alerts/settings` | Alerty |
+| `GET /api/singularity` | Singularity war room (scouts + specjaliści) |
 | `GET /api/health` | Health check |
 
 ## Konfiguracja
 
 Prefix `CYCLICAL_` — zobacz `.env.example`.
 
-Opcjonalnie Singular Web SDK (build frontend): `VITE_SINGULAR_SDK_KEY`, `VITE_SINGULAR_SDK_SECRET`, `VITE_SINGULAR_PRODUCT_ID`. Bez tych zmiennych moduł jest wyłączony.
+**Singularity** (`/singularity`, API `/api/singularity`) — multi-agent LONG/SHORT war room.
 
 ## Architektura
 

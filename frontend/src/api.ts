@@ -107,5 +107,5 @@ export async function fetchSuperOpportunity(symbol: string): Promise<SuperOpport
 }
 
 export async function fetchAgentsReport(): Promise<AgentsReport> {
-  return getJson<AgentsReport>('/agents')
+  return getJson<AgentsReport>('/singularity')
 }

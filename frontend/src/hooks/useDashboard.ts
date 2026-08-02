@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchDashboard, triggerScan } from '../api'
-import { SingularEvents, trackEvent } from '../lib/singular'
 import { DashboardResponse } from '../types'
 
 async function fetchDashboardWithRetry(maxAttempts = 12): Promise<DashboardResponse> {
@@ -62,7 +61,6 @@ export function useDashboard(pollMs = 60_000) {
   const scan = async () => {
     setScanning(true)
     try {
-      trackEvent(SingularEvents.SCAN, { source: 'dashboard' })
       await triggerScan()
       await load(false)
     } catch (e) {
