@@ -1,169 +1,124 @@
 # Cyclical Trader
 
-Skaner rynku 24/7, który buduje gotowy produkt sygnałowy dla osób potrzebujących okazji kupna/sprzedaży opartych na **cyklach rynkowych** — nie skalping, nie HFT.
+Skaner rynku 24/7 — sygnały kupna/sprzedaży, superokazje, watchlista i alerty. Nie skalping, nie HFT.
 
 ## Co dostajesz
 
 | Funkcja | Opis |
 |---|---|
 | **Skan automatyczny** | Co 15 minut (konfigurowalne) |
-| **Cykl Bitcoin** | 364 dni spadków od ATH → 1064 dni fali wzrostowej |
-| **Cykl prezydencki** | Bias lat 1–4 kadencji USA dla akcji, indeksów, obligacji, surowców, forex |
-| **Dashboard WWW** | Start, okazje z filtrami, oś czasu cykli, historia zmian sygnałów, rynki |
-| **Watchlista** | Dodawaj / wyłączaj / usuwaj instrumenty ze skanera |
+| **Model Alpha / Beta** | Dwa wewnętrzne silniki scoringu (szczegóły niepubliczne) |
+| **Dashboard WWW** | Modele, okazje, notowania |
+| **Superokazje** | Bid/ask + poziomy wejścia/wyjścia + heatmapa liq |
+| **Singularity** | Narzędzie AI (menu Narzędzia) — scoutowie LONG/SHORT → orchestrator |
+| **Watchlista** | Dodawaj / wyłączaj / usuwaj instrumenty |
 | **Alerty** | ntfy (telefon) + webhook przy zmianie sygnału |
-| **Historia** | Log skanów + wykrywanie zmian sygnału między przebiegami |
+| **Historia** | Log skanów + zmiany sygnałów |
 
-## Źródła danych
+## Źródła danych rynkowych
 
-| Źródło | Użycie | Link |
-|---|---|---|
-| **CoinGecko API** | ATH Bitcoina, ceny krypto (BTC/ETH/SOL) | https://www.coingecko.com/en/api |
-| **Yahoo Finance chart API** | Notowania akcji, indeksów, obligacji, surowców, forex | `query1.finance.yahoo.com/v8/finance/chart/{symbol}` |
-| **ntfy.sh** | Opcjonalne push-alerty na telefon | https://ntfy.sh |
+| Źródło | Użycie |
+|---|---|
+| Publiczne API krypto | Notowania / referencje |
+| Yahoo Finance chart API | Akcje, indeksy, obligacje, surowce, forex |
+| Binance Futures (public) | Bid/ask + wolumen (krypto) |
+| ntfy.sh | Opcjonalne push-alerty |
 
-Logika cykli (nie zewnętrzne API):
-- Bitcoin: 364 dni bear + 1064 dni bull od ostatniego ATH
-- Prezydencki USA: wzorzec lat 1–4 kadencji (Stock Trader's Almanac)
+Modele scoringu są wewnętrzne — UI pokazuje tylko **Alpha / Beta** i fazy sygnału.
 
-## Filozofia
-
-| Klasa aktywów | Cykl odniesienia | Logika |
-|---|---|---|
-| **Krypto** | Cykl Bitcoin | 364 dni spadków od ATH → 1064 dni fali wzrostowej |
-| **Akcje, indeksy, obligacje, surowce, forex** | Cykl prezydencki USA | Zachowanie w latach 1–4 kadencji prezydenckiej |
-
-### Cykl Bitcoin (krypto)
-
-```
-ATH ──► [364 dni BEAR/spadki] ──► [1064 dni BULL/wzrost] ──► [dystrybucja] ──► nowe ATH
-```
-
-### Cykl prezydencki (tradycyjne rynki)
-
-| Rok kadencji | Historyczny bias | Sygnał |
-|---|---|---|
-| Rok 1 (po wyborach) | Słabszy — adaptacja polityki | OBSERWUJ |
-| Rok 2 (midterms) | Najsłabszy — lata wyborów do Kongresu | KUPUJ (dołki) |
-| Rok 3 (pre-election) | **Najsilniejszy** historycznie | KUPUJ |
-| Rok 4 (wybory) | Umiarkowanie pozytywny | TRZYMAJ |
-
-## Monitorowane instrumenty
+## Monitorowane instrumenty (domyślnie)
 
 - **Krypto**: BTC, ETH, SOL
-- **Indeksy USA**: S&P 500, Dow Jones, NASDAQ, Russell 2000
-- **Akcje**: AAPL, MSFT, NVDA, JPM
+- **Indeksy USA**: S&P 500, Dow, NASDAQ, Russell (+ SPY/QQQ/IWM)
+- **Indeksy świata**: Brazylia (Bovespa), Meksyk, Kanada, Rosja (MOEX/RTS), Japonia, Chiny/HK, Korea, Tajwan, Indie, Singapur, Australia, Europa (FTSE/DAX/CAC/Euro Stoxx/IBEX/…), Bliski Wschód / Afryka + ETF-y krajowe (EWZ, EWJ, FXI, INDA, …)
+- **Akcje**: AAPL, MSFT, NVDA, JPM, TSLA, AMZN, META, GOOGL
 - **Obligacje** (ETF): TLT, IEF, LQD, HYG
 - **Surowce**: Złoto, Srebro, Ropa, Gaz
-- **Forex**: EUR/USD, GBP/USD, USD/JPY, DXY
+- **Forex**: EUR/USD, GBP/USD, USD/JPY, USD/BRL, USD/CNY, USD/RUB, DXY
 
-## Uruchomienie
+## Uruchomienie (debut / developing)
 
-### Docker (zalecane) — jeden adres WWW
+### Jedna komenda (dev)
+
+```bash
+./scripts/dev-up.sh
+```
+
+Instaluje zależności, buduje SPA i odpala WWW na **http://localhost:8080**.
+
+### Docker (zalecane na produkcję) — jeden adres WWW
 
 ```bash
 docker compose up --build
 ```
 
-- Aplikacja: **http://localhost:8080** (API + UI na jednym porcie)
-- Dokumentacja API: http://localhost:8080/docs
+- Aplikacja: **http://localhost:8080**
+- API: `/api/*`
+- Docs: http://localhost:8080/docs
 
-### Telefon (ważne)
+Strony: `/` `/dashboard` `/okazje` `/superokazje` `/modele` `/historia` `/rynki` `/watchlista` `/alerty`
 
-`localhost` na telefonie = telefon, **nie** Twój komputer. Żeby otworzyć z telefonu:
+### Cursor Cloud
+
+Konfiguracja debiutu: `.cursor/environment.json` + `./scripts/install.sh`. Terminal `www` uruchamia `./scripts/dev-up.sh`.
+
+### Telefon / publiczny link
 
 ```bash
 ./scripts/start-public.sh
 ```
 
-Skrypt uruchomi apkę i wypisze publiczny link `https://….trycloudflare.com` — ten link otwórz w telefonie.
-
-Albo w tej samej sieci Wi‑Fi użyj IP komputera, np. `http://192.168.0.12:8080`.
+`localhost` na telefonie = telefon. Użyj linku `https://….trycloudflare.com`.
 
 ### Lokalnie (dev)
 
 **Backend:**
 ```bash
 cd backend
-python -m venv .venv
-source .venv/bin/activate
+python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+./scripts/build-www.sh   # z roota repo
+uvicorn app.main:app --reload --port 8080
 ```
 
-**Frontend:**
+**Frontend (hot reload):**
 ```bash
-cd frontend
-npm install
-npm run dev
+cd frontend && npm install && npm run dev
 ```
-
-Frontend dev: http://localhost:5173 (proxy do API na :8000)
 
 ### Testy
 
 ```bash
-cd backend
-pip install -r requirements.txt
-pytest -q
+cd backend && pip install -r requirements.txt && pytest -q
 ```
 
-## Strony aplikacji
-
-| Strona | URL | Opis |
-|---|---|---|
-| Start | `/` | Hero + podsumowanie cykli |
-| Dashboard | `/dashboard` | Cykle, top okazje, notowania, skan ręczny |
-| Okazje | `/okazje` | Pełna lista z filtrami klasy/sygnału |
-| Cykle | `/cykle` | Oś czasu BTC + mapa lat kadencji |
-| Historia | `/historia` | Zmiany sygnałów i log skanów |
-| Rynki | `/rynki` | Tabela instrumentów |
-| Watchlista | `/watchlista` | Zarządzanie monitorowanymi symbolami |
-| Alerty | `/alerty` | ntfy + webhook + log dostarczeń |
-
-## API
+## API (wybrane)
 
 | Endpoint | Opis |
 |---|---|
-| `GET /api/dashboard` | Pełny dashboard: cykle, okazje, notowania |
-| `POST /api/scan` | Wymuś natychmiastowe skanowanie |
-| `GET /api/cycles/bitcoin` | Status cyklu Bitcoin |
-| `GET /api/cycles/presidential` | Status cyklu prezydenckiego |
-| `GET /api/history` | Log skanów + zmiany sygnałów + ostatnie okazje |
-| `GET /api/opportunities/history` | Surowa historia okazji (SQLite) |
-| `GET/POST/PATCH/DELETE /api/watchlist` | Watchlista instrumentów |
-| `GET/PUT /api/alerts/settings` | Konfiguracja alertów |
-| `POST /api/alerts/test` | Test dostarczenia alertu |
-| `GET /api/alerts/log` | Log wysłanych alertów |
-| `GET /api/health` | Health check + status skanera |
-
-## Deploy
-
-- **Docker:** `docker compose up --build`
-- **Render:** zobacz `render.yaml` (API + static frontend)
-- Konfiguracja: skopiuj `.env.example` → `.env`
+| `GET /api/dashboard` | Modele + okazje + notowania |
+| `POST /api/scan` | Wymuś skan |
+| `GET /api/super-opportunities` | Superokazje |
+| `GET /api/history` | Historia skanów / zmian |
+| `GET/POST/PATCH/DELETE /api/watchlist` | Watchlista |
+| `GET/PUT /api/alerts/settings` | Alerty |
+| `GET /api/singularity` | Singularity war room (scouts + specjaliści) |
+| `GET /api/health` | Health check |
 
 ## Konfiguracja
 
-Zmienne środowiskowe (prefix `CYCLICAL_`):
+Prefix `CYCLICAL_` — zobacz `.env.example`.
 
-| Zmienna | Domyślnie | Opis |
-|---|---|---|
-| `SCAN_INTERVAL_MINUTES` | 15 | Interwał skanowania |
-| `BTC_BEAR_PHASE_DAYS` | 364 | Dni fazy spadkowej od ATH |
-| `BTC_BULL_PHASE_DAYS` | 1064 | Dni fali wzrostowej |
-| `DATABASE_PATH` | `data/trader.db` | Ścieżka SQLite |
+**Singularity** — narzędzie w `/narzedzia` (API `/api/singularity`), nie baner.
 
 ## Architektura
 
 ```
-backend/          FastAPI + APScheduler + SQLite + httpx (CoinGecko / Yahoo)
-frontend/         React + TypeScript + Vite + React Router
-docker-compose    Backend + Frontend (nginx) + healthchecks
+backend/          FastAPI + APScheduler + SQLite + httpx
+frontend/         React + TypeScript + Vite (serwowane z backend/static)
+docker-compose    Jeden serwis WWW :8080
 ```
-
-Źródła danych: CoinGecko (krypto / ATH BTC), Yahoo Finance chart API (instrumenty tradycyjne).
 
 ## Disclaimer
 
-Ta aplikacja służy wyłącznie celom edukacyjno-analitycznym. Nie stanowi porady inwestycyjnej. Trading wiąże się z ryzykiem utraty kapitału.
+Cel edukacyjno-analityczny. Nie jest to porada inwestycyjna. Trading wiąże się z ryzykiem utraty kapitału.

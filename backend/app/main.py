@@ -1,13 +1,21 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.data.assets import DEFAULT_ASSETS
+from app.data.assets import (
+    DEFAULT_ASSETS,
+    GLOBAL_MARKET_REGIONS,
+    REGION_LABELS,
+)
+from app.data.quote_cache import quote_cache
+from app.data.whale_flows import fetch_whale_snapshot
 from app.db.database import (
     get_recent_opportunities,
     get_scan_history,
@@ -26,14 +34,34 @@ from app.db.settings_store import (
 )
 from app.models.schemas import (
     AlertSettings,
+    BroadcastResponse,
     DashboardResponse,
+    EconomicEvent,
     HistoryResponse,
+    MarketRegionCount,
+    MarketsResponse,
+    SuperOpportunitiesResponse,
     WatchlistAddRequest,
     WatchlistToggleRequest,
 )
+from app.agents import orchestrator
 from app.notifications.dispatcher import dispatch_signal_changes, send_test_alert
-from app.scheduler.jobs import is_running, run_scan_and_alert, scheduled_scan, start_scheduler, stop_scheduler
+from app.scheduler.jobs import (
+    is_running,
+    run_scan_and_alert,
+    scheduled_economic_sync,
+    scheduled_scan,
+    start_scheduler,
+    stop_scheduler,
+)
+from app.scanners.broadcast import build_broadcast
 from app.scanners.opportunity_scanner import scanner
+from app.scanners.super_opportunities import (
+    build_super_opportunities,
+    build_super_opportunity,
+    resolve_opportunity_for_symbol,
+)
+from app.db.economic_store import count_economic_events, list_economic_events
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -43,21 +71,32 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     await init_db()
     start_scheduler()
-    try:
-        await scheduled_scan()
-    except Exception as exc:
-        logger.warning("Initial scan failed (will retry on schedule): %s", exc)
+
+    # Never block WWW startup on market APIs — scan in background.
+    async def _initial_scan() -> None:
+        try:
+            # Warm full catalog quotes so /rynki is never empty on first paint
+            await quote_cache.get_catalog_quotes(force=True)
+        except Exception as exc:
+            logger.warning("Quote cache warmup failed: %s", exc)
+        try:
+            await scheduled_economic_sync()
+        except Exception as exc:
+            logger.warning("Initial economic sync failed: %s", exc)
+        try:
+            await scheduled_scan()
+        except Exception as exc:
+            logger.warning("Initial scan failed (will retry on schedule): %s", exc)
+
+    asyncio.create_task(_initial_scan())
     yield
     stop_scheduler()
 
 
 app = FastAPI(
     title="Cyclical Trader",
-    description=(
-        "Skaner rynkowy oparty na cyklu Bitcoin (364/1064 dni) "
-        "i cyklu prezydenckim USA — okazje kupna/sprzedaży 24/7."
-    ),
-    version="1.2.0",
+    description="Multi-agent skaner globalny — 6 LONG + 6 SHORT scouts → AI specjaliści → orchestrator.",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
@@ -74,29 +113,239 @@ STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
 @app.get("/api/health")
 async def health():
+    status = orchestrator.roster_status()
+    econ_n = 0
+    try:
+        econ_n = await count_economic_events()
+    except Exception:
+        pass
     return {
         "status": "ok",
         "scanner_running": is_running(),
         "last_scan_at": scanner.last_scan_at.isoformat() if scanner.last_scan_at else None,
         "opportunities_count": len(scanner.opportunities),
-        "version": "1.2.0",
+        "agents": status.get("counts"),
+        "economic_events": econ_n,
+        "quote_sources": ["yahoo", "tradingview", "coingecko"],
+        "calendar_source": "faireconomy",
+        "version": "2.1.0",
+    }
+
+
+@app.get("/api/singularity")
+@app.get("/api/agents")
+async def singularity_war_room():
+    """Singularity module: scout roster + specialist verdicts + orchestrator."""
+    report = orchestrator.agent_report()
+    if not report.get("ready") and (not scanner.alpha_model or not scanner.beta_model):
+        asyncio.create_task(scanner.scan())
+        raise HTTPException(
+            status_code=503,
+            detail="Singularity skanuje świat — odśwież za chwilę",
+        )
+    return report
+
+
+@app.get("/api/singularity/status")
+@app.get("/api/agents/status")
+async def singularity_status():
+    return orchestrator.roster_status()
+
+
+@app.get("/api/whale-flows")
+async def whale_flows(refresh: bool = Query(False)):
+    """
+    Skan wielkich graczy (krypto): duże printy CEX + agresja futures + mempool BTC.
+    WEJŚCIE = accumulate, WYJŚCIE = distribute.
+    """
+    cached = orchestrator.whale_by_symbol if not refresh else {}
+    if cached and not refresh:
+        items = list(cached.values())
+    else:
+        snap = await fetch_whale_snapshot(force=refresh)
+        if snap:
+            orchestrator.whale_by_symbol = snap
+        items = list(snap.values())
+    return {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "count": len(items),
+        "items": items,
+        "note": (
+            "Źródła: Binance aggTrades (whale printy), taker L/S futures, "
+            "global long/short ratio, mempool.space (BTC on-chain)."
+        ),
     }
 
 
 @app.get("/api/dashboard", response_model=DashboardResponse)
 async def dashboard():
-    if not scanner.bitcoin_cycle or not scanner.presidential_cycle or not scanner.quotes:
-        await scanner.scan()
-    if not scanner.bitcoin_cycle or not scanner.presidential_cycle:
-        raise HTTPException(status_code=503, detail="Nie udało się pobrać danych cykli")
+    # Fast path: if cache empty, kick a scan but do not block the HTTP request
+    # (tunnel / phone clients time out on long first scans).
+    if not scanner.alpha_model or not scanner.beta_model:
+        asyncio.create_task(scanner.scan())
+        raise HTTPException(
+            status_code=503,
+            detail="Skanowanie rynku w toku — odśwież za chwilę",
+        )
+    # Same quote catalog as Markets — never show empty "monitored" when scanner lagged
+    monitored = await quote_cache.get_catalog_quotes(force=False)
+    if not monitored and scanner.quotes:
+        monitored = scanner.quotes
     return DashboardResponse(
-        bitcoin_cycle=scanner.bitcoin_cycle,
-        presidential_cycle=scanner.presidential_cycle,
+        alpha_model=scanner.alpha_model,
+        beta_model=scanner.beta_model,
         opportunities=scanner.opportunities,
-        monitored_assets=scanner.quotes,
+        monitored_assets=monitored,
         last_scan_at=scanner.last_scan_at,
         scanner_running=is_running(),
     )
+
+
+@app.get("/api/market-status")
+async def market_status():
+    """Live connectivity probe for TradingView / Yahoo / CoinGecko + cache stats."""
+    from app.data.market_data import probe_market_providers
+    from app.data.quote_cache import QUOTE_TTL_SECONDS
+
+    probe = await probe_market_providers()
+    cached = quote_cache.quotes
+    live = sum(1 for q in cached if q.live and q.price > 0)
+    return {
+        **probe,
+        "cached_quotes": len(cached),
+        "cached_live": live,
+        "last_refresh_at": (
+            quote_cache.last_refresh_at.isoformat()
+            if quote_cache.last_refresh_at
+            else None
+        ),
+        "ttl_seconds": QUOTE_TTL_SECONDS,
+    }
+
+
+@app.get("/api/markets", response_model=MarketsResponse)
+async def markets(
+    region: str | None = Query(None),
+    refresh: bool = Query(False),
+):
+    """
+    Full DEFAULT_ASSETS catalog with live quotes (TradingView → Yahoo → CoinGecko).
+
+    Independent of watchlist toggles and Model Alpha/Beta scan.
+    Default region = all (complete book). Use region=global for non-US equity.
+    """
+    from datetime import datetime, timezone
+
+    # Merge catalog + any extra watchlist symbols user added
+    watchlist = await get_watchlist(enabled_only=False)
+    extras = [
+        {
+            "symbol": item["symbol"],
+            "name": item["name"],
+            "asset_class": item["asset_class"],
+            "source": item.get("source", "yahoo"),
+        }
+        for item in watchlist
+        if item["symbol"].upper() not in {a["symbol"].upper() for a in DEFAULT_ASSETS}
+    ]
+
+    all_quotes = await quote_cache.get_catalog_quotes(
+        extra_assets=extras,
+        force=refresh,
+    )
+
+    region_order = {
+        "asia": 0,
+        "russia": 1,
+        "americas": 2,
+        "europe": 3,
+        "mea": 4,
+        "world": 5,
+        "usa": 6,
+        "crypto": 7,
+        "bonds": 8,
+        "commodities": 9,
+        "forex": 10,
+    }
+
+    selected = region or "all"
+    if selected == "all":
+        items = list(all_quotes)
+    elif selected == "global":
+        items = [q for q in all_quotes if q.region in GLOBAL_MARKET_REGIONS]
+    else:
+        items = [q for q in all_quotes if q.region == selected]
+
+    items.sort(
+        key=lambda q: (region_order.get(q.region, 50), q.region_label, q.name.lower())
+    )
+
+    by_region: dict[str, list] = {}
+    for q in all_quotes:
+        by_region.setdefault(q.region, []).append(q)
+
+    global_items = [q for q in all_quotes if q.region in GLOBAL_MARKET_REGIONS]
+    regions = [
+        MarketRegionCount(
+            id="global",
+            label="Rynki globalne",
+            count=len(global_items),
+            live_count=sum(1 for x in global_items if x.live and x.price > 0),
+        )
+    ]
+    regions.extend(
+        MarketRegionCount(
+            id=rid,
+            label=REGION_LABELS.get(rid, rid),
+            count=len(bucket),
+            live_count=sum(1 for x in bucket if x.live and x.price > 0),
+        )
+        for rid, bucket in sorted(
+            by_region.items(),
+            key=lambda kv: region_order.get(kv[0], 50),
+        )
+    )
+
+    now = datetime.now(timezone.utc).isoformat()
+    return MarketsResponse(
+        generated_at=now,
+        count=len(items),
+        global_count=len(global_items),
+        live_count=sum(1 for q in items if q.live and q.price > 0),
+        regions=regions,
+        items=items,
+    )
+
+
+@app.get("/api/broadcast", response_model=BroadcastResponse)
+async def broadcast(force: bool = Query(False)):
+    """
+    Always-on live results ticker (prices + LONG/SHORT wyniki).
+    Turns into red BREAKING mode for 2 minutes every 20 minutes.
+    """
+    return await build_broadcast(force_visible=force)
+
+
+@app.get("/api/economic-calendar", response_model=list[EconomicEvent])
+async def economic_calendar(
+    hours_back: int = Query(24, ge=0, le=168),
+    hours_ahead: int = Query(168, ge=1, le=336),
+    min_impact: int = Query(0, ge=0, le=3),
+    limit: int = Query(200, ge=1, le=500),
+):
+    rows = await list_economic_events(
+        hours_back=hours_back,
+        hours_ahead=hours_ahead,
+        min_impact_rank=min_impact,
+        limit=limit,
+    )
+    return [EconomicEvent(**r) for r in rows]
+
+
+@app.post("/api/economic-calendar/sync")
+async def economic_calendar_sync():
+    await scheduled_economic_sync()
+    return {"synced": True, "count": await count_economic_events()}
 
 
 @app.post("/api/scan")
@@ -123,18 +372,44 @@ async def history(
     )
 
 
-@app.get("/api/cycles/bitcoin")
-async def bitcoin_cycle():
-    if not scanner.bitcoin_cycle:
-        await scanner.scan()
-    return scanner.bitcoin_cycle
+@app.get("/api/super-opportunities", response_model=SuperOpportunitiesResponse)
+async def super_opportunities(min_score: float = Query(0, ge=0, le=100)):
+    """Superokazje: cykl + bid/ask + poziomy wejścia/wyjścia + heatmapa liq."""
+    if not scanner.alpha_model or not scanner.beta_model:
+        asyncio.create_task(scanner.scan())
+        raise HTTPException(status_code=503, detail="Skanowanie rynku w toku — odśwież za chwilę")
+    return await build_super_opportunities(min_score=min_score)
 
 
-@app.get("/api/cycles/presidential")
-async def presidential_cycle():
-    if not scanner.presidential_cycle:
-        await scanner.scan()
-    return scanner.presidential_cycle
+@app.get("/api/super-opportunities/{symbol}")
+async def super_opportunity_detail(symbol: str):
+    """Detail for any catalog symbol — synthesizes from quote+model if not in scan pool."""
+    if not scanner.alpha_model and not scanner.beta_model:
+        asyncio.create_task(scanner.scan())
+        raise HTTPException(status_code=503, detail="Skanowanie rynku w toku — odśwież za chwilę")
+    match = await resolve_opportunity_for_symbol(symbol)
+    if not match:
+        raise HTTPException(
+            status_code=404,
+            detail="Nieznany symbol — wybierz instrument z rankingu lub rynków",
+        )
+    return await build_super_opportunity(match)
+
+
+@app.get("/api/models/alpha")
+async def alpha_model():
+    if not scanner.alpha_model:
+        asyncio.create_task(scanner.scan())
+        raise HTTPException(status_code=503, detail="Skanowanie rynku w toku — odśwież za chwilę")
+    return scanner.alpha_model
+
+
+@app.get("/api/models/beta")
+async def beta_model():
+    if not scanner.beta_model:
+        asyncio.create_task(scanner.scan())
+        raise HTTPException(status_code=503, detail="Skanowanie rynku w toku — odśwież za chwilę")
+    return scanner.beta_model
 
 
 # --- Watchlist ---
@@ -233,6 +508,94 @@ async def alerts_dispatch_pending(limit: int = Query(20, ge=1, le=100)):
     return await dispatch_signal_changes(normalized)
 
 
+@app.get("/status", response_class=HTMLResponse)
+async def status_page():
+    """No-JS status page — proves WWW works even if React fails to load."""
+    ready = bool(scanner.alpha_model and scanner.beta_model)
+    return f"""<!doctype html>
+<html lang="pl"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Cyclical Trader — status</title>
+<style>body{{font-family:system-ui,sans-serif;background:#121a17;color:#eef3ef;padding:24px;line-height:1.5}}
+a{{color:#2dd4bf}} .ok{{color:#34d399}} .wait{{color:#fbbf24}}</style></head>
+<body>
+<h1>Cyclical Trader</h1>
+<p class="{'ok' if ready else 'wait'}">API: OK · Skaner: {'gotowy' if ready else 'pierwsze skanowanie…'} · Okazje: {len(scanner.opportunities)}</p>
+<p><a href="/live"><strong>Otwórz LIVE (bez JS)</strong></a> · <a href="/">Aplikacja</a> · <a href="/rynki">Rynki</a> · <a href="/api/health">health</a></p>
+<meta http-equiv="refresh" content="5">
+</body></html>"""
+
+
+@app.get("/live", response_class=HTMLResponse)
+async def live_plain():
+    """
+    Plain HTML markets — works on any phone even if React/CDN/fonts fail.
+    This is the fallback when the SPA looks 'empty'.
+    """
+    from html import escape
+
+    quotes = await quote_cache.get_catalog_quotes(force=True)
+    live_n = sum(1 for q in quotes if q.live and q.price > 0)
+    by_src: dict[str, int] = {}
+    for q in quotes:
+        by_src[q.quote_source or "stub"] = by_src.get(q.quote_source or "stub", 0) + 1
+    src_line = " · ".join(f"{k.upper()} {v}" for k, v in sorted(by_src.items()))
+    alpha = scanner.alpha_model
+    beta = scanner.beta_model
+    alpha_txt = (
+        f"{escape(alpha.signal.value.upper())} · {escape(alpha.phase.value)} · "
+        f"{escape(alpha.rationale[:180])}"
+        if alpha
+        else "czekam na skan…"
+    )
+    beta_txt = (
+        f"{escape(beta.signal.value.upper())} · faza {beta.phase_number}"
+        if beta
+        else "—"
+    )
+    rows = []
+    for q in quotes:
+        ch = q.change_pct_24h
+        ch_s = f"{ch:+.2f}%" if ch is not None else "—"
+        rows.append(
+            "<tr>"
+            f"<td>{escape(q.name)}<br/><small>{escape(q.symbol)}</small></td>"
+            f"<td>{escape(q.region_label or q.region or '—')}</td>"
+            f"<td>{q.price:,.4f}</td>"
+            f"<td>{ch_s}</td>"
+            f"<td><strong>{escape((q.quote_source or '—').upper())}</strong></td>"
+            "</tr>"
+        )
+    opps = []
+    for o in scanner.opportunities[:12]:
+        opps.append(
+            f"<li><strong>{escape(o.symbol)}</strong> · {escape(o.action.value.upper())} · "
+            f"{o.confidence:.0f}% — {escape(o.name)}</li>"
+        )
+
+    return f"""<!doctype html>
+<html lang="pl"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>LIVE — Cyclical Trader</title>
+<style>
+body{{margin:0;font-family:system-ui,-apple-system,sans-serif;background:#0c1210;color:#eef3ef;padding:16px}}
+h1{{font-size:1.4rem;margin:0 0 8px}} a{{color:#2dd4bf}}
+.ok{{color:#34d399;font-weight:700}} .box{{background:#15201c;padding:12px;border-radius:10px;margin:12px 0}}
+table{{width:100%;border-collapse:collapse;font-size:14px}} th,td{{padding:8px 6px;border-bottom:1px solid #24322c;text-align:left}}
+small{{color:#9aada3}} .meta{{color:#9aada3;font-size:13px}}
+</style></head><body>
+<h1>Cyclical Trader · LIVE</h1>
+<p class="ok">POŁĄCZONO · {live_n}/{len(quotes)} notowań live</p>
+<p class="meta">Źródła: {escape(src_line)}. TradingView → Yahoo → CoinGecko. <a href="/rynki">Rynki SPA</a> · <a href="/">App</a></p>
+<div class="box"><strong>Alpha:</strong> {alpha_txt}<br/><strong>Beta:</strong> {beta_txt}</div>
+<div class="box"><strong>Okazje ({len(scanner.opportunities)})</strong><ul>{''.join(opps) or '<li>Brak — odśwież za chwilę</li>'}</ul></div>
+<h2>Wszystkie rynki ({len(quotes)})</h2>
+<table><thead><tr><th>Instrument</th><th>Region</th><th>Cena</th><th>24h</th><th>Źródło</th></tr></thead>
+<tbody>{''.join(rows)}</tbody></table>
+<p class="meta">Odświeżanie strony: co 20 s · każdy wiersz ma źródło TV/YH/CG</p>
+<meta http-equiv="refresh" content="20"/>
+</body></html>"""
+
+
 # --- WWW (SPA) — one URL for phone / desktop ---
 
 if STATIC_DIR.is_dir():
@@ -242,15 +605,32 @@ if STATIC_DIR.is_dir():
 
     @app.get("/")
     async def spa_index():
-        return FileResponse(STATIC_DIR / "index.html")
+        return FileResponse(
+            STATIC_DIR / "index.html",
+            headers={"Cache-Control": "no-store, max-age=0"},
+        )
 
     @app.get("/{full_path:path}")
     async def spa_fallback(full_path: str):
-        # Never steal API routes (registered above); this catches client routes.
+        # Never steal API / plain pages (registered above); this catches client routes.
         if full_path.startswith("api/") or full_path.startswith("docs") or full_path.startswith("openapi"):
+            raise HTTPException(status_code=404, detail="Not found")
+        if full_path in ("status", "live"):
             raise HTTPException(status_code=404, detail="Not found")
         candidate = STATIC_DIR / full_path
         if candidate.is_file():
             return FileResponse(candidate)
-        return FileResponse(STATIC_DIR / "index.html")
+        return FileResponse(
+            STATIC_DIR / "index.html",
+            headers={"Cache-Control": "no-store, max-age=0"},
+        )
+
+else:
+    @app.get("/")
+    async def missing_static():
+        return HTMLResponse(
+            "<h1>Brak UI</h1><p>Uruchom <code>./scripts/build-www.sh</code> albo Docker build.</p>"
+            "<p><a href='/live'>/live</a> · <a href='/status'>/status</a> · <a href='/api/health'>/api/health</a></p>",
+            status_code=503,
+        )
 

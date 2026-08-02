@@ -1,4 +1,5 @@
-import { CycleCardBitcoin, CycleCardPresidential } from '../components/CycleCards'
+import { Link } from 'react-router-dom'
+import { CycleCardAlpha, CycleCardBeta } from '../components/CycleCards'
 import LoadingState, { ErrorState } from '../components/LoadingState'
 import OpportunityCard from '../components/OpportunityCard'
 import AssetsTable from '../components/AssetsTable'
@@ -16,7 +17,7 @@ export default function DashboardPage() {
       <div className="page-header">
         <div>
           <h1>Dashboard</h1>
-          <p className="page-lead">Cykle, okazje i notowania w jednym widoku.</p>
+          <p className="page-lead">Modele, okazje i notowania w jednym widoku.</p>
         </div>
         <div className="page-actions">
           <div className="status-badge">
@@ -37,16 +38,22 @@ export default function DashboardPage() {
       {error && <p className="inline-error">{error}</p>}
 
       <div className="cycles-grid">
-        <CycleCardBitcoin cycle={data.bitcoin_cycle} />
-        <CycleCardPresidential cycle={data.presidential_cycle} />
+        <CycleCardAlpha model={data.alpha_model} />
+        <CycleCardBeta model={data.beta_model} />
       </div>
 
       <h2 className="section-title">
         Top okazje
         <span className="count">{Math.min(6, data.opportunities.length)}</span>
+        <Link to="/okazje" className="section-link">
+          Wszystkie okazje →
+        </Link>
+        <Link to="/superokazje" className="section-link">
+          Superokazje →
+        </Link>
       </h2>
       {data.opportunities.length === 0 ? (
-        <p className="empty">Brak aktywnych sygnałów — cykle nie wskazują na wyraźne okazje.</p>
+        <p className="empty">Brak aktywnych sygnałów — modele nie wskazują na wyraźne okazje.</p>
       ) : (
         <div className="opportunities-grid">
           {data.opportunities.slice(0, 6).map((opp) => (
@@ -58,8 +65,11 @@ export default function DashboardPage() {
       <h2 className="section-title">
         Notowania
         <span className="count">{data.monitored_assets.length}</span>
+        <Link to="/rynki" className="section-link">
+          Wszystkie rynki →
+        </Link>
       </h2>
-      <AssetsTable assets={data.monitored_assets} />
+      <AssetsTable assets={data.monitored_assets.slice(0, 12)} />
     </div>
   )
 }

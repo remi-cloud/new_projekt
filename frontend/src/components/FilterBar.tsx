@@ -1,11 +1,11 @@
-import { ASSET_LABELS, SIGNAL_LABELS } from '../lib/labels'
-import { AssetClass, SignalAction } from '../types'
+import { ASSET_LABELS, DIRECTION_LABELS, SignalDirection } from '../lib/labels'
+import { AssetClass } from '../types'
 
 type Props = {
   assetClass: AssetClass | 'all'
   onAssetClass: (v: AssetClass | 'all') => void
-  action?: SignalAction | 'all'
-  onAction?: (v: SignalAction | 'all') => void
+  direction?: SignalDirection | 'all'
+  onDirection?: (v: SignalDirection | 'all') => void
   showAction?: boolean
 }
 
@@ -19,13 +19,13 @@ const CLASSES: Array<AssetClass | 'all'> = [
   'forex',
 ]
 
-const ACTIONS: Array<SignalAction | 'all'> = ['all', 'buy', 'sell', 'hold', 'watch']
+const DIRECTIONS: Array<SignalDirection | 'all'> = ['all', 'long', 'short', 'neutral']
 
 export default function FilterBar({
   assetClass,
   onAssetClass,
-  action = 'all',
-  onAction,
+  direction = 'all',
+  onDirection,
   showAction = true,
 }: Props) {
   return (
@@ -45,18 +45,18 @@ export default function FilterBar({
           ))}
         </div>
       </div>
-      {showAction && onAction && (
+      {showAction && onDirection && (
         <div className="filter-group">
-          <span className="filter-label">Sygnał</span>
+          <span className="filter-label">Kierunek</span>
           <div className="filter-chips">
-            {ACTIONS.map((a) => (
+            {DIRECTIONS.map((d) => (
               <button
-                key={a}
+                key={d}
                 type="button"
-                className={`chip${action === a ? ' active' : ''}`}
-                onClick={() => onAction(a)}
+                className={`chip${direction === d ? ' active' : ''}`}
+                onClick={() => onDirection(d)}
               >
-                {a === 'all' ? 'Wszystkie' : SIGNAL_LABELS[a]}
+                {d === 'all' ? 'Wszystkie' : DIRECTION_LABELS[d]}
               </button>
             ))}
           </div>

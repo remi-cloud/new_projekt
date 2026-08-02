@@ -3,7 +3,9 @@ import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from app.config import settings
+from app.data.economic_calendar import fetch_economic_calendar
 from app.db.database import save_opportunities
+from app.db.economic_store import upsert_economic_events
 from app.notifications.dispatcher import dispatch_signal_changes
 from app.scanners.opportunity_scanner import scanner
 
@@ -33,6 +35,16 @@ async def scheduled_scan() -> None:
         logger.exception("Scheduled scan failed: %s", exc)
 
 
+async def scheduled_economic_sync() -> None:
+    """Background: refresh Investing-style economic calendar into SQLite."""
+    try:
+        events = await fetch_economic_calendar()
+        n = await upsert_economic_events(events)
+        logger.info("Economic calendar synced: %d events", n)
+    except Exception as exc:
+        logger.warning("Economic calendar sync failed: %s", exc)
+
+
 def start_scheduler() -> None:
     global _running
     if _running:
@@ -44,9 +56,20 @@ def start_scheduler() -> None:
         id="market_scan",
         replace_existing=True,
     )
+    # Calendar refresh often — events move to "actual" during the day
+    scheduler.add_job(
+        scheduled_economic_sync,
+        "interval",
+        minutes=10,
+        id="economic_calendar",
+        replace_existing=True,
+    )
     scheduler.start()
     _running = True
-    logger.info("Scheduler started (interval: %d min)", settings.scan_interval_minutes)
+    logger.info(
+        "Scheduler started (scan: %d min, calendar: 10 min)",
+        settings.scan_interval_minutes,
+    )
 
 
 def stop_scheduler() -> None:

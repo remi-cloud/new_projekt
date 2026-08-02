@@ -1,5 +1,7 @@
 import { AssetClass, SignalAction } from '../types'
 
+export type SignalDirection = 'long' | 'short' | 'neutral'
+
 export const ASSET_LABELS: Record<AssetClass, string> = {
   crypto: 'Krypto',
   stock: 'Akcje',
@@ -9,11 +11,35 @@ export const ASSET_LABELS: Record<AssetClass, string> = {
   forex: 'Forex',
 }
 
+/** Public labels — only LONG / SHORT / NEUTRAL. */
+export const DIRECTION_LABELS: Record<SignalDirection, string> = {
+  long: 'LONG',
+  short: 'SHORT',
+  neutral: 'NEUTRAL',
+}
+
+/** Map API action (buy/sell/hold/watch) → direction. */
+export function signalDirection(action: string): SignalDirection {
+  const a = action.toLowerCase()
+  if (a === 'sell' || a === 'short') return 'short'
+  if (a === 'buy' || a === 'long') return 'long'
+  // watch / hold = wait — NOT an aggressive LONG
+  if (a === 'hold' || a === 'watch' || a === 'neutral' || a === 'czekaj') return 'neutral'
+  return 'neutral'
+}
+
+/** API actions that belong to a direction (for filters / alerts). */
+export function actionsForDirection(dir: SignalDirection): SignalAction[] {
+  if (dir === 'long') return ['buy']
+  if (dir === 'short') return ['sell']
+  return ['hold', 'watch']
+}
+
 export const SIGNAL_LABELS: Record<SignalAction, string> = {
-  buy: 'Kupuj',
-  sell: 'Sprzedaj',
-  hold: 'Trzymaj',
-  watch: 'Obserwuj',
+  buy: 'LONG',
+  sell: 'SHORT',
+  hold: 'NEUTRAL',
+  watch: 'CZEKAJ',
 }
 
 export const PHASE_LABELS: Record<string, string> = {
@@ -22,10 +48,19 @@ export const PHASE_LABELS: Record<string, string> = {
   bull: 'Wzrostowa',
   distribution: 'Dystrybucja',
   neutral: 'Neutralna',
-  year_1: 'Rok 1',
-  year_2: 'Rok 2',
-  year_3: 'Rok 3',
-  year_4: 'Rok 4',
+  phase_1: 'Faza 1',
+  phase_2: 'Faza 2',
+  phase_3: 'Faza 3',
+  phase_4: 'Faza 4',
+}
+
+export const MODEL_LABELS: Record<string, string> = {
+  alpha: 'Model Alpha',
+  beta: 'Model Beta',
+}
+
+export function formatModel(source: string): string {
+  return MODEL_LABELS[source] ?? 'Model'
 }
 
 export function formatPrice(price: number, assetClass: AssetClass): string {
@@ -36,5 +71,11 @@ export function formatPrice(price: number, assetClass: AssetClass): string {
 }
 
 export function formatSignal(action: string): string {
-  return SIGNAL_LABELS[action as SignalAction] ?? action
+  const a = action.toLowerCase() as keyof typeof SIGNAL_LABELS
+  if (a in SIGNAL_LABELS) return SIGNAL_LABELS[a]
+  return DIRECTION_LABELS[signalDirection(action)]
+}
+
+export function formatDirection(side: string): string {
+  return DIRECTION_LABELS[signalDirection(side)]
 }

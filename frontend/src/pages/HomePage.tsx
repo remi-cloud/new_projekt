@@ -1,10 +1,11 @@
 import { Link } from 'react-router-dom'
-import { CycleCardBitcoin, CycleCardPresidential } from '../components/CycleCards'
+import { CycleCardAlpha, CycleCardBeta } from '../components/CycleCards'
 import LoadingState, { ErrorState } from '../components/LoadingState'
+import OpportunityCard from '../components/OpportunityCard'
 import { useDashboard } from '../hooks/useDashboard'
 
 export default function HomePage() {
-  const { data, loading, error, load } = useDashboard()
+  const { data, loading, error, booting, load } = useDashboard()
 
   return (
     <div className="home">
@@ -12,45 +13,68 @@ export default function HomePage() {
         <div className="hero-atmosphere" aria-hidden />
         <div className="hero-content">
           <p className="hero-brand">Cyclical Trader</p>
-          <h1 className="hero-title">Skanuj rynek. Łap cykl. Działaj.</h1>
+          <h1 className="hero-title">Skanuj rynek. Łap sygnał. Działaj.</h1>
           <p className="hero-lead">
-            Monitor 24/7 okazji kupna i sprzedaży opartych na cyklu Bitcoina oraz cyklu
-            prezydenckim USA — bez skalpingu, bez HFT.
+            Monitor 24/7 okazji kupna i sprzedaży wg modeli Alpha / Beta — bez skalpingu, bez HFT.
           </p>
           <div className="hero-cta">
             <Link className="btn btn-primary" to="/dashboard">
               Otwórz dashboard
             </Link>
-            <Link className="btn btn-ghost" to="/okazje">
-              Zobacz okazje
+            <Link className="btn btn-ghost" to="/superokazje">
+              Superokazje
             </Link>
           </div>
         </div>
       </section>
 
-      {loading && <LoadingState message="Pobieranie statusu cykli…" />}
-      {error && !data && <ErrorState message={error} onRetry={load} />}
+      {(loading || booting) && (
+        <LoadingState
+          message={
+            booting
+              ? 'Pierwsze skanowanie rynku — to może potrwać ~20–40 s…'
+              : 'Pobieranie statusu modeli…'
+          }
+        />
+      )}
+      {error && !data && !booting && <ErrorState message={error} onRetry={load} />}
       {data && (
         <section className="home-cycles">
-          <h2 className="section-title">Gdzie jesteśmy w cyklu</h2>
+          <h2 className="section-title">Status modeli</h2>
           <div className="cycles-grid">
-            <CycleCardBitcoin cycle={data.bitcoin_cycle} />
-            <CycleCardPresidential cycle={data.presidential_cycle} />
+            <CycleCardAlpha model={data.alpha_model} />
+            <CycleCardBeta model={data.beta_model} />
           </div>
           <div className="home-stats">
-            <div className="home-stat">
+            <Link to="/okazje" className="home-stat home-stat-link">
               <strong>{data.opportunities.length}</strong>
               <span>aktywnych sygnałów</span>
-            </div>
-            <div className="home-stat">
+            </Link>
+            <Link to="/rynki" className="home-stat home-stat-link">
               <strong>{data.monitored_assets.length}</strong>
               <span>monitorowanych instrumentów</span>
-            </div>
-            <div className="home-stat">
+            </Link>
+            <Link to="/superokazje" className="home-stat home-stat-link">
               <strong>{data.scanner_running ? 'ON' : 'OFF'}</strong>
               <span>skaner 24/7</span>
-            </div>
+            </Link>
           </div>
+
+          {data.opportunities.length > 0 && (
+            <>
+              <h2 className="section-title">
+                Top pozycje
+                <Link to="/superokazje" className="section-link">
+                  Otwórz ranking →
+                </Link>
+              </h2>
+              <div className="opportunities-grid">
+                {data.opportunities.slice(0, 3).map((opp) => (
+                  <OpportunityCard key={`${opp.symbol}-${opp.created_at}`} opp={opp} />
+                ))}
+              </div>
+            </>
+          )}
         </section>
       )}
     </div>

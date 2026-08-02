@@ -1,150 +1,105 @@
+"""Scanner facade tests — pipeline covered in test_agents.py."""
+
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from app.agents.types import AgentScanResult
 from app.models.schemas import (
+    AlphaModelStatus,
     AssetClass,
     AssetQuote,
-    BitcoinCycleStatus,
+    BetaModelStatus,
+    BetaPhase,
     CyclePhase,
-    PresidentialCycleStatus,
-    PresidentialYear,
+    Opportunity,
     SignalAction,
 )
 from app.scanners.opportunity_scanner import OpportunityScanner
 
 
-def _btc_cycle(phase: CyclePhase, signal: SignalAction, progress: float = 50) -> BitcoinCycleStatus:
-    return BitcoinCycleStatus(
-        last_ath_date="2024-01-01",
-        last_ath_price=100_000,
+def _alpha() -> AlphaModelStatus:
+    return AlphaModelStatus(
+        reference_date="2024-01-01",
+        reference_price=100_000,
         current_price=80_000,
-        days_since_ath=200,
-        phase=phase,
-        phase_progress_pct=progress,
+        days_since_reference=200,
+        phase=CyclePhase.BEAR,
+        phase_progress_pct=50,
         days_remaining_in_phase=100,
-        signal=signal,
+        signal=SignalAction.BUY,
         rationale="test",
     )
 
 
-def _pres_cycle(year: int = 3) -> PresidentialCycleStatus:
-    return PresidentialCycleStatus(
-        term_start="2025-01-20",
-        term_end="2029-01-20",
-        president="Trump II",
-        current_year=PresidentialYear(f"year_{year}"),
-        year_number=year,
-        days_into_year=100,
-        days_remaining_in_year=265,
-        year_progress_pct=27.0,
+def _beta() -> BetaModelStatus:
+    return BetaModelStatus(
+        period_start="2025-01-20",
+        period_end="2029-01-20",
+        current_phase=BetaPhase.PHASE_3,
+        phase_number=3,
+        days_into_phase=100,
+        days_remaining_in_phase=265,
+        phase_progress_pct=27.0,
         historical_bias="test",
         signal=SignalAction.BUY,
         rationale="test",
     )
 
 
-def _quote(symbol: str, asset_class: AssetClass, change_7d: float | None = -6) -> AssetQuote:
-    return AssetQuote(
-        symbol=symbol,
-        name=symbol,
-        asset_class=asset_class,
-        price=100.0,
-        change_pct_24h=-1.0,
-        change_pct_7d=change_7d,
-        updated_at=datetime.now(timezone.utc),
+@pytest.mark.asyncio
+async def test_scanner_facade_delegates_to_orchestrator():
+    scanner = OpportunityScanner()
+    opp = Opportunity(
+        symbol="AAPL",
+        name="Apple",
+        asset_class=AssetClass.STOCK,
+        action=SignalAction.BUY,
+        confidence=70,
+        cycle_source="beta",
+        phase="phase_3",
+        price=100,
+        rationale="t",
+        created_at=datetime.now(timezone.utc),
     )
+    fake = AgentScanResult(
+        opportunities=[opp],
+        long_findings=[],
+        short_findings=[],
+        long_verdicts=[],
+        short_verdicts=[],
+        alpha_model=_alpha(),
+        beta_model=_beta(),
+        quotes=[
+            AssetQuote(
+                symbol="AAPL",
+                name="Apple",
+                asset_class=AssetClass.STOCK,
+                price=100,
+                change_pct_24h=0,
+                change_pct_7d=-2,
+                updated_at=datetime.now(timezone.utc),
+            )
+        ],
+        scanned_at=datetime.now(timezone.utc),
+        scout_stats={"merged": 1},
+    )
+    with patch.object(scanner._orch, "run_pipeline", new=AsyncMock(return_value=fake)):
+        # Also set state as pipeline would
+        async def _run():
+            scanner._orch.opportunities = fake.opportunities
+            scanner._orch.alpha_model = fake.alpha_model
+            scanner._orch.beta_model = fake.beta_model
+            scanner._orch.quotes = fake.quotes
+            scanner._orch.last_scan_at = fake.scanned_at
+            scanner._orch.last_result = fake
+            return fake
 
-
-@pytest.mark.asyncio
-async def test_scan_crypto_buy_in_bear():
-    scanner = OpportunityScanner()
-    with (
-        patch(
-            "app.scanners.opportunity_scanner.fetch_bitcoin_ath",
-            new=AsyncMock(return_value=(datetime(2024, 1, 1).date(), 100_000.0, 80_000.0)),
-        ),
-        patch(
-            "app.scanners.opportunity_scanner.analyze_bitcoin_cycle",
-            return_value=_btc_cycle(CyclePhase.BEAR, SignalAction.BUY, 70),
-        ),
-        patch(
-            "app.scanners.opportunity_scanner.analyze_presidential_cycle",
-            return_value=_pres_cycle(3),
-        ),
-        patch(
-            "app.scanners.opportunity_scanner.presidential_buy_weight",
-            return_value=1.0,
-        ),
-        patch(
-            "app.scanners.opportunity_scanner.get_watchlist",
-            new=AsyncMock(
-                return_value=[
-                    {
-                        "symbol": "BTC-USD",
-                        "name": "Bitcoin",
-                        "asset_class": "crypto",
-                        "source": "yahoo",
-                        "enabled": 1,
-                    }
-                ]
-            ),
-        ),
-        patch(
-            "app.scanners.opportunity_scanner.fetch_quotes",
-            new=AsyncMock(return_value=[_quote("BTC-USD", AssetClass.CRYPTO)]),
-        ),
-    ):
-        opps = await scanner.scan()
+        with patch.object(scanner._orch, "run_pipeline", new=AsyncMock(side_effect=_run)):
+            opps = await scanner.scan()
 
     assert len(opps) == 1
-    assert opps[0].action == SignalAction.BUY
-    assert opps[0].cycle_source == "bitcoin_cycle"
-    assert opps[0].confidence >= 50
-
-
-@pytest.mark.asyncio
-async def test_scan_equity_year3_boost():
-    scanner = OpportunityScanner()
-    with (
-        patch(
-            "app.scanners.opportunity_scanner.fetch_bitcoin_ath",
-            new=AsyncMock(return_value=(datetime(2024, 1, 1).date(), 100_000.0, 80_000.0)),
-        ),
-        patch(
-            "app.scanners.opportunity_scanner.analyze_bitcoin_cycle",
-            return_value=_btc_cycle(CyclePhase.BULL, SignalAction.HOLD),
-        ),
-        patch(
-            "app.scanners.opportunity_scanner.analyze_presidential_cycle",
-            return_value=_pres_cycle(3),
-        ),
-        patch(
-            "app.scanners.opportunity_scanner.presidential_buy_weight",
-            return_value=1.0,
-        ),
-        patch(
-            "app.scanners.opportunity_scanner.get_watchlist",
-            new=AsyncMock(
-                return_value=[
-                    {
-                        "symbol": "AAPL",
-                        "name": "Apple",
-                        "asset_class": "stock",
-                        "source": "yahoo",
-                        "enabled": 1,
-                    }
-                ]
-            ),
-        ),
-        patch(
-            "app.scanners.opportunity_scanner.fetch_quotes",
-            new=AsyncMock(return_value=[_quote("AAPL", AssetClass.STOCK, -4)]),
-        ),
-    ):
-        opps = await scanner.scan()
-
-    assert len(opps) == 1
-    assert opps[0].action == SignalAction.BUY
-    assert opps[0].confidence >= 60
+    assert opps[0].symbol == "AAPL"
+    assert scanner.alpha_model is not None
+    assert scanner.beta_model is not None

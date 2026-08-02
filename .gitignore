@@ -8,3 +8,4 @@ backend/data/
 backend/static/
 *.db
 *.tsbuildinfo
+PUBLIC_URL.txt

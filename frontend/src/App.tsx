@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
+import AgentsPage from './pages/AgentsPage'
 import AlertsPage from './pages/AlertsPage'
 import CyclesPage from './pages/CyclesPage'
 import DashboardPage from './pages/DashboardPage'
@@ -7,6 +8,8 @@ import HistoryPage from './pages/HistoryPage'
 import HomePage from './pages/HomePage'
 import MarketsPage from './pages/MarketsPage'
 import OpportunitiesPage from './pages/OpportunitiesPage'
+import SuperOpportunitiesPage from './pages/SuperOpportunitiesPage'
+import ToolsPage from './pages/ToolsPage'
 import WatchlistPage from './pages/WatchlistPage'
 
 export default function App() {
@@ -17,6 +20,14 @@ export default function App() {
           <Route index element={<HomePage />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="okazje" element={<OpportunitiesPage />} />
+          <Route path="superokazje" element={<SuperOpportunitiesPage />} />
+          <Route path="superokazje/:symbol" element={<SuperOpportunitiesPage />} />
+          <Route path="pozycja/:symbol" element={<SuperOpportunitiesPage />} />
+          <Route path="narzedzia" element={<ToolsPage />} />
+          <Route path="narzedzia/singularity" element={<AgentsPage />} />
+          <Route path="singularity" element={<Navigate to="/narzedzia/singularity" replace />} />
+          <Route path="agenci" element={<Navigate to="/narzedzia/singularity" replace />} />
+          <Route path="modele" element={<CyclesPage />} />
           <Route path="cykle" element={<CyclesPage />} />
           <Route path="historia" element={<HistoryPage />} />
           <Route path="rynki" element={<MarketsPage />} />

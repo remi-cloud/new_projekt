@@ -29,13 +29,15 @@ class CyclePhase(str, Enum):
     NEUTRAL = "neutral"
 
 
-class BitcoinCycleStatus(BaseModel):
-    last_ath_date: date
-    last_ath_price: float
+class AlphaModelStatus(BaseModel):
+    """Public status for Model Alpha (crypto scoring layer)."""
+
+    reference_date: date
+    reference_price: float
     current_price: float
-    days_since_ath: int
-    bear_phase_end_day: int = 364
-    bull_phase_end_day: int = 1428
+    days_since_reference: int
+    phase_a_end_day: int = 364
+    phase_b_end_day: int = 1428
     phase: CyclePhase
     phase_progress_pct: float
     days_remaining_in_phase: int
@@ -43,25 +45,32 @@ class BitcoinCycleStatus(BaseModel):
     rationale: str
 
 
-class PresidentialYear(str, Enum):
-    YEAR_1 = "year_1"
-    YEAR_2 = "year_2"
-    YEAR_3 = "year_3"
-    YEAR_4 = "year_4"
+class BetaPhase(str, Enum):
+    PHASE_1 = "phase_1"
+    PHASE_2 = "phase_2"
+    PHASE_3 = "phase_3"
+    PHASE_4 = "phase_4"
 
 
-class PresidentialCycleStatus(BaseModel):
-    term_start: date
-    term_end: date
-    president: str
-    current_year: PresidentialYear
-    year_number: int
-    days_into_year: int
-    days_remaining_in_year: int
-    year_progress_pct: float
+class BetaModelStatus(BaseModel):
+    """Public status for Model Beta (traditional markets scoring layer)."""
+
+    period_start: date
+    period_end: date
+    current_phase: BetaPhase
+    phase_number: int
+    days_into_phase: int
+    days_remaining_in_phase: int
+    phase_progress_pct: float
     historical_bias: str
     signal: SignalAction
     rationale: str
+
+
+# Internal aliases kept for gradual migration in engine modules
+BitcoinCycleStatus = AlphaModelStatus
+PresidentialCycleStatus = BetaModelStatus
+PresidentialYear = BetaPhase
 
 
 class AssetQuote(BaseModel):
@@ -73,6 +82,69 @@ class AssetQuote(BaseModel):
     change_pct_7d: Optional[float] = None
     currency: str = "USD"
     updated_at: datetime
+    region: str = "usa"
+    region_label: str = "USA"
+    live: bool = True
+    quote_source: str = "yahoo"
+
+
+class MarketRegionCount(BaseModel):
+    id: str
+    label: str
+    count: int
+    live_count: int = 0
+
+
+class MarketsResponse(BaseModel):
+    generated_at: str
+    count: int
+    global_count: int
+    live_count: int
+    regions: list[MarketRegionCount]
+    items: list[AssetQuote]
+
+
+class EconomicEvent(BaseModel):
+    event_id: str
+    title: str
+    country: str
+    impact: str
+    impact_rank: int = 0
+    event_at: str
+    forecast: str = ""
+    previous: str = ""
+    actual: str = ""
+    source: str = "faireconomy"
+
+
+class BroadcastSetup(BaseModel):
+    symbol: str
+    name: str
+    side: str
+    confidence: float
+    super_score: float | None = None
+    price: float
+    rationale: str
+    path: str
+
+
+class BroadcastResponse(BaseModel):
+    """Always-on live results ticker (red breaking window every 20 min)."""
+
+    visible: bool
+    mode: str = "live"  # live | breaking
+    live_count: int = 0
+    quote_count: int = 0
+    cycle_minutes: int = 20
+    show_minutes: int = 2
+    seconds_remaining: int
+    next_show_in_seconds: int
+    headline: str
+    setup: Optional[BroadcastSetup] = None
+    events: list[EconomicEvent] = Field(default_factory=list)
+    lines: list[str] = Field(default_factory=list)
+    sources: list[str] = Field(default_factory=list)
+    generated_at: str
 
 
 class Opportunity(BaseModel):
@@ -90,8 +162,8 @@ class Opportunity(BaseModel):
 
 
 class DashboardResponse(BaseModel):
-    bitcoin_cycle: BitcoinCycleStatus
-    presidential_cycle: PresidentialCycleStatus
+    alpha_model: AlphaModelStatus
+    beta_model: BetaModelStatus
     opportunities: list[Opportunity]
     monitored_assets: list[AssetQuote]
     last_scan_at: Optional[datetime] = None
@@ -163,3 +235,131 @@ class AlertLogEntry(BaseModel):
     message: str
     detail: Optional[str] = None
     created_at: str
+
+
+class TradeLevels(BaseModel):
+    side: str
+    entry: float
+    stop_loss: float
+    take_profit_1: float
+    take_profit_2: float
+    risk_reward: float
+    note: str
+
+
+class HeatmapBin(BaseModel):
+    price: float
+    long_intensity: float
+    short_intensity: float
+    dominant: str
+    intensity: float
+
+
+class LiquidationHeatmap(BaseModel):
+    price: float
+    range_low: float
+    range_high: float
+    bins: list[HeatmapBin]
+    columns: list[list[HeatmapBin]] = Field(default_factory=list)
+    max_intensity: float = 1.0
+
+
+class LiqPathPoint(BaseModel):
+    t: float
+    price: float
+    role: str
+    intensity: float = 0
+
+
+class LiqAnchor(BaseModel):
+    price: float
+    role: str
+    label: str
+    t: float
+    liq_side: Optional[str] = None
+
+
+class LiqPrediction(BaseModel):
+    direction: str
+    confidence: float
+    summary: str
+    target_price: float
+    target_side: str
+    target_intensity: float = 0
+    pull_up: float = 0
+    pull_down: float = 0
+    momentum: float = 0
+    path: list[LiqPathPoint] = Field(default_factory=list)
+    anchors: list[LiqAnchor] = Field(default_factory=list)
+    features: dict = Field(default_factory=dict)
+
+
+class AiTradeFactor(BaseModel):
+    name: str
+    side: str
+    weight: float
+    detail: str
+
+
+class AiTradeSignal(BaseModel):
+    """AI consultation verdict: kup / sprzedaj / czekaj."""
+
+    signal: str
+    label: str
+    confidence: float
+    buy_score: float
+    sell_score: float
+    aligned: bool = False
+    conflict: bool = False
+    summary: str
+    factors: list[AiTradeFactor] = Field(default_factory=list)
+    verdict_detail: str = ""
+
+
+class WhaleFlowSignal(BaseModel):
+    """Large-player CEX + on-chain flow for crypto."""
+
+    symbol: str
+    bias: str  # accumulate | distribute | neutral
+    side_hint: str = "neutral"
+    strength: float = 0
+    score: float = 0
+    summary: str = ""
+    factors: list[str] = Field(default_factory=list)
+    updated_at: Optional[str] = None
+
+
+class SuperOpportunity(BaseModel):
+    symbol: str
+    name: str
+    asset_class: str
+    action: str
+    cycle_confidence: float
+    super_score: float
+    is_super: bool
+    cycle_source: str
+    phase: str
+    price: float
+    bid: Optional[float] = None
+    ask: Optional[float] = None
+    spread_pct: Optional[float] = None
+    book_source: Optional[str] = None
+    levels: TradeLevels
+    heatmap: LiquidationHeatmap
+    prediction: Optional[LiqPrediction] = None
+    ai_signal: Optional[AiTradeSignal] = None
+    whale: Optional[WhaleFlowSignal] = None
+    reasons: list[str]
+    rationale: str
+    updated_at: str
+
+
+class SuperOpportunitiesResponse(BaseModel):
+    generated_at: str
+    count: int
+    super_count: int
+    long_count: int = 0
+    short_count: int = 0
+    items: list[SuperOpportunity]
+    supers: list[SuperOpportunity]
+    scanner_last_scan_at: Optional[str] = None

@@ -6,10 +6,14 @@ import {
   testAlert,
 } from '../api'
 import LoadingState from '../components/LoadingState'
-import { SIGNAL_LABELS } from '../lib/labels'
-import { AlertLogEntry, AlertSettings, SignalAction } from '../types'
+import {
+  actionsForDirection,
+  DIRECTION_LABELS,
+  SignalDirection,
+} from '../lib/labels'
+import { AlertLogEntry, AlertSettings } from '../types'
 
-const ACTION_OPTIONS: SignalAction[] = ['buy', 'sell', 'hold', 'watch']
+const DIRECTION_OPTIONS: SignalDirection[] = ['long', 'short', 'neutral']
 
 const EMPTY: AlertSettings = {
   enabled: false,
@@ -17,7 +21,7 @@ const EMPTY: AlertSettings = {
   ntfy_topic: '',
   webhook_url: '',
   min_confidence: 50,
-  actions: ['buy', 'sell'],
+  actions: ['buy', 'sell', 'watch'],
   alert_on_first_seen: false,
 }
 
@@ -46,13 +50,23 @@ export default function AlertsPage() {
     load()
   }, [load])
 
-  const toggleAction = (action: string) => {
+  const directionActive = (dir: SignalDirection) => {
+    const needed = actionsForDirection(dir)
+    return needed.every((a) => settings.actions.includes(a))
+  }
+
+  const toggleDirection = (dir: SignalDirection) => {
+    const needed = actionsForDirection(dir)
     setSettings((prev) => {
-      const has = prev.actions.includes(action)
-      return {
-        ...prev,
-        actions: has ? prev.actions.filter((a) => a !== action) : [...prev.actions, action],
+      const active = needed.every((a) => prev.actions.includes(a))
+      if (active) {
+        return {
+          ...prev,
+          actions: prev.actions.filter((a) => !needed.includes(a as typeof needed[number])),
+        }
       }
+      const merged = new Set([...prev.actions, ...needed])
+      return { ...prev, actions: [...merged] }
     })
   }
 
@@ -165,16 +179,16 @@ export default function AlertsPage() {
         </label>
 
         <div className="filter-group">
-          <span className="filter-label">Alertuj przy sygnałach</span>
+          <span className="filter-label">Alertuj przy kierunku</span>
           <div className="filter-chips">
-            {ACTION_OPTIONS.map((action) => (
+            {DIRECTION_OPTIONS.map((dir) => (
               <button
-                key={action}
+                key={dir}
                 type="button"
-                className={`chip${settings.actions.includes(action) ? ' active' : ''}`}
-                onClick={() => toggleAction(action)}
+                className={`chip${directionActive(dir) ? ' active' : ''}`}
+                onClick={() => toggleDirection(dir)}
               >
-                {SIGNAL_LABELS[action]}
+                {DIRECTION_LABELS[dir]}
               </button>
             ))}
           </div>
@@ -201,8 +215,8 @@ export default function AlertsPage() {
             <li>Wklej topic powyżej i kliknij „Wyślij test”</li>
           </ol>
           <p>
-            Dane rynkowe: <strong>CoinGecko</strong> (ATH BTC + krypto),{' '}
-            <strong>Yahoo Finance chart API</strong> (akcje/indeksy/obligacje/surowce/forex).
+            Dane rynkowe: publiczne API notowań (krypto + rynki tradycyjne). Modele scoringu są
+            wewnętrzne.
           </p>
         </div>
 

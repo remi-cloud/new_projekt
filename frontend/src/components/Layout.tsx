@@ -1,10 +1,13 @@
 import { NavLink, Outlet } from 'react-router-dom'
+import BreakingTicker from './BreakingTicker'
 
 const NAV = [
   { to: '/', label: 'Start', end: true },
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/okazje', label: 'Okazje' },
-  { to: '/cykle', label: 'Cykle' },
+  { to: '/superokazje', label: 'Superokazje' },
+  { to: '/narzedzia', label: 'Narzędzia' },
+  { to: '/modele', label: 'Modele' },
   { to: '/historia', label: 'Historia' },
   { to: '/rynki', label: 'Rynki' },
   { to: '/watchlista', label: 'Watchlista' },
@@ -15,6 +18,7 @@ export default function Layout() {
   return (
     <div className="shell">
       <div className="shell-glow" aria-hidden />
+      <BreakingTicker />
       <header className="topbar">
         <NavLink to="/" className="brand">
           <span className="brand-mark">CT</span>
@@ -37,8 +41,7 @@ export default function Layout() {
         <Outlet />
       </main>
       <footer className="footer">
-        Cyclical Trader · Krypto: cykl 364d + 1064d od ATH · Tradycyjne: cykl prezydencki USA ·
-        Nie jest to porada inwestycyjna
+        Cyclical Trader · Superokazje · Narzędzia · Nie jest to porada inwestycyjna
       </footer>
     </div>
   )

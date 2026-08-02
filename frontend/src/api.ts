@@ -1,8 +1,14 @@
 import {
   AlertLogEntry,
   AlertSettings,
+  AgentsReport,
+  BroadcastResponse,
   DashboardResponse,
+  EconomicEvent,
   HistoryResponse,
+  MarketsResponse,
+  SuperOpportunitiesResponse,
+  SuperOpportunity,
   WatchlistItem,
   WatchlistResponse,
 } from './types'
@@ -11,7 +17,16 @@ const API_BASE = '/api'
 
 async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`)
-  if (!res.ok) throw new Error(`Błąd API (${res.status})`)
+  if (!res.ok) {
+    let detail = `Błąd API (${res.status})`
+    try {
+      const body = await res.json()
+      if (body?.detail) detail = String(body.detail)
+    } catch {
+      /* ignore */
+    }
+    throw new Error(detail)
+  }
   return res.json()
 }
 
@@ -30,6 +45,39 @@ async function sendJson<T>(path: string, method: string, body?: unknown): Promis
 
 export async function fetchDashboard(): Promise<DashboardResponse> {
   return getJson<DashboardResponse>('/dashboard')
+}
+
+export async function fetchMarkets(region?: string, refresh = false): Promise<MarketsResponse> {
+  const params = new URLSearchParams()
+  if (region) params.set('region', region)
+  if (refresh) params.set('refresh', 'true')
+  const q = params.toString() ? `?${params.toString()}` : ''
+  return getJson<MarketsResponse>(`/markets${q}`)
+}
+
+export interface MarketStatus {
+  connected: boolean
+  generated_at: string
+  tradingview?: { ok: boolean; sample?: unknown; error?: string }
+  yahoo?: { ok: boolean; sample_price?: number; error?: string }
+  coingecko?: { ok: boolean; sample_price?: number; error?: string }
+  cached_quotes: number
+  cached_live: number
+  last_refresh_at: string | null
+  ttl_seconds: number
+}
+
+export async function fetchMarketStatus(): Promise<MarketStatus> {
+  return getJson<MarketStatus>('/market-status')
+}
+
+export async function fetchBroadcast(force = false): Promise<BroadcastResponse> {
+  const q = force ? '?force=true' : ''
+  return getJson<BroadcastResponse>(`/broadcast${q}`)
+}
+
+export async function fetchEconomicCalendar(): Promise<EconomicEvent[]> {
+  return getJson<EconomicEvent[]>('/economic-calendar?min_impact=2&hours_ahead=72')
 }
 
 export async function triggerScan(): Promise<{
@@ -82,4 +130,18 @@ export async function fetchAlertLog(): Promise<AlertLogEntry[]> {
 
 export async function testAlert(): Promise<{ ok: boolean; detail?: string }> {
   return sendJson('/alerts/test', 'POST')
+}
+
+export async function fetchSuperOpportunities(
+  minScore = 0,
+): Promise<SuperOpportunitiesResponse> {
+  return getJson<SuperOpportunitiesResponse>(`/super-opportunities?min_score=${minScore}`)
+}
+
+export async function fetchSuperOpportunity(symbol: string): Promise<SuperOpportunity> {
+  return getJson<SuperOpportunity>(`/super-opportunities/${encodeURIComponent(symbol)}`)
+}
+
+export async function fetchAgentsReport(): Promise<AgentsReport> {
+  return getJson<AgentsReport>('/singularity')
 }
