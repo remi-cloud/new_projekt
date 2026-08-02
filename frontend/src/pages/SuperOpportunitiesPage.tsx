@@ -113,8 +113,8 @@ export default function SuperOpportunitiesPage() {
         <div>
           <h1>Superokazje</h1>
           <p className="page-lead">
-            Kliknij pozycję — otwiera pełny widok: bid/ask, poziomy wejścia/wyjścia i heatmapę liq.
-            Linki działają z Okazji, Dashboardu, Rynków, Watchlisty i Historii.
+            Pełna pozycja: bid/ask, poziomy IN/SL/TP oraz heatmapa liq 3D z głębią (HiDPI).
+            Przeciągnij mapę, żeby obrócić. Linki z Okazji / Rynków / Watchlisty / Historii.
           </p>
         </div>
         <div className="page-actions">
@@ -297,7 +297,7 @@ function SuperDetail({ item }: { item: SuperOpportunity }) {
       </div>
       <p className="opp-rationale">{levels.note}</p>
 
-      <h3 className="mini-title">Heatmapa likwidacji</h3>
+      <h3 className="mini-title">Heatmapa likwidacji 3D</h3>
       <LiquidationHeatmapBar
         heatmap={item.heatmap}
         entry={levels.entry}

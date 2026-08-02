@@ -159,8 +159,8 @@ def estimate_liquidation_heatmap(
     highs: list[float] | None = None,
     lows: list[float] | None = None,
     volumes: list[float] | None = None,
-    bins: int = 40,
-    time_cols: int = 36,
+    bins: int = 72,
+    time_cols: int = 56,
 ) -> dict:
     """
     Build a CoinGlass-style 2D liquidation heatmap (time × price).
