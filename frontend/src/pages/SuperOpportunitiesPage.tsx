@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { fetchSuperOpportunities, fetchSuperOpportunity, triggerScan } from '../api'
 import LiquidationHeatmapBar from '../components/LiquidationHeatmap'
@@ -6,6 +6,7 @@ import LoadingState, { ErrorState } from '../components/LoadingState'
 import SignalTag from '../components/SignalTag'
 import { ASSET_LABELS, formatPrice } from '../lib/labels'
 import { positionPath } from '../lib/routes'
+import { SingularEvents, trackEvent } from '../lib/singular'
 import { SuperOpportunity, SuperOpportunitiesResponse } from '../types'
 
 export default function SuperOpportunitiesPage() {
@@ -101,6 +102,20 @@ export default function SuperOpportunitiesPage() {
     list[0] ??
     null
 
+  const trackedSymbol = useRef<string | null>(null)
+  useEffect(() => {
+    if (!active) return
+    const key = active.symbol.toUpperCase()
+    if (trackedSymbol.current === key) return
+    trackedSymbol.current = key
+    trackEvent(SingularEvents.POSITION_OPEN, {
+      symbol: active.symbol,
+      side: active.levels.side,
+      is_super: active.is_super,
+      score: active.super_score,
+    })
+  }, [active])
+
   if (loading) {
     return <LoadingState message="Liczenie superokazji (bid/ask + heatmapa liq)…" />
   }
@@ -133,6 +148,7 @@ export default function SuperOpportunitiesPage() {
             onClick={async () => {
               setBusy(true)
               try {
+                trackEvent(SingularEvents.SCAN, { source: 'superokazje' })
                 await triggerScan()
                 await load()
               } finally {

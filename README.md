@@ -13,6 +13,7 @@ Skaner rynku 24/7 — sygnały kupna/sprzedaży, superokazje, watchlista i alert
 | **Watchlista** | Dodawaj / wyłączaj / usuwaj instrumenty |
 | **Alerty** | ntfy (telefon) + webhook przy zmianie sygnału |
 | **Historia** | Log skanów + zmiany sygnałów |
+| **Singular** | Opcjonalny Web SDK (atrybucja / eventy) — włącz przez `VITE_SINGULAR_*` |
 
 ## Źródła danych rynkowych
 
@@ -105,6 +106,8 @@ cd backend && pip install -r requirements.txt && pytest -q
 ## Konfiguracja
 
 Prefix `CYCLICAL_` — zobacz `.env.example`.
+
+Opcjonalnie Singular Web SDK (build frontend): `VITE_SINGULAR_SDK_KEY`, `VITE_SINGULAR_SDK_SECRET`, `VITE_SINGULAR_PRODUCT_ID`. Bez tych zmiennych moduł jest wyłączony.
 
 ## Architektura
 

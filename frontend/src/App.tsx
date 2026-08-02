@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
+import SingularTracker from './components/SingularTracker'
 import AlertsPage from './pages/AlertsPage'
 import CyclesPage from './pages/CyclesPage'
 import DashboardPage from './pages/DashboardPage'
@@ -13,6 +14,7 @@ import WatchlistPage from './pages/WatchlistPage'
 export default function App() {
   return (
     <BrowserRouter>
+      <SingularTracker />
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<HomePage />} />
