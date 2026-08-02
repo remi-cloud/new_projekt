@@ -221,6 +221,11 @@ export default function SuperOpportunitiesPage() {
               >
                 <div className="super-list-top">
                   <strong>{item.symbol}</strong>
+                  {item.whale && item.whale.bias !== 'neutral' && (
+                    <span className={`whale-mini bias-${item.whale.bias}`}>
+                      {item.whale.bias === 'accumulate' ? 'WHALE↑' : 'WHALE↓'}
+                    </span>
+                  )}
                   {item.ai_signal ? (
                     <span className={`ai-mini-tag ai-mini-${item.ai_signal.signal}`}>
                       {item.ai_signal.label}
@@ -276,6 +281,30 @@ function SuperDetail({ item }: { item: SuperOpportunity }) {
       </div>
 
       <SingularityTool ai={item.ai_signal} />
+
+      {item.whale && (
+        <div className={`whale-panel bias-${item.whale.bias}`}>
+          <div className="whale-panel-head">
+            <span className="whale-tag">WHALE · ON-CHAIN / CEX</span>
+            <strong>
+              {item.whale.bias === 'accumulate'
+                ? 'WEJŚCIE'
+                : item.whale.bias === 'distribute'
+                  ? 'WYJŚCIE'
+                  : 'NEUTRAL'}
+            </strong>
+            <em>{item.whale.strength.toFixed(0)}</em>
+          </div>
+          <p>{item.whale.summary}</p>
+          {item.whale.factors?.length > 0 && (
+            <ul>
+              {item.whale.factors.slice(0, 4).map((f) => (
+                <li key={f}>{f}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       <div className="super-grid">
         <div className="stat">

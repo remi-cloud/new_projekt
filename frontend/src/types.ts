@@ -288,9 +288,21 @@ export interface SuperOpportunity {
   heatmap: LiquidationHeatmap
   prediction?: LiqPrediction | null
   ai_signal?: AiTradeSignal | null
+  whale?: WhaleFlowSignal | null
   reasons: string[]
   rationale: string
   updated_at: string
+}
+
+export interface WhaleFlowSignal {
+  symbol: string
+  bias: 'accumulate' | 'distribute' | 'neutral' | string
+  side_hint: string
+  strength: number
+  score: number
+  summary: string
+  factors: string[]
+  updated_at?: string | null
 }
 
 export interface SuperOpportunitiesResponse {

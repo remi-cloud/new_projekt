@@ -13,6 +13,7 @@ from app.data.orderbook import (
     fetch_volume_profile,
 )
 from app.data.quote_cache import quote_cache
+from app.data.whale_flows import fetch_whale_for_symbol, get_cached_whale
 from app.models.schemas import AssetClass, Opportunity, SignalAction
 from app.scanners.ai_trade_advisor import consult_trade_signal
 from app.scanners.liq_prediction import predict_liq_path
@@ -195,6 +196,7 @@ def score_super_opportunity(
     book: dict | None,
     levels: dict,
     heatmap: dict,
+    whale: dict | None = None,
 ) -> tuple[float, list[str]]:
     """Composite score 0–100 + reasons. Stricter than raw cycle confidence."""
     score = opp.confidence * 0.55
@@ -214,6 +216,26 @@ def score_super_opportunity(
     else:
         score -= 6
         reasons.append("Bias modelu: NEUTRAL")
+
+    # Whale / large-player flow (crypto)
+    if whale and opp.asset_class == AssetClass.CRYPTO:
+        bias = whale.get("bias")
+        strength = float(whale.get("strength") or 0)
+        summary = str(whale.get("summary") or "Whale flow")
+        reasons.append(f"Whale: {summary}")
+        for line in (whale.get("factors") or [])[:2]:
+            reasons.append(str(line))
+        side = levels.get("side")
+        if bias == "accumulate" and side == "long":
+            score += min(12.0, strength * 0.12)
+        elif bias == "distribute" and side == "short":
+            score += min(12.0, strength * 0.12)
+        elif bias == "accumulate" and side == "short":
+            score -= min(10.0, strength * 0.1)
+            reasons.append("Whale akumuluje — kara dla SHORT")
+        elif bias == "distribute" and side == "long":
+            score -= min(10.0, strength * 0.1)
+            reasons.append("Whale dystrybuuje — kara dla LONG")
 
     # Bid/ask quality
     if book:
@@ -296,6 +318,12 @@ def score_super_opportunity(
 
 
 async def build_super_opportunity(opp: Opportunity, *, include_heatmap_3d: bool = True) -> dict:
+    whale: dict | None = None
+    if opp.asset_class == AssetClass.CRYPTO:
+        whale = get_cached_whale(opp.symbol)
+        if whale is None:
+            whale = await fetch_whale_for_symbol(opp.symbol)
+
     book, profile = await asyncio.gather(
         fetch_bid_ask(opp.symbol, opp.asset_class.value),
         fetch_volume_profile(opp.symbol, opp.asset_class.value),
@@ -318,7 +346,7 @@ async def build_super_opportunity(opp: Opportunity, *, include_heatmap_3d: bool 
         book["ask"] if book else None,
         heatmap,
     )
-    super_score, reasons = score_super_opportunity(opp, book, levels, heatmap)
+    super_score, reasons = score_super_opportunity(opp, book, levels, heatmap, whale=whale)
     prediction = predict_liq_path(heatmap, levels, opp.action.value)
     ai_signal = consult_trade_signal(
         action=opp.action.value,
@@ -339,6 +367,19 @@ async def build_super_opportunity(opp: Opportunity, *, include_heatmap_3d: bool 
             **heatmap,
             "columns": [],
             "preview": True,
+        }
+
+    whale_out = None
+    if whale:
+        whale_out = {
+            "symbol": whale.get("symbol", opp.symbol),
+            "bias": whale.get("bias", "neutral"),
+            "side_hint": whale.get("side_hint", "neutral"),
+            "strength": float(whale.get("strength") or 0),
+            "score": float(whale.get("score") or 0),
+            "summary": str(whale.get("summary") or ""),
+            "factors": list(whale.get("factors") or [])[:6],
+            "updated_at": whale.get("updated_at"),
         }
 
     return {
@@ -362,6 +403,7 @@ async def build_super_opportunity(opp: Opportunity, *, include_heatmap_3d: bool 
         "heatmap": heat_out,
         "prediction": prediction,
         "ai_signal": ai_signal,
+        "whale": whale_out,
         "reasons": reasons,
         "rationale": opp.rationale,
         "updated_at": datetime.now(timezone.utc).isoformat(),

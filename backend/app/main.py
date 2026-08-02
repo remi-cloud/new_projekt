@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query
@@ -14,6 +15,7 @@ from app.data.assets import (
     REGION_LABELS,
 )
 from app.data.quote_cache import quote_cache
+from app.data.whale_flows import fetch_whale_snapshot
 from app.db.database import (
     get_recent_opportunities,
     get_scan_history,
@@ -148,6 +150,32 @@ async def singularity_war_room():
 @app.get("/api/agents/status")
 async def singularity_status():
     return orchestrator.roster_status()
+
+
+@app.get("/api/whale-flows")
+async def whale_flows(refresh: bool = Query(False)):
+    """
+    Skan wielkich graczy (krypto): duże printy CEX + agresja futures + mempool BTC.
+    WEJŚCIE = accumulate, WYJŚCIE = distribute.
+    """
+    cached = orchestrator.whale_by_symbol if not refresh else {}
+    if cached and not refresh:
+        items = list(cached.values())
+    else:
+        snap = await fetch_whale_snapshot(force=refresh)
+        if snap:
+            orchestrator.whale_by_symbol = snap
+        items = list(snap.values())
+    return {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "count": len(items),
+        "items": items,
+        "note": (
+            "Źródła: Binance aggTrades (whale printy), taker L/S futures, "
+            "global long/short ratio, mempool.space (BTC on-chain)."
+        ),
+    }
+
 
 @app.get("/api/dashboard", response_model=DashboardResponse)
 async def dashboard():

@@ -316,6 +316,19 @@ class AiTradeSignal(BaseModel):
     verdict_detail: str = ""
 
 
+class WhaleFlowSignal(BaseModel):
+    """Large-player CEX + on-chain flow for crypto."""
+
+    symbol: str
+    bias: str  # accumulate | distribute | neutral
+    side_hint: str = "neutral"
+    strength: float = 0
+    score: float = 0
+    summary: str = ""
+    factors: list[str] = Field(default_factory=list)
+    updated_at: Optional[str] = None
+
+
 class SuperOpportunity(BaseModel):
     symbol: str
     name: str
@@ -335,6 +348,7 @@ class SuperOpportunity(BaseModel):
     heatmap: LiquidationHeatmap
     prediction: Optional[LiqPrediction] = None
     ai_signal: Optional[AiTradeSignal] = None
+    whale: Optional[WhaleFlowSignal] = None
     reasons: list[str]
     rationale: str
     updated_at: str

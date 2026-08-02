@@ -55,12 +55,18 @@ class ScoutAgent:
         *,
         alpha: AlphaModelStatus | None,
         beta: BetaModelStatus | None,
+        whale_by_symbol: dict | None = None,
     ) -> list[ScoutFinding]:
         findings: list[ScoutFinding] = []
         for quote in quotes:
             if not self.covers(quote):
                 continue
-            finding = self._score(quote, alpha=alpha, beta=beta)
+            finding = self._score(
+                quote,
+                alpha=alpha,
+                beta=beta,
+                whale=(whale_by_symbol or {}).get(quote.symbol.upper()),
+            )
             if finding:
                 findings.append(finding)
         findings.sort(key=lambda f: f.confidence, reverse=True)
@@ -79,16 +85,76 @@ class ScoutAgent:
         *,
         alpha: AlphaModelStatus | None,
         beta: BetaModelStatus | None,
+        whale: dict | None = None,
     ) -> ScoutFinding | None:
         chg7 = quote.change_pct_7d
         chg24 = quote.change_pct_24h
         factors: list[dict] = []
 
         if quote.asset_class == AssetClass.CRYPTO and alpha:
-            return self._score_crypto(quote, alpha, chg7, chg24, factors)
+            return self._score_crypto(quote, alpha, chg7, chg24, factors, whale=whale)
         if beta:
             return self._score_traditional(quote, beta, chg7, chg24, factors)
         return None
+
+    def _apply_whale(
+        self,
+        *,
+        wants_long: bool,
+        wants_short: bool,
+        conf: float,
+        factors: list[dict],
+        whale: dict | None,
+    ) -> tuple[bool, bool, float]:
+        """Boost / open soft entries from large-player CEX + on-chain flow."""
+        if not whale:
+            return wants_long, wants_short, conf
+
+        bias = whale.get("bias") or "neutral"
+        strength = float(whale.get("strength") or 0)
+        summary = str(whale.get("summary") or "Whale flow")
+        factors.append(
+            {
+                "name": "Whale / wielcy gracze",
+                "detail": summary,
+                "weight": round(strength, 1),
+            }
+        )
+        for line in (whale.get("factors") or [])[:3]:
+            factors.append({"name": "Whale detail", "detail": str(line)})
+
+        if bias == "accumulate":
+            if self.side == "long":
+                if not wants_long and strength >= 50:
+                    wants_long = True
+                    conf = max(conf, 52 + min(strength * 0.12, 14))
+                    factors.append(
+                        {
+                            "name": "Whale wejście",
+                            "detail": "Duże kupna / agresja BUY → soft LONG",
+                        }
+                    )
+                elif wants_long:
+                    conf += min(14.0, strength * 0.14)
+            elif self.side == "short" and wants_short:
+                conf -= min(12.0, strength * 0.12)
+        elif bias == "distribute":
+            if self.side == "short":
+                if not wants_short and strength >= 50:
+                    wants_short = True
+                    conf = max(conf, 54 + min(strength * 0.14, 16))
+                    factors.append(
+                        {
+                            "name": "Whale wyjście",
+                            "detail": "Duże sprzedaży / agresja SELL → SHORT",
+                        }
+                    )
+                elif wants_short:
+                    conf += min(14.0, strength * 0.14)
+            elif self.side == "long" and wants_long:
+                conf -= min(12.0, strength * 0.12)
+
+        return wants_long, wants_short, conf
 
     def _score_crypto(
         self,
@@ -97,6 +163,8 @@ class ScoutAgent:
         chg7: float | None,
         chg24: float | None,
         factors: list[dict],
+        *,
+        whale: dict | None = None,
     ) -> ScoutFinding | None:
         phase = alpha.phase.value
         signal = alpha.signal
@@ -134,8 +202,7 @@ class ScoutAgent:
                             "detail": "Wcześniejszy SHORT minął; teraz tylko ostrożna akumulacja (nie all-in)",
                         }
                     )
-                else:
-                    return None
+                # else: may still open via strong whale below
         elif phase == "bull":
             if signal == SignalAction.BUY:
                 wants_long = True
@@ -149,12 +216,18 @@ class ScoutAgent:
                 if chg7 is not None and chg7 > 10:
                     wants_short = True
                     conf = 58
-                else:
-                    return None
         elif phase == "distribution":
             wants_short = True
             conf = 72
             factors.append({"name": "Alpha distribution", "detail": "SHORT"})
+
+        wants_long, wants_short, conf = self._apply_whale(
+            wants_long=wants_long,
+            wants_short=wants_short,
+            conf=conf,
+            factors=factors,
+            whale=whale,
+        )
 
         if self.side == "long" and not wants_long:
             return None
@@ -169,12 +242,16 @@ class ScoutAgent:
         if conf < 48:
             return None
 
+        whale_note = ""
+        if whale and whale.get("bias") in ("accumulate", "distribute"):
+            whale_note = f" | {whale.get('summary')}"
+
         return self._finding(
             quote,
             confidence=min(conf, 95),
             phase=phase,
             cycle_source="alpha",
-            rationale=f"Scout {self.scout_id}: {alpha.rationale}",
+            rationale=f"Scout {self.scout_id}: {alpha.rationale}{whale_note}",
             factors=factors,
             chg7=chg7,
             chg24=chg24,

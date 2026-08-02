@@ -24,6 +24,7 @@ from app.cycles.bitcoin_cycle import analyze_bitcoin_cycle
 from app.cycles.presidential_cycle import analyze_presidential_cycle
 from app.data.market_data import fetch_bitcoin_ath, fetch_quotes
 from app.data.quote_cache import quote_cache
+from app.data.whale_flows import fetch_whale_snapshot
 from app.db.settings_store import get_watchlist
 from app.models.schemas import (
     AlphaModelStatus,
@@ -46,6 +47,7 @@ class AgentOrchestrator:
         self.alpha_model: AlphaModelStatus | None = None
         self.beta_model: BetaModelStatus | None = None
         self.last_result: AgentScanResult | None = None
+        self.whale_by_symbol: dict[str, Any] = {}
         self._scouts: list[ScoutAgent] = []
         self.long_specialist = LongSpecialist()
         self.short_specialist = ShortSpecialist()
@@ -128,7 +130,15 @@ class AgentOrchestrator:
             }
             for item in watchlist
         ]
-        self.quotes = await fetch_quotes(assets)
+        crypto_syms = [
+            a["symbol"].upper()
+            for a in assets
+            if str(a.get("asset_class", "")).lower() == "crypto"
+        ]
+        self.quotes, self.whale_by_symbol = await asyncio.gather(
+            fetch_quotes(assets),
+            fetch_whale_snapshot(crypto_syms or None),
+        )
         quote_cache.seed_from_scanner(self.quotes)
         self._scouts = build_scout_roster(watchlist)
 
@@ -136,17 +146,27 @@ class AgentOrchestrator:
         short_scouts = [s for s in self._scouts if s.side == "short"]
         assert len(long_scouts) == len(short_scouts), "LONG/SHORT scout parity required"
 
-        # Parallel global hunt
+        # Parallel global hunt (crypto scouts receive whale / on-chain flow)
         long_groups, short_groups = await asyncio.gather(
             asyncio.gather(
                 *[
-                    s.scout(self.quotes, alpha=self.alpha_model, beta=self.beta_model)
+                    s.scout(
+                        self.quotes,
+                        alpha=self.alpha_model,
+                        beta=self.beta_model,
+                        whale_by_symbol=self.whale_by_symbol,
+                    )
                     for s in long_scouts
                 ]
             ),
             asyncio.gather(
                 *[
-                    s.scout(self.quotes, alpha=self.alpha_model, beta=self.beta_model)
+                    s.scout(
+                        self.quotes,
+                        alpha=self.alpha_model,
+                        beta=self.beta_model,
+                        whale_by_symbol=self.whale_by_symbol,
+                    )
                     for s in short_scouts
                 ]
             ),
@@ -192,6 +212,11 @@ class AgentOrchestrator:
             "quotes": len(self.quotes),
             "scouts_long": len(long_scouts),
             "scouts_short": len(short_scouts),
+            "whale_symbols": len(self.whale_by_symbol),
+            "whale_bias": {
+                s: {"bias": w.get("bias"), "strength": w.get("strength")}
+                for s, w in self.whale_by_symbol.items()
+            },
             "per_scout_long": {s.scout_id: len(g) for s, g in zip(long_scouts, long_groups)},
             "per_scout_short": {s.scout_id: len(g) for s, g in zip(short_scouts, short_groups)},
         }
@@ -323,6 +348,7 @@ class AgentOrchestrator:
         return {
             **status,
             "ready": True,
+            "whale_flows": self.whale_by_symbol,
             "long_verdicts": [
                 {
                     "symbol": v.symbol,
