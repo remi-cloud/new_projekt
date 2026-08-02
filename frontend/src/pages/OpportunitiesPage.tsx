@@ -29,7 +29,7 @@ export default function OpportunitiesPage() {
         <div>
           <h1>Okazje tradingowe</h1>
           <p className="page-lead">
-            Sygnały posortowane wg pewności. Rok 2 = kupuj słabość; rok 3 = najsilniejszy bias.
+            Sygnały posortowane wg pewności modelu. Faza 2 = kupuj słabość; faza 3 = najsilniejszy bias.
           </p>
         </div>
         <button className="btn btn-primary" onClick={scan} disabled={scanning} type="button">

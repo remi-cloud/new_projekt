@@ -46,7 +46,7 @@ export default function SuperOpportunitiesPage() {
         <div>
           <h1>Superokazje</h1>
           <p className="page-lead">
-            Osobne okno: cykl + porównanie bid/ask + poziomy wejścia/wyjścia + pozioma heatmapa
+            Osobne okno: modele Alpha/Beta + bid/ask + poziomy wejścia/wyjścia + pozioma heatmapa
             likwidacji (zieleń = long liq, czerwień = short liq).
           </p>
         </div>
@@ -173,7 +173,7 @@ function SuperDetail({ item }: { item: SuperOpportunity }) {
           </div>
         </div>
         <div className="stat">
-          <div className="stat-label">Mid / cykl</div>
+          <div className="stat-label">Mid / model</div>
           <div className="stat-value">
             {formatPrice(item.price, item.asset_class)} · {item.cycle_confidence}%
           </div>

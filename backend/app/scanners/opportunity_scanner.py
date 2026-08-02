@@ -78,27 +78,27 @@ class OpportunityScanner:
                 if quote.change_pct_7d and quote.change_pct_7d < -5:
                     confidence += 10
                 rationale = (
-                    f"Cykl BTC: {cycle.phase.value} ({cycle.days_since_ath}d od ATH). "
+                    f"Model Alpha · faza {cycle.phase.value} ({cycle.days_since_ath}d). "
                     f"{cycle.rationale}"
                 )
-                return self._make_opp(quote, action, confidence, "bitcoin_cycle", cycle.phase.value, rationale, now)
+                return self._make_opp(quote, action, confidence, "alpha", cycle.phase.value, rationale, now)
 
         elif cycle.phase.value == "bull":
             if cycle.signal == SignalAction.BUY:
                 action = SignalAction.BUY
                 confidence = 65 + (100 - cycle.phase_progress_pct) * 0.2
-                rationale = f"Cykl BTC: fala wzrostowa. {cycle.rationale}"
-                return self._make_opp(quote, action, confidence, "bitcoin_cycle", "bull", rationale, now)
+                rationale = f"Model Alpha · fala wzrostowa. {cycle.rationale}"
+                return self._make_opp(quote, action, confidence, "alpha", "bull", rationale, now)
             elif cycle.signal == SignalAction.HOLD:
                 return self._make_opp(
-                    quote, SignalAction.HOLD, 55, "bitcoin_cycle", "bull",
-                    f"Cykl BTC: utrzymuj pozycje. {cycle.rationale}", now,
+                    quote, SignalAction.HOLD, 55, "alpha", "bull",
+                    f"Model Alpha · utrzymuj pozycje. {cycle.rationale}", now,
                 )
 
         elif cycle.phase.value == "distribution":
             return self._make_opp(
-                quote, SignalAction.SELL, 70, "bitcoin_cycle", "distribution",
-                f"Cykl BTC: faza dystrybucji. {cycle.rationale}", now,
+                quote, SignalAction.SELL, 70, "alpha", "distribution",
+                f"Model Alpha · dystrybucja. {cycle.rationale}", now,
             )
 
         return None
@@ -149,14 +149,14 @@ class OpportunityScanner:
             return None
 
         rationale = (
-            f"Cykl prezydencki: {year_key.replace('_', ' ')} ({pres.president}). "
+            f"Model Beta · {year_key.replace('year_', 'faza ')}. "
             f"{pres.historical_bias}."
         )
         if quote.change_pct_7d is not None:
             rationale += f" Zmiana 7d: {quote.change_pct_7d:+.1f}%."
 
         return self._make_opp(
-            quote, action, min(confidence, 95), "presidential_cycle", year_key, rationale, now
+            quote, action, min(confidence, 95), "beta", year_key, rationale, now
         )
 
     @staticmethod

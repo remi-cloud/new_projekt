@@ -22,10 +22,21 @@ export const PHASE_LABELS: Record<string, string> = {
   bull: 'Wzrostowa',
   distribution: 'Dystrybucja',
   neutral: 'Neutralna',
-  year_1: 'Rok 1',
-  year_2: 'Rok 2',
-  year_3: 'Rok 3',
-  year_4: 'Rok 4',
+  year_1: 'Faza 1',
+  year_2: 'Faza 2',
+  year_3: 'Faza 3',
+  year_4: 'Faza 4',
+}
+
+export const MODEL_LABELS: Record<string, string> = {
+  alpha: 'Model Alpha',
+  beta: 'Model Beta',
+  bitcoin_cycle: 'Model Alpha',
+  presidential_cycle: 'Model Beta',
+}
+
+export function formatModel(source: string): string {
+  return MODEL_LABELS[source] ?? 'Model'
 }
 
 export function formatPrice(price: number, assetClass: AssetClass): string {

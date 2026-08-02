@@ -100,7 +100,7 @@ async def test_scan_crypto_buy_in_bear():
 
     assert len(opps) == 1
     assert opps[0].action == SignalAction.BUY
-    assert opps[0].cycle_source == "bitcoin_cycle"
+    assert opps[0].cycle_source == "alpha"
     assert opps[0].confidence >= 50
 
 

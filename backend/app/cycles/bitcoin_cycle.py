@@ -14,12 +14,6 @@ def analyze_bitcoin_cycle(
     current_price: float,
     as_of: date | None = None,
 ) -> BitcoinCycleStatus:
-    """
-    Bitcoin cycle based on ATH:
-    - Days 0-364 after ATH: bear / decline phase
-    - Days 364-1428 (364+1064): bull / growth wave
-    - After day 1428: distribution until new ATH establishes next cycle
-    """
     as_of = as_of or datetime.now(timezone.utc).date()
     bear_end = settings.btc_bear_phase_days
     bull_end = bear_end + settings.btc_bull_phase_days
@@ -34,8 +28,8 @@ def analyze_bitcoin_cycle(
         phase_length = bear_end
         signal = SignalAction.BUY if days_since > bear_end * 0.5 else SignalAction.WATCH
         rationale = (
-            f"Faza spadkowa ({days_since}/{bear_end} dni od ATH). "
-            "Historycznie okres akumulacji — obserwuj i dokupuj stopniowo."
+            f"Model Alpha — faza spadkowa ({days_since}/{bear_end} d). "
+            "Okres preferujący stopniową akumulację."
         )
     elif days_since < bull_end:
         progress_in_bull = days_since - bear_end
@@ -46,8 +40,8 @@ def analyze_bitcoin_cycle(
             phase_length = max(1, settings.btc_bull_phase_days - late_bull_start)
             signal = SignalAction.SELL
             rationale = (
-                f"Końcówka fali wzrostowej ({days_since}/{bull_end} dni od ATH). "
-                "Rozważ realizację zysków i redukcję ekspozycji."
+                f"Model Alpha — końcówka fali wzrostowej ({days_since}/{bull_end} d). "
+                "Rozważ redukcję ekspozycji."
             )
         elif progress_in_bull > settings.btc_bull_phase_days * 0.4:
             phase = CyclePhase.BULL
@@ -55,7 +49,7 @@ def analyze_bitcoin_cycle(
             phase_length = settings.btc_bull_phase_days
             signal = SignalAction.HOLD
             rationale = (
-                f"Środek fali wzrostowej ({days_since}/{bull_end} dni od ATH). "
+                f"Model Alpha — środek fali wzrostowej ({days_since}/{bull_end} d). "
                 "Utrzymuj pozycje, unikaj agresywnego dokupywania."
             )
         else:
@@ -64,8 +58,8 @@ def analyze_bitcoin_cycle(
             phase_length = settings.btc_bull_phase_days
             signal = SignalAction.BUY
             rationale = (
-                f"Początek fali wzrostowej ({days_since}/{bull_end} dni od ATH). "
-                "Silna faza wzrostu — preferowane dokupywanie."
+                f"Model Alpha — początek fali wzrostowej ({days_since}/{bull_end} d). "
+                "Preferowane dokupywanie."
             )
     else:
         phase = CyclePhase.DISTRIBUTION
@@ -73,8 +67,8 @@ def analyze_bitcoin_cycle(
         phase_length = 365
         signal = SignalAction.SELL
         rationale = (
-            f"Cykl przekroczył {bull_end} dni od ATH. "
-            "Faza dystrybucji — ostrożność, czekaj na nowe ATH."
+            f"Model Alpha — poza oknem bazowym ({bull_end}+ d). "
+            "Faza dystrybucji — ostrożność do nowej referencji."
         )
 
     elapsed_in_phase = days_since - phase_start

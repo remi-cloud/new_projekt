@@ -61,10 +61,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Cyclical Trader",
-    description=(
-        "Skaner rynkowy oparty na cyklu Bitcoin (364/1064 dni) "
-        "i cyklu prezydenckim USA — okazje kupna/sprzedaży 24/7."
-    ),
+    description="Skaner rynkowy 24/7 — sygnały, superokazje, poziomy wejścia/wyjścia.",
     version="1.2.0",
     lifespan=lifespan,
 )

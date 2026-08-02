@@ -8,15 +8,15 @@ export function BitcoinTimeline({ cycle }: { cycle: BitcoinCycleStatus }) {
   return (
     <div className="timeline reveal">
       <div className="timeline-header">
-        <h3>Oś czasu cyklu BTC</h3>
-        <span>Dzień {cycle.days_since_ath} / {total}+</span>
+        <h3>Oś czasu — Model Alpha</h3>
+        <span>Dzień {cycle.days_since_ath}</span>
       </div>
       <div className="timeline-track">
         <div className="timeline-seg bear" style={{ width: `${bearPct}%` }}>
-          <span>Bear 364d</span>
+          <span>Faza spadkowa</span>
         </div>
         <div className="timeline-seg bull" style={{ width: `${100 - bearPct}%` }}>
-          <span>Bull 1064d</span>
+          <span>Faza wzrostowa</span>
         </div>
         <div className="timeline-marker" style={{ left: `${pos}%` }} title={`Dzień ${cycle.days_since_ath}`} />
       </div>
@@ -31,17 +31,17 @@ export function BitcoinTimeline({ cycle }: { cycle: BitcoinCycleStatus }) {
 
 export function PresidentialTimeline({ cycle }: { cycle: PresidentialCycleStatus }) {
   const years = [
-    { n: 1, label: 'Rok 1', bias: 'Słabszy', signal: 'Obserwuj' },
-    { n: 2, label: 'Rok 2', bias: 'Najsłabszy → kupuj dołki', signal: 'Kupuj' },
-    { n: 3, label: 'Rok 3', bias: 'Najsilniejszy', signal: 'Kupuj' },
-    { n: 4, label: 'Rok 4', bias: 'Umiarkowany', signal: 'Trzymaj' },
+    { n: 1, label: 'Faza 1', bias: 'Słabszy', signal: 'Obserwuj' },
+    { n: 2, label: 'Faza 2', bias: 'Najsłabszy → kupuj dołki', signal: 'Kupuj' },
+    { n: 3, label: 'Faza 3', bias: 'Najsilniejszy', signal: 'Kupuj' },
+    { n: 4, label: 'Faza 4', bias: 'Umiarkowany', signal: 'Trzymaj' },
   ]
 
   return (
     <div className="pres-years reveal">
       <div className="timeline-header">
-        <h3>Lata kadencji — {cycle.president}</h3>
-        <span>Rok {cycle.year_number}</span>
+        <h3>Fazy — Model Beta</h3>
+        <span>Faza {cycle.year_number}</span>
       </div>
       <div className="pres-grid">
         {years.map((y) => (

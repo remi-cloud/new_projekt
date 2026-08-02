@@ -14,10 +14,10 @@ export default function CyclesPage() {
     <div className="page">
       <div className="page-header">
         <div>
-          <h1>Cykle rynkowe</h1>
+          <h1>Modele sygnałowe</h1>
           <p className="page-lead">
-            Dwa fundamenty: ATH Bitcoina dla krypto oraz 4-letni cykl wyborczy USA dla rynków
-            tradycyjnych.
+            Dwa niezależne silniki scoringu — Alpha (aktywa cyfrowe) i Beta (rynki tradycyjne).
+            Szczegóły wewnętrzne modeli nie są publikowane.
           </p>
         </div>
       </div>
@@ -34,15 +34,17 @@ export default function CyclesPage() {
         <h3>Jak czytać sygnały</h3>
         <ul>
           <li>
-            <strong>Krypto:</strong> dni 0–364 od ATH to faza spadkowa (akumulacja); potem ~1064 dni
-            fali wzrostowej; końcówka = dystrybucja.
+            <strong>Kupuj / Obserwuj:</strong> model wskazuje strefę akumulacji lub kontynuacji.
           </li>
           <li>
-            <strong>Rok 2 kadencji:</strong> historycznie najsłabszy — sygnał KUPUJ oznacza kupowanie
-            dołków, nie „silny rynek”.
+            <strong>Trzymaj:</strong> brak agresywnego dokupywania — zarządzaj otwartą ekspozycją.
           </li>
           <li>
-            <strong>Rok 3:</strong> historycznie najsilniejszy dla akcji i indeksów.
+            <strong>Sprzedaj:</strong> preferuj redukcję ryzyka / realizację.
+          </li>
+          <li>
+            <strong>Superokazje:</strong> łączą modele z bid/ask, poziomami wejścia/wyjścia i heatmapą
+            liq.
           </li>
         </ul>
       </section>

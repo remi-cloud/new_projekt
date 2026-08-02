@@ -8,13 +8,13 @@ export function CycleCardBitcoin({ cycle }: { cycle: BitcoinCycleStatus }) {
   return (
     <section className="cycle-card bitcoin reveal">
       <div className="cycle-card-header">
-        <h2>Cykl Bitcoin</h2>
+        <h2>Model Alpha</h2>
         <SignalTag action={cycle.signal} />
       </div>
-      <p className="cycle-sub">364 dni spadków · 1064 dni wzrostu od ATH</p>
+      <p className="cycle-sub">Warstwa sygnałowa — aktywa cyfrowe</p>
       <div className="cycle-stats">
         <div className="stat">
-          <div className="stat-label">Ostatnie ATH</div>
+          <div className="stat-label">Referencja</div>
           <div className="stat-value">${cycle.last_ath_price.toLocaleString()}</div>
         </div>
         <div className="stat">
@@ -22,7 +22,7 @@ export function CycleCardBitcoin({ cycle }: { cycle: BitcoinCycleStatus }) {
           <div className="stat-value">${cycle.current_price.toLocaleString()}</div>
         </div>
         <div className="stat">
-          <div className="stat-label">Dni od ATH</div>
+          <div className="stat-label">Dni od referencji</div>
           <div className="stat-value">{cycle.days_since_ath}</div>
         </div>
         <div className="stat">
@@ -48,25 +48,25 @@ export function CycleCardPresidential({ cycle }: { cycle: PresidentialCycleStatu
   return (
     <section className="cycle-card presidential reveal">
       <div className="cycle-card-header">
-        <h2>Cykl prezydencki USA</h2>
+        <h2>Model Beta</h2>
         <SignalTag action={cycle.signal} />
       </div>
-      <p className="cycle-sub">Bias historyczny lat 1–4 kadencji</p>
+      <p className="cycle-sub">Warstwa sygnałowa — rynki tradycyjne</p>
       <div className="cycle-stats">
         <div className="stat">
-          <div className="stat-label">Prezydent</div>
-          <div className="stat-value">{cycle.president}</div>
+          <div className="stat-label">Okres</div>
+          <div className="stat-value">Aktywny</div>
         </div>
         <div className="stat">
-          <div className="stat-label">Rok kadencji</div>
+          <div className="stat-label">Faza modelu</div>
           <div className="stat-value">{PHASE_LABELS[cycle.current_year] ?? cycle.current_year}</div>
         </div>
         <div className="stat">
-          <div className="stat-label">Dzień roku</div>
+          <div className="stat-label">Dzień fazy</div>
           <div className="stat-value">{cycle.days_into_year}</div>
         </div>
         <div className="stat">
-          <div className="stat-label">Historyczny bias</div>
+          <div className="stat-label">Bias historyczny</div>
           <div className="stat-value stat-value-sm">{cycle.historical_bias.split('—')[0]}</div>
         </div>
       </div>
@@ -74,7 +74,7 @@ export function CycleCardPresidential({ cycle }: { cycle: PresidentialCycleStatu
         <div className="progress-fill teal" style={{ width: `${cycle.year_progress_pct}%` }} />
       </div>
       <div className="progress-meta">
-        Postęp roku: {cycle.year_progress_pct}% · Pozostało {cycle.days_remaining_in_year} dni
+        Postęp fazy: {cycle.year_progress_pct}% · Pozostało {cycle.days_remaining_in_year} dni
       </div>
       <p className="cycle-rationale">{cycle.rationale}</p>
     </section>

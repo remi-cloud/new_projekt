@@ -7,29 +7,28 @@ from app.models.schemas import (
     SignalAction,
 )
 
-# Historical presidential cycle tendencies (Stock Trader's Almanac pattern)
 YEAR_PROFILES = {
     PresidentialYear.YEAR_1: {
-        "label": "Rok 1 (po wyborach)",
-        "bias": "Słabszy — adaptacja polityki, często korekty",
+        "label": "Faza 1",
+        "bias": "Słabszy historycznie — częstsze korekty",
         "signal": SignalAction.WATCH,
         "buy_weight": 0.3,
     },
     PresidentialYear.YEAR_2: {
-        "label": "Rok 2 (midterms)",
-        "bias": "Najsłabszy historycznie — lata wyborów do Kongresu",
+        "label": "Faza 2",
+        "bias": "Najsłabszy historycznie — preferuj dołki",
         "signal": SignalAction.BUY,
         "buy_weight": 0.7,
     },
     PresidentialYear.YEAR_3: {
-        "label": "Rok 3 (pre-election)",
-        "bias": "Najsilniejszy — historycznie najlepszy rok cyklu",
+        "label": "Faza 3",
+        "bias": "Najsilniejszy historycznie",
         "signal": SignalAction.BUY,
         "buy_weight": 1.0,
     },
     PresidentialYear.YEAR_4: {
-        "label": "Rok 4 (wybory)",
-        "bias": "Umiarkowanie pozytywny — polityka wspierająca gospodarkę",
+        "label": "Faza 4",
+        "bias": "Umiarkowanie pozytywny",
         "signal": SignalAction.HOLD,
         "buy_weight": 0.5,
     },
@@ -46,7 +45,6 @@ def _find_current_term(as_of: date) -> dict:
         end = _parse_date(term["end"])
         if start <= as_of < end:
             return {**term, "start_date": start, "end_date": end}
-    # Fallback: last known term
     last = settings.presidential_terms[-1]
     return {
         **last,
@@ -88,7 +86,6 @@ def analyze_presidential_cycle(as_of: date | None = None) -> PresidentialCycleSt
 
     profile = YEAR_PROFILES[presidential_year]
 
-    # Refine signal by progress within the year
     signal = profile["signal"]
     if presidential_year == PresidentialYear.YEAR_2 and progress > 60:
         signal = SignalAction.BUY
@@ -98,15 +95,15 @@ def analyze_presidential_cycle(as_of: date | None = None) -> PresidentialCycleSt
         signal = SignalAction.WATCH
 
     rationale = (
-        f"{profile['label']} kadencji {term['president']}. "
+        f"Model Beta — {profile['label']}. "
         f"{profile['bias']}. "
-        f"Dzień {days_into}/{total_days} roku ({progress:.0f}%)."
+        f"Dzień {days_into}/{total_days} fazy ({progress:.0f}%)."
     )
 
     return PresidentialCycleStatus(
         term_start=term["start_date"],
         term_end=term["end_date"],
-        president=term["president"],
+        president="—",
         current_year=presidential_year,
         year_number=year_number,
         days_into_year=days_into,

@@ -201,8 +201,8 @@ export default function AlertsPage() {
             <li>Wklej topic powyżej i kliknij „Wyślij test”</li>
           </ol>
           <p>
-            Dane rynkowe: <strong>CoinGecko</strong> (ATH BTC + krypto),{' '}
-            <strong>Yahoo Finance chart API</strong> (akcje/indeksy/obligacje/surowce/forex).
+            Dane rynkowe: publiczne API notowań (krypto + rynki tradycyjne). Modele scoringu są
+            wewnętrzne.
           </p>
         </div>
 

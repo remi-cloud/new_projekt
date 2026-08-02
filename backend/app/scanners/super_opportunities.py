@@ -114,7 +114,8 @@ def score_super_opportunity(
 ) -> tuple[float, list[str]]:
     """Composite score 0–100 + reasons. Stricter than raw cycle confidence."""
     score = opp.confidence * 0.55
-    reasons: list[str] = [f"Cykl ({opp.cycle_source}): pewność {opp.confidence:.0f}"]
+    model = {"alpha": "Alpha", "beta": "Beta"}.get(opp.cycle_source, "sygnał")
+    reasons: list[str] = [f"Model {model}: pewność {opp.confidence:.0f}"]
 
     # Action quality
     if opp.action == SignalAction.BUY:

@@ -5,7 +5,7 @@ const NAV = [
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/okazje', label: 'Okazje' },
   { to: '/superokazje', label: 'Superokazje' },
-  { to: '/cykle', label: 'Cykle' },
+  { to: '/modele', label: 'Modele' },
   { to: '/historia', label: 'Historia' },
   { to: '/rynki', label: 'Rynki' },
   { to: '/watchlista', label: 'Watchlista' },
@@ -38,8 +38,7 @@ export default function Layout() {
         <Outlet />
       </main>
       <footer className="footer">
-        Cyclical Trader · Krypto: cykl 364d + 1064d od ATH · Tradycyjne: cykl prezydencki USA ·
-        Nie jest to porada inwestycyjna
+        Cyclical Trader · Modele Alpha / Beta · Superokazje · Nie jest to porada inwestycyjna
       </footer>
     </div>
   )

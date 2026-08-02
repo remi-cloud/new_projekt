@@ -29,7 +29,7 @@ def test_super_score_prefers_tight_spread():
         asset_class=AssetClass.CRYPTO,
         action=SignalAction.BUY,
         confidence=70,
-        cycle_source="bitcoin_cycle",
+        cycle_source="alpha",
         phase="bear",
         price=100,
         rationale="test",

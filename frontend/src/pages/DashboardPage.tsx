@@ -16,7 +16,7 @@ export default function DashboardPage() {
       <div className="page-header">
         <div>
           <h1>Dashboard</h1>
-          <p className="page-lead">Cykle, okazje i notowania w jednym widoku.</p>
+          <p className="page-lead">Modele, okazje i notowania w jednym widoku.</p>
         </div>
         <div className="page-actions">
           <div className="status-badge">
@@ -46,7 +46,7 @@ export default function DashboardPage() {
         <span className="count">{Math.min(6, data.opportunities.length)}</span>
       </h2>
       {data.opportunities.length === 0 ? (
-        <p className="empty">Brak aktywnych sygnałów — cykle nie wskazują na wyraźne okazje.</p>
+        <p className="empty">Brak aktywnych sygnałów — modele nie wskazują na wyraźne okazje.</p>
       ) : (
         <div className="opportunities-grid">
           {data.opportunities.slice(0, 6).map((opp) => (

@@ -19,6 +19,7 @@ export default function App() {
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="okazje" element={<OpportunitiesPage />} />
           <Route path="superokazje" element={<SuperOpportunitiesPage />} />
+          <Route path="modele" element={<CyclesPage />} />
           <Route path="cykle" element={<CyclesPage />} />
           <Route path="historia" element={<HistoryPage />} />
           <Route path="rynki" element={<MarketsPage />} />
