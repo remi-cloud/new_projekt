@@ -1,10 +1,11 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.data.assets import DEFAULT_ASSETS
@@ -43,10 +44,15 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     await init_db()
     start_scheduler()
-    try:
-        await scheduled_scan()
-    except Exception as exc:
-        logger.warning("Initial scan failed (will retry on schedule): %s", exc)
+
+    # Never block WWW startup on market APIs — scan in background.
+    async def _initial_scan() -> None:
+        try:
+            await scheduled_scan()
+        except Exception as exc:
+            logger.warning("Initial scan failed (will retry on schedule): %s", exc)
+
+    asyncio.create_task(_initial_scan())
     yield
     stop_scheduler()
 
@@ -85,10 +91,14 @@ async def health():
 
 @app.get("/api/dashboard", response_model=DashboardResponse)
 async def dashboard():
-    if not scanner.bitcoin_cycle or not scanner.presidential_cycle or not scanner.quotes:
-        await scanner.scan()
+    # Fast path: if cache empty, kick a scan but do not block the HTTP request
+    # (tunnel / phone clients time out on long first scans).
     if not scanner.bitcoin_cycle or not scanner.presidential_cycle:
-        raise HTTPException(status_code=503, detail="Nie udało się pobrać danych cykli")
+        asyncio.create_task(scanner.scan())
+        raise HTTPException(
+            status_code=503,
+            detail="Skanowanie rynku w toku — odśwież za chwilę",
+        )
     return DashboardResponse(
         bitcoin_cycle=scanner.bitcoin_cycle,
         presidential_cycle=scanner.presidential_cycle,
@@ -126,14 +136,16 @@ async def history(
 @app.get("/api/cycles/bitcoin")
 async def bitcoin_cycle():
     if not scanner.bitcoin_cycle:
-        await scanner.scan()
+        asyncio.create_task(scanner.scan())
+        raise HTTPException(status_code=503, detail="Skanowanie rynku w toku — odśwież za chwilę")
     return scanner.bitcoin_cycle
 
 
 @app.get("/api/cycles/presidential")
 async def presidential_cycle():
     if not scanner.presidential_cycle:
-        await scanner.scan()
+        asyncio.create_task(scanner.scan())
+        raise HTTPException(status_code=503, detail="Skanowanie rynku w toku — odśwież za chwilę")
     return scanner.presidential_cycle
 
 
@@ -233,6 +245,23 @@ async def alerts_dispatch_pending(limit: int = Query(20, ge=1, le=100)):
     return await dispatch_signal_changes(normalized)
 
 
+@app.get("/status", response_class=HTMLResponse)
+async def status_page():
+    """No-JS status page — proves WWW works even if React fails to load."""
+    ready = bool(scanner.bitcoin_cycle and scanner.presidential_cycle)
+    return f"""<!doctype html>
+<html lang="pl"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Cyclical Trader — status</title>
+<style>body{{font-family:system-ui,sans-serif;background:#121a17;color:#eef3ef;padding:24px;line-height:1.5}}
+a{{color:#2dd4bf}} .ok{{color:#34d399}} .wait{{color:#fbbf24}}</style></head>
+<body>
+<h1>Cyclical Trader</h1>
+<p class="{'ok' if ready else 'wait'}">API: OK · Skaner: {'gotowy' if ready else 'pierwsze skanowanie…'} · Okazje: {len(scanner.opportunities)}</p>
+<p><a href="/">Otwórz aplikację</a> · <a href="/dashboard">Dashboard</a> · <a href="/api/health">/api/health</a></p>
+<meta http-equiv="refresh" content="5">
+</body></html>"""
+
+
 # --- WWW (SPA) — one URL for phone / desktop ---
 
 if STATIC_DIR.is_dir():
@@ -247,10 +276,18 @@ if STATIC_DIR.is_dir():
     @app.get("/{full_path:path}")
     async def spa_fallback(full_path: str):
         # Never steal API routes (registered above); this catches client routes.
-        if full_path.startswith("api/") or full_path.startswith("docs") or full_path.startswith("openapi"):
+        if full_path.startswith("api/") or full_path.startswith("docs") or full_path.startswith("openapi") or full_path == "status":
             raise HTTPException(status_code=404, detail="Not found")
         candidate = STATIC_DIR / full_path
         if candidate.is_file():
             return FileResponse(candidate)
         return FileResponse(STATIC_DIR / "index.html")
+else:
+    @app.get("/")
+    async def missing_static():
+        return HTMLResponse(
+            "<h1>Brak UI</h1><p>Uruchom <code>./scripts/build-www.sh</code> albo Docker build.</p>"
+            "<p><a href='/status'>/status</a> · <a href='/api/health'>/api/health</a></p>",
+            status_code=503,
+        )
 

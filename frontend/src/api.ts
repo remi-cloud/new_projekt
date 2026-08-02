@@ -11,7 +11,16 @@ const API_BASE = '/api'
 
 async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`)
-  if (!res.ok) throw new Error(`Błąd API (${res.status})`)
+  if (!res.ok) {
+    let detail = `Błąd API (${res.status})`
+    try {
+      const body = await res.json()
+      if (body?.detail) detail = String(body.detail)
+    } catch {
+      /* ignore */
+    }
+    throw new Error(detail)
+  }
   return res.json()
 }
 

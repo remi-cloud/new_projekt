@@ -4,7 +4,7 @@ import LoadingState, { ErrorState } from '../components/LoadingState'
 import { useDashboard } from '../hooks/useDashboard'
 
 export default function HomePage() {
-  const { data, loading, error, load } = useDashboard()
+  const { data, loading, error, booting, load } = useDashboard()
 
   return (
     <div className="home">
@@ -28,8 +28,16 @@ export default function HomePage() {
         </div>
       </section>
 
-      {loading && <LoadingState message="Pobieranie statusu cykli…" />}
-      {error && !data && <ErrorState message={error} onRetry={load} />}
+      {(loading || booting) && (
+        <LoadingState
+          message={
+            booting
+              ? 'Pierwsze skanowanie rynku — to może potrwać ~20–40 s…'
+              : 'Pobieranie statusu cykli…'
+          }
+        />
+      )}
+      {error && !data && !booting && <ErrorState message={error} onRetry={load} />}
       {data && (
         <section className="home-cycles">
           <h2 className="section-title">Gdzie jesteśmy w cyklu</h2>

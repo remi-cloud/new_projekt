@@ -14,9 +14,22 @@
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Outfit:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap"
       rel="stylesheet"
     />
+    <style>
+      /* Visible before JS loads — phone users see the app is alive */
+      html, body, #root { min-height: 100%; margin: 0; background: #0c1210; color: #eef3ef; }
+      #boot {
+        font-family: system-ui, sans-serif;
+        display: flex; align-items: center; justify-content: center;
+        min-height: 100vh; padding: 24px; text-align: center;
+      }
+      #boot strong { display: block; font-size: 1.4rem; margin-bottom: 8px; }
+      #boot span { color: #a8b5ae; }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="boot"><div><strong>Cyclical Trader</strong><span>Ładowanie aplikacji…</span></div></div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
