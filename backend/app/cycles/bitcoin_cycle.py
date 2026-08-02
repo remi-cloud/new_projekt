@@ -27,24 +27,29 @@ def analyze_bitcoin_cycle(
         phase = CyclePhase.BEAR
         phase_start = 0
         phase_length = phase_a_end
-        # Early bear = SHORT the decline; mid = watch; late = accumulate (LONG)
+        # Early bear = SHORT the decline; mid = watch; late = accumulate (not chase)
         if days_since < phase_a_end * 0.35:
             signal = SignalAction.SELL
             rationale = (
                 f"Model Alpha — wczesna faza spadkowa ({days_since}/{phase_a_end} d). "
-                "Preferowany SHORT / redukcja ekspozycji."
+                "Teraz: SHORT / redukcja. "
+                "Później (po ~55% fazy) model przejdzie na akumulację — to nie jest sprzeczność, tylko kolejna faza."
             )
         elif days_since < phase_a_end * 0.55:
             signal = SignalAction.WATCH
             rationale = (
                 f"Model Alpha — środek fazy spadkowej ({days_since}/{phase_a_end} d). "
-                "Obserwacja — czekaj na stabilizację przed LONG."
+                "Wcześniej był SHORT; teraz CZEKAJ / obserwacja. "
+                "LONG (akumulacja) dopiero w późnej części fazy spadkowej — nie graj przeciw trendowi spadku."
             )
         else:
-            signal = SignalAction.BUY
+            # Late bear: DCA / scale-in — not an aggressive "all-in LONG" while phase is still bear
+            signal = SignalAction.WATCH
             rationale = (
                 f"Model Alpha — późna faza spadkowa ({days_since}/{phase_a_end} d). "
-                "Okres preferujący stopniową akumulację (LONG)."
+                "Oś czasu: wczesny SHORT → środek CZEKAJ → teraz ostrożna akumulacja (DCA). "
+                "To NIE jest sygnał „idź all-in long przeciw shortowi”. "
+                "Wcześniejszy SHORT już się skończył w kalendarzu modelu; agresywny LONG dopiero po wejściu w falę wzrostową."
             )
     elif days_since < phase_b_end:
         progress_in_b = days_since - phase_a_end

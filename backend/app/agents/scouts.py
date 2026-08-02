@@ -114,12 +114,28 @@ class ScoutAgent:
                 conf = 52 + alpha.phase_progress_pct * 0.25
                 factors.append({"name": "Alpha late bear", "detail": "LONG accumulation"})
             elif signal == SignalAction.WATCH:
-                if chg7 is not None and chg7 < -8:
+                # Mid/late bear WATCH: only soft LONG (DCA) if tape not dumping hard
+                if chg7 is not None and chg7 < -6:
                     wants_short = True
-                    conf = 58 + min(abs(chg7), 12)
-                else:
+                    conf = 56 + min(abs(chg7), 10)
+                    factors.append(
+                        {
+                            "name": "Alpha bear + dump",
+                            "detail": f"Faza spadkowa + 7d {chg7:+.1f}% → nie łap noży (SHORT/czekaj)",
+                        }
+                    )
+                elif alpha.phase_progress_pct >= 55:
+                    # Late bear DCA — soft long only, never scream
                     wants_long = True
-                    conf = 50
+                    conf = 48 + min(alpha.phase_progress_pct * 0.12, 10)
+                    factors.append(
+                        {
+                            "name": "Alpha late bear DCA",
+                            "detail": "Wcześniejszy SHORT minął; teraz tylko ostrożna akumulacja (nie all-in)",
+                        }
+                    )
+                else:
+                    return None
         elif phase == "bull":
             if signal == SignalAction.BUY:
                 wants_long = True

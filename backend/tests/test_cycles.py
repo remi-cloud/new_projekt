@@ -13,11 +13,13 @@ def test_alpha_bear_phase_early_is_short():
     assert result.signal == SignalAction.SELL
 
 
-def test_alpha_bear_phase_late_is_long():
+def test_alpha_bear_phase_late_is_accumulation_watch():
+    """Late bear = DCA / WATCH — not aggressive BUY while still in bear phase."""
     ref_date = date.today() - timedelta(days=280)
     result = analyze_bitcoin_cycle(ref_date, 100_000, 70_000)
     assert result.phase == CyclePhase.BEAR
-    assert result.signal == SignalAction.BUY
+    assert result.signal == SignalAction.WATCH
+    assert "akumulacja" in result.rationale.lower() or "SHORT" in result.rationale
 
 
 def test_alpha_bull_phase_early():

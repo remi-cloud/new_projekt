@@ -49,7 +49,23 @@ def consult_trade_signal(
 
     # ── 1. Cycle / model bias ───────────────────────────────────────────
     cycle_w = conf * 0.42
-    if action_l in ("buy", "watch") or side == "long":
+    # WATCH in bear = accumulation dial, not a full KUP mandate
+    soft_watch = action_l == "watch" and (phase or "").lower() in ("bear", "accumulation")
+    if soft_watch:
+        cycle_w *= 0.55
+        buy += cycle_w
+        factors.append(
+            {
+                "name": "Model cyklu",
+                "side": "czekaj",
+                "weight": round(cycle_w, 1),
+                "detail": (
+                    f"{model} → akumulacja (WATCH) w fazie {phase}. "
+                    "Wcześniejszy SHORT to poprzednia faza — nie all-in LONG."
+                ),
+            }
+        )
+    elif action_l in ("buy", "watch") or side == "long":
         buy += cycle_w
         factors.append(
             {
@@ -342,7 +358,13 @@ def consult_trade_signal(
     # Decision thresholds
     min_strength = 28.0
     min_gap = 8.0
-    if strength < min_strength or gap < min_gap or (conflict and gap < 16):
+    # Late-bear / WATCH accumulation must not print aggressive KUP
+    if soft_watch and (gap < 22 or conflict or buy < sell + 18):
+        signal = "czekaj"
+        confidence = _clamp(40.0 + gap * 1.1)
+        label = "CZEKAJ"
+        verb = "akumulacja DCA / czekaj — nie long przeciw wcześniejszemu SHORT-owi"
+    elif strength < min_strength or gap < min_gap or (conflict and gap < 16):
         signal = "czekaj"
         confidence = _clamp(35.0 + gap * 1.2 + strength * 0.15)
         label = "CZEKAJ"

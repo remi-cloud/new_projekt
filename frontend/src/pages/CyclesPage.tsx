@@ -41,12 +41,17 @@ export default function CyclesPage() {
             <strong>Model Beta</strong> — akcje, indeksy, obligacje, FX, surowce. Nie wpływa na krypto.
           </li>
           <li>
+            <strong>Alpha — oś czasu (krypto)</strong>: wczesna faza spadkowa = SHORT → środek =
+            CZEKAJ → późna = ostrożna akumulacja (DCA). To kolejne fazy, nie „SHORT i LONG naraz”.
+            Agresywny LONG dopiero w fali wzrostowej.
+          </li>
+          <li>
             <strong>LONG / SHORT</strong> — scoutdzi polują osobno, ale na jeden symbol zostaje jedna strona
             (wygrywa trend 7d; słabe sygnały nie dopełniają „parytetu”).
           </li>
           <li>
-            <strong>Superokazje + Singularity</strong> — po konsultacji czynników: <strong>KUP</strong>,{' '}
-            <strong>SPRZEDAJ</strong> albo <strong>CZEKAJ</strong> przy prawdziwym konflikcie.
+            <strong>Superokazje + Singularity</strong> — po konsultacji: <strong>KUP</strong>,{' '}
+            <strong>SPRZEDAJ</strong> albo <strong>CZEKAJ</strong>. Przy WATCH w bear nie wciska KUP 100%.
           </li>
         </ul>
       </section>

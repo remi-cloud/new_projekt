@@ -156,10 +156,14 @@ class SideSpecialist:
         if finding.cycle_source == "alpha" and alpha:
             if self.side == "short" and alpha.signal == SignalAction.SELL:
                 return 8.0, "Alpha potwierdza SHORT"
-            if self.side == "long" and alpha.signal in (SignalAction.BUY, SignalAction.WATCH):
-                return 6.0, "Alpha wspiera LONG"
+            if self.side == "long" and alpha.signal == SignalAction.BUY:
+                return 6.0, "Alpha potwierdza LONG"
+            if self.side == "long" and alpha.signal == SignalAction.WATCH:
+                return 3.0, "Alpha: ostrożna akumulacja (WATCH) — nie all-in LONG"
             if self.side == "short" and alpha.signal == SignalAction.BUY:
                 return -6.0, "Alpha woli LONG — kara"
+            if self.side == "short" and alpha.signal == SignalAction.WATCH:
+                return -2.0, "Alpha w akumulacji — lekka kara SHORT"
             if self.side == "long" and alpha.signal == SignalAction.SELL:
                 return -6.0, "Alpha woli SHORT — kara"
         if finding.cycle_source == "beta" and beta:
