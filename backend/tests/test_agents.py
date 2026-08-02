@@ -77,6 +77,13 @@ def test_universes_cover_global_indexes():
     assert uni["us_equity"].symbols
     assert uni["crypto"].symbols
     assert "forex" in uni
+    global_syms = {s.upper() for s in uni["global_equity"].symbols}
+    # Asia / Russia / Brazil / Europe must land in global_equity, not US
+    for must in ("^N225", "^HSI", "^BVSP", "IMOEX.ME", "^GDAXI", "^BSESN", "EWZ"):
+        assert must in global_syms, f"{must} missing from global_equity"
+    us_syms = {s.upper() for s in uni["us_equity"].symbols}
+    assert "^GSPC" in us_syms
+    assert "^BVSP" not in us_syms
 
 
 @pytest.mark.asyncio

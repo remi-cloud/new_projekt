@@ -6,6 +6,8 @@ from app.agents.types import RegionClass, ScoutUniverse
 from app.data.assets import DEFAULT_ASSETS
 from app.models.schemas import AssetClass
 
+# Only these indices/ETFs count as US equity universe.
+# Every other index (Asia, Russia, Brazil, Europe, EM baskets, …) → global_equity.
 US_INDEX_ETFS = {
     "^GSPC",
     "^DJI",
@@ -16,7 +18,6 @@ US_INDEX_ETFS = {
     "IWM",
     "DIA",
 }
-GLOBAL_INDEX = {"EFA", "EEM", "^FTSE", "^N225", "^HSI", "^GDAXI", "VXUS", "IEFA"}
 
 
 def default_universes(watchlist: list[dict] | None = None) -> dict[RegionClass, ScoutUniverse]:
@@ -32,11 +33,15 @@ def default_universes(watchlist: list[dict] | None = None) -> dict[RegionClass, 
     for a in source:
         sym_u = str(a["symbol"]).upper()
         ac = a["asset_class"]
-        if ac == "stock" or sym_u in US_INDEX_ETFS:
+        if ac == "stock":
             us_syms.append(a["symbol"])
-        if sym_u in GLOBAL_INDEX:
-            global_syms.append(a["symbol"])
-        if ac == "crypto":
+        elif ac == "index":
+            if sym_u in US_INDEX_ETFS:
+                us_syms.append(a["symbol"])
+            else:
+                # World indexes: Asia, Russia, Brazil, Europe, EM, …
+                global_syms.append(a["symbol"])
+        elif ac == "crypto":
             crypto_syms.append(a["symbol"])
         elif ac == "bond":
             bond_syms.append(a["symbol"])

@@ -29,11 +29,12 @@ Modele scoringu są wewnętrzne — UI pokazuje tylko **Alpha / Beta** i fazy sy
 ## Monitorowane instrumenty (domyślnie)
 
 - **Krypto**: BTC, ETH, SOL
-- **Indeksy USA**: S&P 500, Dow Jones, NASDAQ, Russell 2000
-- **Akcje**: AAPL, MSFT, NVDA, JPM
+- **Indeksy USA**: S&P 500, Dow, NASDAQ, Russell (+ SPY/QQQ/IWM)
+- **Indeksy świata**: Brazylia (Bovespa), Meksyk, Kanada, Rosja (MOEX/RTS), Japonia, Chiny/HK, Korea, Tajwan, Indie, Singapur, Australia, Europa (FTSE/DAX/CAC/Euro Stoxx/IBEX/…), Bliski Wschód / Afryka + ETF-y krajowe (EWZ, EWJ, FXI, INDA, …)
+- **Akcje**: AAPL, MSFT, NVDA, JPM, TSLA, AMZN, META, GOOGL
 - **Obligacje** (ETF): TLT, IEF, LQD, HYG
 - **Surowce**: Złoto, Srebro, Ropa, Gaz
-- **Forex**: EUR/USD, GBP/USD, USD/JPY, DXY
+- **Forex**: EUR/USD, GBP/USD, USD/JPY, USD/BRL, USD/CNY, USD/RUB, DXY
 
 ## Uruchomienie (debut / developing)
 
