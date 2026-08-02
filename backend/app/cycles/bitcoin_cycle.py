@@ -27,11 +27,25 @@ def analyze_bitcoin_cycle(
         phase = CyclePhase.BEAR
         phase_start = 0
         phase_length = phase_a_end
-        signal = SignalAction.BUY if days_since > phase_a_end * 0.5 else SignalAction.WATCH
-        rationale = (
-            f"Model Alpha — faza spadkowa ({days_since}/{phase_a_end} d). "
-            "Okres preferujący stopniową akumulację."
-        )
+        # Early bear = SHORT the decline; mid = watch; late = accumulate (LONG)
+        if days_since < phase_a_end * 0.35:
+            signal = SignalAction.SELL
+            rationale = (
+                f"Model Alpha — wczesna faza spadkowa ({days_since}/{phase_a_end} d). "
+                "Preferowany SHORT / redukcja ekspozycji."
+            )
+        elif days_since < phase_a_end * 0.55:
+            signal = SignalAction.WATCH
+            rationale = (
+                f"Model Alpha — środek fazy spadkowej ({days_since}/{phase_a_end} d). "
+                "Obserwacja — czekaj na stabilizację przed LONG."
+            )
+        else:
+            signal = SignalAction.BUY
+            rationale = (
+                f"Model Alpha — późna faza spadkowa ({days_since}/{phase_a_end} d). "
+                "Okres preferujący stopniową akumulację (LONG)."
+            )
     elif days_since < phase_b_end:
         progress_in_b = days_since - phase_a_end
         late_start = int(settings.alpha_phase_b_days * 0.75)

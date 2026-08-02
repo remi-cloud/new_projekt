@@ -35,10 +35,10 @@ export function AlphaTimeline({ model }: { model: AlphaModelStatus }) {
 
 export function BetaTimeline({ model }: { model: BetaModelStatus }) {
   const phases = [
-    { n: 1, label: 'Faza 1', bias: 'Słabszy', signal: 'LONG' },
-    { n: 2, label: 'Faza 2', bias: 'Najsłabszy → LONG na dołkach', signal: 'LONG' },
+    { n: 1, label: 'Faza 1', bias: 'Słabszy → SHORT na początku', signal: 'SHORT' },
+    { n: 2, label: 'Faza 2', bias: 'Najsłabszy → SHORT / późne LONG', signal: 'SHORT' },
     { n: 3, label: 'Faza 3', bias: 'Najsilniejszy', signal: 'LONG' },
-    { n: 4, label: 'Faza 4', bias: 'Umiarkowany', signal: 'NEUTRAL' },
+    { n: 4, label: 'Faza 4', bias: 'Późno → SHORT / redukcja', signal: 'SHORT' },
   ]
 
   return (

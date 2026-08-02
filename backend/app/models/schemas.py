@@ -281,6 +281,8 @@ class SuperOpportunitiesResponse(BaseModel):
     generated_at: str
     count: int
     super_count: int
+    long_count: int = 0
+    short_count: int = 0
     items: list[SuperOpportunity]
     supers: list[SuperOpportunity]
     scanner_last_scan_at: Optional[str] = None

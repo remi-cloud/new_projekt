@@ -40,8 +40,8 @@ async def ensure_settings_tables(db: aiosqlite.Connection) -> None:
     """)
     cursor = await db.execute("SELECT COUNT(*) FROM watchlist")
     count = (await cursor.fetchone())[0]
+    now = datetime.now(timezone.utc).isoformat()
     if count == 0:
-        now = datetime.now(timezone.utc).isoformat()
         for asset in DEFAULT_ASSETS:
             await db.execute(
                 """INSERT INTO watchlist (symbol, name, asset_class, source, enabled, created_at)
@@ -54,6 +54,23 @@ async def ensure_settings_tables(db: aiosqlite.Connection) -> None:
                     now,
                 ),
             )
+    else:
+        # Merge new catalog symbols (indexes / ETFs / stocks) without wiping toggles
+        cursor = await db.execute("SELECT symbol FROM watchlist")
+        existing = {row[0].upper() for row in await cursor.fetchall()}
+        for asset in DEFAULT_ASSETS:
+            if asset["symbol"].upper() not in existing:
+                await db.execute(
+                    """INSERT INTO watchlist (symbol, name, asset_class, source, enabled, created_at)
+                       VALUES (?, ?, ?, ?, 1, ?)""",
+                    (
+                        asset["symbol"],
+                        asset["name"],
+                        asset["asset_class"],
+                        asset.get("source", "yahoo"),
+                        now,
+                    ),
+                )
     # Seed alert settings from env if missing
     defaults = {
         "alerts_enabled": "true" if settings.alerts_enabled else "false",

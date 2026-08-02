@@ -236,6 +236,8 @@ export interface SuperOpportunitiesResponse {
   generated_at: string
   count: number
   super_count: number
+  long_count?: number
+  short_count?: number
   items: SuperOpportunity[]
   supers: SuperOpportunity[]
   scanner_last_scan_at: string | null

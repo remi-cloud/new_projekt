@@ -5,12 +5,19 @@ from app.cycles.presidential_cycle import analyze_presidential_cycle
 from app.models.schemas import BetaPhase, CyclePhase, SignalAction
 
 
-def test_alpha_bear_phase():
+def test_alpha_bear_phase_early_is_short():
     ref_date = date.today() - timedelta(days=100)
     result = analyze_bitcoin_cycle(ref_date, 100_000, 80_000)
     assert result.phase == CyclePhase.BEAR
     assert result.days_since_reference == 100
-    assert result.signal in (SignalAction.BUY, SignalAction.WATCH)
+    assert result.signal == SignalAction.SELL
+
+
+def test_alpha_bear_phase_late_is_long():
+    ref_date = date.today() - timedelta(days=280)
+    result = analyze_bitcoin_cycle(ref_date, 100_000, 70_000)
+    assert result.phase == CyclePhase.BEAR
+    assert result.signal == SignalAction.BUY
 
 
 def test_alpha_bull_phase_early():
@@ -51,4 +58,17 @@ def test_beta_phase_3_is_strongest():
     # Mid of 2025-2029 period phase 3 ≈ 2027
     result = analyze_presidential_cycle(date(2027, 6, 1))
     assert result.phase_number == 3
+    assert result.signal == SignalAction.BUY
+
+
+def test_beta_phase_2_early_is_short():
+    # Phase 2 of 2025-2029 starts 2026-01-20; early → SELL
+    result = analyze_presidential_cycle(date(2026, 3, 1))
+    assert result.phase_number == 2
+    assert result.signal == SignalAction.SELL
+
+
+def test_beta_phase_2_late_is_long():
+    result = analyze_presidential_cycle(date(2026, 11, 1))
+    assert result.phase_number == 2
     assert result.signal == SignalAction.BUY

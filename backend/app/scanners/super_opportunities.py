@@ -292,22 +292,47 @@ async def build_super_opportunities(min_score: float = 0) -> dict:
                 logger.warning("Super opp failed for %s: %s", opp.symbol, exc)
                 return None
 
-    # Prioritize actionable cycle signals
-    pool = [
+    # Balanced global pool: reserve slots for SHORT so LONG never starves the list
+    actionable = [
         o
         for o in scanner.opportunities
         if o.action in (SignalAction.BUY, SignalAction.SELL, SignalAction.WATCH)
-    ][:16]
+    ]
+    longs = [o for o in actionable if o.action in (SignalAction.BUY, SignalAction.WATCH)]
+    shorts = [o for o in actionable if o.action == SignalAction.SELL]
+    longs.sort(key=lambda o: o.confidence, reverse=True)
+    shorts.sort(key=lambda o: o.confidence, reverse=True)
+
+    # Up to 12 per side, then fill remaining to 24 — indexes/stocks/crypto all eligible
+    pool: list[Opportunity] = []
+    pool.extend(shorts[:12])
+    pool.extend(longs[:12])
+    if len(pool) < 24:
+        seen = {o.symbol for o in pool}
+        for o in actionable:
+            if o.symbol not in seen:
+                pool.append(o)
+                seen.add(o.symbol)
+            if len(pool) >= 24:
+                break
 
     results = await asyncio.gather(*[_one(o) for o in pool])
     items = [r for r in results if r and r["super_score"] >= min_score]
-    items.sort(key=lambda x: x["super_score"], reverse=True)
+    # Interleave: keep shorts visible near top when scores are close
+    items.sort(
+        key=lambda x: (
+            x["super_score"] + (4.0 if x["levels"]["side"] == "short" else 0.0),
+        ),
+        reverse=True,
+    )
 
     supers = [i for i in items if i["is_super"]]
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "count": len(items),
         "super_count": len(supers),
+        "long_count": sum(1 for i in items if i["levels"]["side"] == "long"),
+        "short_count": sum(1 for i in items if i["levels"]["side"] == "short"),
         "items": items,
         "supers": supers,
         "scanner_last_scan_at": scanner.last_scan_at.isoformat() if scanner.last_scan_at else None,

@@ -7,30 +7,35 @@ from app.models.schemas import (
     SignalAction,
 )
 
+# buy_weight / sell_weight = conviction priors for each side (0..1)
 PHASE_PROFILES = {
     BetaPhase.PHASE_1: {
         "label": "Faza 1",
-        "bias": "Słabszy historycznie — częstsze korekty",
-        "signal": SignalAction.WATCH,
-        "buy_weight": 0.3,
+        "bias": "Słabszy historycznie — częstsze korekty, bias SHORT na początku",
+        "signal": SignalAction.SELL,
+        "buy_weight": 0.35,
+        "sell_weight": 0.75,
     },
     BetaPhase.PHASE_2: {
         "label": "Faza 2",
-        "bias": "Najsłabszy historycznie — preferuj dołki",
-        "signal": SignalAction.BUY,
-        "buy_weight": 0.7,
+        "bias": "Najsłabszy historycznie — SHORT na siłę, LONG dopiero na późne dołki",
+        "signal": SignalAction.SELL,
+        "buy_weight": 0.55,
+        "sell_weight": 0.85,
     },
     BetaPhase.PHASE_3: {
         "label": "Faza 3",
-        "bias": "Najsilniejszy historycznie",
+        "bias": "Najsilniejszy historycznie — bias LONG",
         "signal": SignalAction.BUY,
         "buy_weight": 1.0,
+        "sell_weight": 0.25,
     },
     BetaPhase.PHASE_4: {
         "label": "Faza 4",
-        "bias": "Umiarkowanie pozytywny",
+        "bias": "Umiarkowany → pod koniec fazy preferuj redukcję / SHORT",
         "signal": SignalAction.HOLD,
-        "buy_weight": 0.5,
+        "buy_weight": 0.45,
+        "sell_weight": 0.55,
     },
 }
 
@@ -90,14 +95,33 @@ def analyze_presidential_cycle(as_of: date | None = None) -> BetaModelStatus:
     days_remaining = max(0, (phase_end - as_of).days)
 
     profile = PHASE_PROFILES[beta_phase]
-
     signal = profile["signal"]
-    if beta_phase == BetaPhase.PHASE_2 and progress > 60:
-        signal = SignalAction.BUY
-    elif beta_phase == BetaPhase.PHASE_1 and progress > 70:
-        signal = SignalAction.BUY
-    elif beta_phase == BetaPhase.PHASE_4 and progress > 75:
-        signal = SignalAction.WATCH
+
+    # Intra-phase evolution — both LONG and SHORT windows exist
+    if beta_phase == BetaPhase.PHASE_1:
+        if progress > 70:
+            signal = SignalAction.WATCH  # late year-1: short bias softens
+        else:
+            signal = SignalAction.SELL
+    elif beta_phase == BetaPhase.PHASE_2:
+        if progress > 70:
+            signal = SignalAction.BUY  # late year-2: buy bottoms
+        elif progress > 45:
+            signal = SignalAction.WATCH  # mid: mixed — per-asset decides
+        else:
+            signal = SignalAction.SELL
+    elif beta_phase == BetaPhase.PHASE_3:
+        if progress > 85:
+            signal = SignalAction.HOLD
+        else:
+            signal = SignalAction.BUY
+    elif beta_phase == BetaPhase.PHASE_4:
+        if progress > 55:
+            signal = SignalAction.SELL  # late cycle risk-off
+        elif progress > 30:
+            signal = SignalAction.WATCH
+        else:
+            signal = SignalAction.HOLD
 
     rationale = (
         f"Model Beta — {profile['label']}. "
@@ -122,3 +146,14 @@ def analyze_presidential_cycle(as_of: date | None = None) -> BetaModelStatus:
 def presidential_buy_weight(as_of: date | None = None) -> float:
     status = analyze_presidential_cycle(as_of)
     return PHASE_PROFILES[status.current_phase]["buy_weight"]
+
+
+def presidential_sell_weight(as_of: date | None = None) -> float:
+    status = analyze_presidential_cycle(as_of)
+    return PHASE_PROFILES[status.current_phase]["sell_weight"]
+
+
+def presidential_phase_weights(as_of: date | None = None) -> tuple[float, float]:
+    status = analyze_presidential_cycle(as_of)
+    profile = PHASE_PROFILES[status.current_phase]
+    return profile["buy_weight"], profile["sell_weight"]

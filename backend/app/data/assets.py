@@ -7,16 +7,29 @@ DEFAULT_ASSETS: list[dict] = [
     {"symbol": "BTC-USD", "name": "Bitcoin", "asset_class": "crypto", "source": "yahoo"},
     {"symbol": "ETH-USD", "name": "Ethereum", "asset_class": "crypto", "source": "yahoo"},
     {"symbol": "SOL-USD", "name": "Solana", "asset_class": "crypto", "source": "yahoo"},
-    # US Indices
+    # US Indices + liquid index ETFs (global scan LONG/SHORT)
     {"symbol": "^GSPC", "name": "S&P 500", "asset_class": "index", "source": "yahoo"},
     {"symbol": "^DJI", "name": "Dow Jones", "asset_class": "index", "source": "yahoo"},
     {"symbol": "^IXIC", "name": "NASDAQ", "asset_class": "index", "source": "yahoo"},
     {"symbol": "^RUT", "name": "Russell 2000", "asset_class": "index", "source": "yahoo"},
+    {"symbol": "SPY", "name": "SPDR S&P 500", "asset_class": "index", "source": "yahoo"},
+    {"symbol": "QQQ", "name": "Invesco QQQ", "asset_class": "index", "source": "yahoo"},
+    {"symbol": "IWM", "name": "iShares Russell 2000", "asset_class": "index", "source": "yahoo"},
+    {"symbol": "DIA", "name": "SPDR Dow Jones", "asset_class": "index", "source": "yahoo"},
+    # Global / regional
+    {"symbol": "EFA", "name": "iShares MSCI EAFE", "asset_class": "index", "source": "yahoo"},
+    {"symbol": "EEM", "name": "iShares MSCI Emerging", "asset_class": "index", "source": "yahoo"},
+    {"symbol": "^FTSE", "name": "FTSE 100", "asset_class": "index", "source": "yahoo"},
+    {"symbol": "^N225", "name": "Nikkei 225", "asset_class": "index", "source": "yahoo"},
     # Stocks
     {"symbol": "AAPL", "name": "Apple", "asset_class": "stock", "source": "yahoo"},
     {"symbol": "MSFT", "name": "Microsoft", "asset_class": "stock", "source": "yahoo"},
     {"symbol": "NVDA", "name": "NVIDIA", "asset_class": "stock", "source": "yahoo"},
     {"symbol": "JPM", "name": "JPMorgan", "asset_class": "stock", "source": "yahoo"},
+    {"symbol": "TSLA", "name": "Tesla", "asset_class": "stock", "source": "yahoo"},
+    {"symbol": "AMZN", "name": "Amazon", "asset_class": "stock", "source": "yahoo"},
+    {"symbol": "META", "name": "Meta", "asset_class": "stock", "source": "yahoo"},
+    {"symbol": "GOOGL", "name": "Alphabet", "asset_class": "stock", "source": "yahoo"},
     # Bonds (ETF proxies)
     {"symbol": "TLT", "name": "20+ Year Treasury", "asset_class": "bond", "source": "yahoo"},
     {"symbol": "IEF", "name": "7-10 Year Treasury", "asset_class": "bond", "source": "yahoo"},

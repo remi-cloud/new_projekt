@@ -20,6 +20,7 @@ export default function SuperOpportunitiesPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [onlySuper, setOnlySuper] = useState(true)
+  const [sideFilter, setSideFilter] = useState<'all' | 'long' | 'short'>('all')
   const [busy, setBusy] = useState(false)
 
   const load = useCallback(async () => {
@@ -82,7 +83,10 @@ export default function SuperOpportunitiesPage() {
 
   const list = useMemo(() => {
     if (!data) return []
-    const pool = onlySuper ? data.supers : data.items
+    let pool = onlySuper ? data.supers : data.items
+    if (sideFilter !== 'all') {
+      pool = pool.filter((i) => i.levels.side === sideFilter)
+    }
     // Always keep the deep-linked symbol visible in the ranking
     if (
       selectedSymbol &&
@@ -95,7 +99,7 @@ export default function SuperOpportunitiesPage() {
       if (extra) return [extra, ...pool]
     }
     return pool
-  }, [data, onlySuper, selectedSymbol, detail])
+  }, [data, onlySuper, sideFilter, selectedSymbol, detail])
 
   const active =
     detail ??
@@ -142,6 +146,24 @@ export default function SuperOpportunitiesPage() {
             />
             Tylko SUPER (≥72)
           </label>
+          <div className="filter-chips">
+            {(
+              [
+                ['all', 'Wszystkie'],
+                ['long', 'LONG'],
+                ['short', 'SHORT'],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                className={`chip${sideFilter === id ? ' active' : ''}`}
+                onClick={() => setSideFilter(id)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <button
             className="btn btn-ghost"
             type="button"
@@ -173,14 +195,16 @@ export default function SuperOpportunitiesPage() {
           <span>superokazji</span>
         </div>
         <div className="home-stat">
-          <strong>{data.count}</strong>
-          <span>kandydatów</span>
+          <strong className="pos">{data.long_count ?? '—'}</strong>
+          <span>LONG</span>
         </div>
         <div className="home-stat">
-          <strong>
-            {data.generated_at ? new Date(data.generated_at).toLocaleTimeString('pl-PL') : '—'}
-          </strong>
-          <span>ostatnie wyliczenie</span>
+          <strong className="neg">{data.short_count ?? '—'}</strong>
+          <span>SHORT</span>
+        </div>
+        <div className="home-stat">
+          <strong>{data.count}</strong>
+          <span>kandydatów</span>
         </div>
       </div>
 
