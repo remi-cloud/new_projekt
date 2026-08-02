@@ -23,6 +23,10 @@ COINGECKO_IDS = {
 
 MS_PER_DAY = 86_400_000
 
+# Cached provider probe so Markets auto-poll does not hammer exchanges.
+_PROBE_CACHE: tuple[datetime, dict] | None = None
+_PROBE_TTL_SECONDS = 30
+
 
 def pct_change(current: float, previous: float | None) -> float | None:
     if previous is None or previous == 0:
@@ -120,9 +124,18 @@ async def fetch_quotes(assets: list[dict] | None = None) -> list[AssetQuote]:
     return list(quotes_by.values())
 
 
-async def probe_market_providers() -> dict:
-    """Return live connectivity status for each market data provider."""
-    status: dict = {"generated_at": datetime.now(timezone.utc).isoformat()}
+async def probe_market_providers(*, force: bool = False) -> dict:
+    """Return live connectivity status for each market data provider (cached ~30s)."""
+    global _PROBE_CACHE
+    now = datetime.now(timezone.utc)
+    if (
+        not force
+        and _PROBE_CACHE is not None
+        and (now - _PROBE_CACHE[0]).total_seconds() < _PROBE_TTL_SECONDS
+    ):
+        return _PROBE_CACHE[1]
+
+    status: dict = {"generated_at": now.isoformat()}
     async with httpx.AsyncClient(timeout=15, headers=YAHOO_HEADERS) as client:
         # TradingView
         try:
@@ -164,6 +177,7 @@ async def probe_market_providers() -> dict:
     status["connected"] = any(
         (status.get(k) or {}).get("ok") for k in ("tradingview", "yahoo", "coingecko")
     )
+    _PROBE_CACHE = (now, status)
     return status
 
 

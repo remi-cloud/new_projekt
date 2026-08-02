@@ -24,33 +24,53 @@ BINANCE_SYMBOLS = {
 LEVERAGE_BANDS = (5, 10, 20, 25, 50, 75, 100)
 
 
+# Spot data API works from geo-restricted hosts where fapi.binance.com returns 451.
+BINANCE_BOOK_URLS = (
+    "https://data-api.binance.vision/api/v3/ticker/bookTicker",
+    "https://api.binance.com/api/v3/ticker/bookTicker",
+    "https://fapi.binance.com/fapi/v1/ticker/bookTicker",
+)
+BINANCE_KLINE_URLS = (
+    ("https://data-api.binance.vision/api/v3/klines", {"interval": "1h", "limit": 72}),
+    ("https://api.binance.com/api/v3/klines", {"interval": "1h", "limit": 72}),
+    ("https://fapi.binance.com/fapi/v1/klines", {"interval": "1h", "limit": 72}),
+)
+
+
 async def fetch_binance_book(symbol: str) -> Optional[dict]:
-    """Return bid/ask/mid from Binance USDT-M futures bookTicker."""
+    """Return bid/ask/mid — prefer Binance spot data-api (avoids futures 451)."""
     bsym = BINANCE_SYMBOLS.get(symbol)
     if not bsym:
         return None
-    url = "https://fapi.binance.com/fapi/v1/ticker/bookTicker"
+    last_exc: Exception | None = None
     try:
         async with httpx.AsyncClient(timeout=12, headers=YAHOO_HEADERS) as client:
-            resp = await client.get(url, params={"symbol": bsym})
-            resp.raise_for_status()
-            data = resp.json()
-        bid = float(data["bidPrice"])
-        ask = float(data["askPrice"])
-        if bid <= 0 or ask <= 0:
-            return None
-        mid = (bid + ask) / 2
-        spread_pct = ((ask - bid) / mid) * 100
-        return {
-            "bid": round(bid, 6),
-            "ask": round(ask, 6),
-            "mid": round(mid, 6),
-            "spread_pct": round(spread_pct, 4),
-            "source": "binance_futures",
-        }
+            for url in BINANCE_BOOK_URLS:
+                try:
+                    resp = await client.get(url, params={"symbol": bsym})
+                    resp.raise_for_status()
+                    data = resp.json()
+                    bid = float(data["bidPrice"])
+                    ask = float(data["askPrice"])
+                    if bid <= 0 or ask <= 0:
+                        continue
+                    mid = (bid + ask) / 2
+                    spread_pct = ((ask - bid) / mid) * 100
+                    source = "binance_spot" if "fapi" not in url else "binance_futures"
+                    return {
+                        "bid": round(bid, 6),
+                        "ask": round(ask, 6),
+                        "mid": round(mid, 6),
+                        "spread_pct": round(spread_pct, 4),
+                        "source": source,
+                    }
+                except Exception as exc:
+                    last_exc = exc
+                    continue
     except Exception as exc:
-        logger.warning("Binance book failed for %s: %s", symbol, exc)
-        return None
+        last_exc = exc
+    logger.warning("Binance book failed for %s: %s", symbol, last_exc)
+    return None
 
 
 async def fetch_yahoo_bid_ask(symbol: str) -> Optional[dict]:
@@ -159,8 +179,8 @@ def estimate_liquidation_heatmap(
     highs: list[float] | None = None,
     lows: list[float] | None = None,
     volumes: list[float] | None = None,
-    bins: int = 72,
-    time_cols: int = 56,
+    bins: int = 48,
+    time_cols: int = 24,
 ) -> dict:
     """
     Build a CoinGlass-style 2D liquidation heatmap (time × price).
@@ -278,20 +298,35 @@ async def fetch_volume_profile(symbol: str, asset_class: str) -> dict:
 
     bsym = BINANCE_SYMBOLS.get(symbol)
     if bsym:
-        url = "https://fapi.binance.com/fapi/v1/klines"
-        params = {"symbol": bsym, "interval": "1h", "limit": 72}
+        last_exc: Exception | None = None
         try:
             async with httpx.AsyncClient(timeout=12, headers=YAHOO_HEADERS) as client:
-                resp = await client.get(url, params=params)
-                resp.raise_for_status()
-                rows = resp.json()
-            for row in rows:
-                highs.append(float(row[2]))
-                lows.append(float(row[3]))
-                volumes.append(float(row[5]))
-            return {"highs": highs, "lows": lows, "volumes": volumes, "source": "binance"}
+                for url, extra in BINANCE_KLINE_URLS:
+                    try:
+                        resp = await client.get(
+                            url, params={"symbol": bsym, **extra}
+                        )
+                        resp.raise_for_status()
+                        rows = resp.json()
+                        for row in rows:
+                            highs.append(float(row[2]))
+                            lows.append(float(row[3]))
+                            volumes.append(float(row[5]))
+                        return {
+                            "highs": highs,
+                            "lows": lows,
+                            "volumes": volumes,
+                            "source": "binance",
+                        }
+                    except Exception as exc:
+                        last_exc = exc
+                        highs.clear()
+                        lows.clear()
+                        volumes.clear()
+                        continue
         except Exception as exc:
-            logger.warning("Binance klines failed for %s: %s", symbol, exc)
+            last_exc = exc
+        logger.warning("Binance klines failed for %s: %s", symbol, last_exc)
 
     # Yahoo fallback
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"

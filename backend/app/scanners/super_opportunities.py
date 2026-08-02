@@ -213,7 +213,7 @@ def score_super_opportunity(
     return max(0.0, min(100.0, round(score, 1))), reasons
 
 
-async def build_super_opportunity(opp: Opportunity) -> dict:
+async def build_super_opportunity(opp: Opportunity, *, include_heatmap_3d: bool = True) -> dict:
     book, profile = await asyncio.gather(
         fetch_bid_ask(opp.symbol, opp.asset_class.value),
         fetch_volume_profile(opp.symbol, opp.asset_class.value),
@@ -250,6 +250,15 @@ async def build_super_opportunity(opp: Opportunity) -> dict:
     )
     reasons = [ai_signal["summary"], prediction["summary"], *reasons]
 
+    # List endpoint ships 1D bins only — 3D columns load on detail (~10× lighter).
+    heat_out = heatmap
+    if not include_heatmap_3d:
+        heat_out = {
+            **heatmap,
+            "columns": [],
+            "preview": True,
+        }
+
     return {
         "symbol": opp.symbol,
         "name": opp.name,
@@ -268,7 +277,7 @@ async def build_super_opportunity(opp: Opportunity) -> dict:
         "spread_pct": book["spread_pct"] if book else None,
         "book_source": book["source"] if book else None,
         "levels": levels,
-        "heatmap": heatmap,
+        "heatmap": heat_out,
         "prediction": prediction,
         "ai_signal": ai_signal,
         "reasons": reasons,
@@ -287,7 +296,7 @@ async def build_super_opportunities(min_score: float = 0) -> dict:
     async def _one(opp: Opportunity) -> dict | None:
         async with sem:
             try:
-                return await build_super_opportunity(opp)
+                return await build_super_opportunity(opp, include_heatmap_3d=False)
             except Exception as exc:
                 logger.warning("Super opp failed for %s: %s", opp.symbol, exc)
                 return None

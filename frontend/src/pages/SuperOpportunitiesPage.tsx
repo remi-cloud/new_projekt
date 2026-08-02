@@ -18,7 +18,7 @@ export default function SuperOpportunitiesPage() {
   const [detail, setDetail] = useState<SuperOpportunity | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [onlySuper, setOnlySuper] = useState(true)
+  const [onlySuper, setOnlySuper] = useState(false)
   const [sideFilter, setSideFilter] = useState<'all' | 'long' | 'short'>('all')
   const [busy, setBusy] = useState(false)
 
@@ -38,18 +38,10 @@ export default function SuperOpportunitiesPage() {
     load()
   }, [load])
 
-  // Deep-link: URL symbol is source of truth; fetch solo detail if missing from list
+  // Always load full 3D heatmap for the selected symbol (list is lightweight preview).
   useEffect(() => {
-    if (!data || !selectedSymbol) {
+    if (!selectedSymbol) {
       setDetail(null)
-      return
-    }
-    const inList = data.items.find(
-      (i) => i.symbol.toUpperCase() === selectedSymbol.toUpperCase(),
-    )
-    if (inList) {
-      setDetail(inList)
-      if (!inList.is_super) setOnlySuper(false)
       return
     }
     let cancelled = false
@@ -58,19 +50,26 @@ export default function SuperOpportunitiesPage() {
         const one = await fetchSuperOpportunity(selectedSymbol)
         if (!cancelled) {
           setDetail(one)
-          setOnlySuper(false)
+          if (!one.is_super) setOnlySuper(false)
         }
       } catch (e) {
         if (!cancelled) {
-          setDetail(null)
-          setError(e instanceof Error ? e.message : 'Brak pozycji dla symbolu')
+          // Fall back to list row if detail endpoint fails
+          const inList = data?.items.find(
+            (i) => i.symbol.toUpperCase() === selectedSymbol.toUpperCase(),
+          )
+          if (inList) setDetail(inList)
+          else {
+            setDetail(null)
+            setError(e instanceof Error ? e.message : 'Brak pozycji dla symbolu')
+          }
         }
       }
     })()
     return () => {
       cancelled = true
     }
-  }, [data, selectedSymbol])
+  }, [selectedSymbol, data])
 
   // No symbol in URL → open first visible item
   useEffect(() => {
@@ -82,11 +81,14 @@ export default function SuperOpportunitiesPage() {
 
   const list = useMemo(() => {
     if (!data) return []
-    let pool = onlySuper ? data.supers : data.items
+    // Never show an empty ranking when SUPER filter has no hits
+    let pool =
+      onlySuper && data.supers.length > 0
+        ? data.supers
+        : data.items
     if (sideFilter !== 'all') {
       pool = pool.filter((i) => i.levels.side === sideFilter)
     }
-    // Always keep the deep-linked symbol visible in the ranking
     if (
       selectedSymbol &&
       !pool.some((i) => i.symbol.toUpperCase() === selectedSymbol.toUpperCase())

@@ -12,9 +12,9 @@ def test_liquidation_heatmap_sides():
     volumes = [10 + i for i in range(24)]
     hm = estimate_liquidation_heatmap(100.0, highs=highs, lows=lows, volumes=volumes)
     assert hm["range_low"] < 100 < hm["range_high"]
-    assert len(hm["bins"]) == 72
-    assert len(hm["columns"]) == 56
-    assert len(hm["columns"][0]) == 72
+    assert len(hm["bins"]) == 48
+    assert len(hm["columns"]) == 24
+    assert len(hm["columns"][0]) == 48
     below = [b for b in hm["bins"] if b["price"] < 100]
     above = [b for b in hm["bins"] if b["price"] > 100]
     assert sum(b["long_intensity"] for b in below) > sum(b["long_intensity"] for b in above)
