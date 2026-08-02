@@ -82,6 +82,25 @@ class AssetQuote(BaseModel):
     change_pct_7d: Optional[float] = None
     currency: str = "USD"
     updated_at: datetime
+    region: str = "usa"
+    region_label: str = "USA"
+    live: bool = True
+
+
+class MarketRegionCount(BaseModel):
+    id: str
+    label: str
+    count: int
+    live_count: int = 0
+
+
+class MarketsResponse(BaseModel):
+    generated_at: str
+    count: int
+    global_count: int
+    live_count: int
+    regions: list[MarketRegionCount]
+    items: list[AssetQuote]
 
 
 class Opportunity(BaseModel):

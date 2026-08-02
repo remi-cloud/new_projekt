@@ -14,13 +14,20 @@ function ChangeCell({ value }: { value: number | null }) {
   )
 }
 
-export default function AssetsTable({ assets }: { assets: AssetQuote[] }) {
+export default function AssetsTable({
+  assets,
+  showRegion = false,
+}: {
+  assets: AssetQuote[]
+  showRegion?: boolean
+}) {
   return (
     <div className="assets-table-wrap">
       <table className="assets-table">
         <thead>
           <tr>
             <th>Instrument</th>
+            {showRegion && <th>Region</th>}
             <th>Klasa</th>
             <th>Cena</th>
             <th>24h</th>
@@ -37,10 +44,21 @@ export default function AssetsTable({ assets }: { assets: AssetQuote[] }) {
                   <div className="cell-sub">{a.symbol}</div>
                 </Link>
               </td>
+              {showRegion && (
+                <td>
+                  <span className="tag region">{a.region_label ?? a.region ?? '—'}</span>
+                </td>
+              )}
               <td>
                 <span className={`tag ${a.asset_class}`}>{ASSET_LABELS[a.asset_class]}</span>
               </td>
-              <td className="price-cell">${formatPrice(a.price, a.asset_class)}</td>
+              <td className="price-cell">
+                {a.live === false || a.price <= 0 ? (
+                  <span className="change-neutral">brak notowań</span>
+                ) : (
+                  <>${formatPrice(a.price, a.asset_class)}</>
+                )}
+              </td>
               <td>
                 <ChangeCell value={a.change_pct_24h} />
               </td>

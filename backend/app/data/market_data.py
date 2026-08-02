@@ -6,7 +6,7 @@ from typing import Optional
 import httpx
 
 from app.config import settings
-from app.data.assets import DEFAULT_ASSETS
+from app.data.assets import DEFAULT_ASSETS, REGION_LABELS, resolve_region
 from app.models.schemas import AssetClass, AssetQuote
 
 logger = logging.getLogger(__name__)
@@ -111,6 +111,7 @@ async def _fetch_coingecko_quote(
         change_24h = pct_change(price, closest_price_before(series, now_ms - MS_PER_DAY))
         change_7d = pct_change(price, series[0][1])
 
+        region = resolve_region(asset)
         return AssetQuote(
             symbol=asset["symbol"],
             name=asset["name"],
@@ -119,10 +120,37 @@ async def _fetch_coingecko_quote(
             change_pct_24h=change_24h,
             change_pct_7d=change_7d,
             updated_at=now,
+            region=region,
+            region_label=REGION_LABELS.get(region, region),
+            live=True,
         )
     except Exception as exc:
         logger.warning("CoinGecko quote failed for %s: %s", asset["symbol"], exc)
         return None
+
+
+def _quote_from_asset(
+    asset: dict,
+    *,
+    price: float,
+    now: datetime,
+    change_24h: float | None = None,
+    change_7d: float | None = None,
+    live: bool = True,
+) -> AssetQuote:
+    region = resolve_region(asset)
+    return AssetQuote(
+        symbol=asset["symbol"],
+        name=asset["name"],
+        asset_class=AssetClass(asset["asset_class"]),
+        price=round(price, 4) if price else 0.0,
+        change_pct_24h=change_24h,
+        change_pct_7d=change_7d,
+        updated_at=now,
+        region=region,
+        region_label=REGION_LABELS.get(region, region),
+        live=live,
+    )
 
 
 async def _fetch_yahoo_quote(
@@ -138,9 +166,11 @@ async def _fetch_yahoo_quote(
         if not result:
             return None
 
-        meta = result[0]["meta"]
+        meta = result[0].get("meta") or {}
         timestamps = result[0].get("timestamp") or []
-        closes_raw = result[0]["indicators"]["quote"][0]["close"]
+        indicators = result[0].get("indicators") or {}
+        quote_rows = indicators.get("quote") or [{}]
+        closes_raw = (quote_rows[0] or {}).get("close") or []
         series = [
             (int(ts) * 1000, float(close))
             for ts, close in zip(timestamps, closes_raw)
@@ -148,16 +178,11 @@ async def _fetch_yahoo_quote(
         ]
 
         if not series:
-            price = float(meta.get("regularMarketPrice", 0))
+            # MOEX / some EM tickers often return price in meta with null closes.
+            price = float(meta.get("regularMarketPrice") or meta.get("previousClose") or 0)
             if not price:
                 return None
-            return AssetQuote(
-                symbol=symbol,
-                name=asset["name"],
-                asset_class=AssetClass(asset["asset_class"]),
-                price=round(price, 4),
-                updated_at=now,
-            )
+            return _quote_from_asset(asset, price=price, now=now, live=True)
 
         price = series[-1][1]
         now_ms = series[-1][0]
@@ -166,15 +191,60 @@ async def _fetch_yahoo_quote(
         if change_7d is None and len(series) >= 2:
             change_7d = pct_change(price, series[0][1])
 
-        return AssetQuote(
-            symbol=symbol,
-            name=asset["name"],
-            asset_class=AssetClass(asset["asset_class"]),
-            price=round(price, 4),
-            change_pct_24h=change_24h,
-            change_pct_7d=change_7d,
-            updated_at=now,
+        return _quote_from_asset(
+            asset,
+            price=price,
+            now=now,
+            change_24h=change_24h,
+            change_7d=change_7d,
+            live=True,
         )
     except Exception as exc:
         logger.warning("Yahoo quote failed for %s: %s", symbol, exc)
         return None
+
+
+def stub_quote(asset: dict, now: datetime | None = None) -> AssetQuote:
+    """Catalog stub so Markets always lists the instrument even without a live quote."""
+    return _quote_from_asset(
+        asset,
+        price=0.0,
+        now=now or datetime.now(timezone.utc),
+        live=False,
+    )
+
+
+async def build_markets_quotes(
+    assets: list[dict],
+    cached: list[AssetQuote] | None = None,
+    *,
+    fetch_missing: bool = True,
+) -> list[AssetQuote]:
+    """Merge watchlist/catalog with live quotes; stubs for anything still missing."""
+    now = datetime.now(timezone.utc)
+    by_sym = {q.symbol.upper(): q for q in (cached or [])}
+
+    missing = [a for a in assets if a["symbol"].upper() not in by_sym]
+    if fetch_missing and missing:
+        fresh = await fetch_quotes(missing)
+        for q in fresh:
+            by_sym[q.symbol.upper()] = q
+
+    out: list[AssetQuote] = []
+    for asset in assets:
+        sym = asset["symbol"].upper()
+        quote = by_sym.get(sym)
+        if quote is None:
+            out.append(stub_quote(asset, now))
+            continue
+        # Ensure region fields are present (older cached quotes).
+        if not quote.region:
+            region = resolve_region(asset)
+            quote = quote.model_copy(
+                update={
+                    "region": region,
+                    "region_label": REGION_LABELS.get(region, region),
+                }
+            )
+        out.append(quote)
+    return out

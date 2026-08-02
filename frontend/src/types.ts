@@ -38,6 +38,25 @@ export interface AssetQuote {
   change_pct_7d: number | null
   currency: string
   updated_at: string
+  region?: string
+  region_label?: string
+  live?: boolean
+}
+
+export interface MarketRegionCount {
+  id: string
+  label: string
+  count: number
+  live_count: number
+}
+
+export interface MarketsResponse {
+  generated_at: string
+  count: number
+  global_count: number
+  live_count: number
+  regions: MarketRegionCount[]
+  items: AssetQuote[]
 }
 
 export interface Opportunity {

@@ -2,6 +2,116 @@
 
 from __future__ import annotations
 
+# UI / API region ids (Polish labels live in REGION_LABELS).
+RegionId = str
+
+US_INDEX_SYMBOLS = {
+    "^GSPC",
+    "^DJI",
+    "^IXIC",
+    "^RUT",
+    "SPY",
+    "QQQ",
+    "IWM",
+    "DIA",
+}
+
+AMERICAS_SYMBOLS = {
+    "^GSPTSE",
+    "^BVSP",
+    "^MXX",
+    "^IPSA",
+    "EWZ",
+    "EWC",
+    "EWW",
+}
+
+EUROPE_SYMBOLS = {
+    "^FTSE",
+    "^GDAXI",
+    "^FCHI",
+    "^STOXX50E",
+    "^IBEX",
+    "^AEX",
+    "^SSMI",
+    "^OMXSPI",
+    "WIG20.WA",
+    "EWG",
+    "EWU",
+    "EZU",
+}
+
+RUSSIA_SYMBOLS = {
+    "IMOEX.ME",
+    "RTSI.ME",
+    "ERUS",
+    "RSX",
+    "SBER.ME",
+    "GAZP.ME",
+}
+
+ASIA_SYMBOLS = {
+    "^N225",
+    "^HSI",
+    "000001.SS",
+    "399001.SZ",
+    "^KS11",
+    "^TWII",
+    "^BSESN",
+    "^NSEI",
+    "^STI",
+    "^JKSE",
+    "^KLSE",
+    "^AXJO",
+    "^NZ50",
+    "EWJ",
+    "FXI",
+    "MCHI",
+    "EWY",
+    "EWT",
+    "INDA",
+    "EWA",
+}
+
+MEA_SYMBOLS = {
+    "^TA125.TA",
+    "^CASE30",
+    "^J203.JO",
+    "EZA",
+}
+
+WORLD_EM_SYMBOLS = {
+    "EFA",
+    "EEM",
+    "VXUS",
+    "IEFA",
+    "ACWX",
+    "VWO",
+    "IEMG",
+}
+
+# Removed / broken Yahoo tickers — dropped from watchlist on DB merge.
+RETIRED_SYMBOLS = {"JN0U.JO"}
+
+REGION_LABELS: dict[str, str] = {
+    "usa": "USA",
+    "americas": "Ameryka (Brazylia+)",
+    "europe": "Europa",
+    "russia": "Rosja",
+    "asia": "Azja–Pacyfik",
+    "mea": "MEA / Afryka",
+    "world": "Świat / EM",
+    "crypto": "Krypto",
+    "bonds": "Obligacje",
+    "commodities": "Surowce",
+    "forex": "Forex",
+}
+
+# Regions that count as "rynki globalne" (non-US equity / indexes).
+GLOBAL_MARKET_REGIONS = frozenset(
+    {"americas", "europe", "russia", "asia", "mea", "world"}
+)
+
 DEFAULT_ASSETS: list[dict] = [
     # ── Crypto ──────────────────────────────────────────────────────────
     {"symbol": "BTC-USD", "name": "Bitcoin", "asset_class": "crypto", "source": "yahoo"},
@@ -16,7 +126,7 @@ DEFAULT_ASSETS: list[dict] = [
     {"symbol": "QQQ", "name": "Invesco QQQ", "asset_class": "index", "source": "yahoo"},
     {"symbol": "IWM", "name": "iShares Russell 2000", "asset_class": "index", "source": "yahoo"},
     {"symbol": "DIA", "name": "SPDR Dow Jones", "asset_class": "index", "source": "yahoo"},
-    # ── Americas (ex-US) ────────────────────────────────────────────────
+    # ── Americas (ex-US) — Brazylia, Kanada, Meksyk, Chile ─────────────
     {"symbol": "^GSPTSE", "name": "Canada TSX", "asset_class": "index", "source": "yahoo"},
     {"symbol": "^BVSP", "name": "Brazil Bovespa", "asset_class": "index", "source": "yahoo"},
     {"symbol": "^MXX", "name": "Mexico IPC", "asset_class": "index", "source": "yahoo"},
@@ -41,6 +151,9 @@ DEFAULT_ASSETS: list[dict] = [
     {"symbol": "IMOEX.ME", "name": "MOEX Russia", "asset_class": "index", "source": "yahoo"},
     {"symbol": "RTSI.ME", "name": "RTS Russia", "asset_class": "index", "source": "yahoo"},
     {"symbol": "ERUS", "name": "iShares Russia", "asset_class": "index", "source": "yahoo"},
+    {"symbol": "RSX", "name": "VanEck Russia", "asset_class": "index", "source": "yahoo"},
+    {"symbol": "SBER.ME", "name": "Sberbank", "asset_class": "index", "source": "yahoo"},
+    {"symbol": "GAZP.ME", "name": "Gazprom", "asset_class": "index", "source": "yahoo"},
     # ── Asia–Pacific ────────────────────────────────────────────────────
     {"symbol": "^N225", "name": "Nikkei 225 Japan", "asset_class": "index", "source": "yahoo"},
     {"symbol": "^HSI", "name": "Hang Seng HK", "asset_class": "index", "source": "yahoo"},
@@ -65,7 +178,7 @@ DEFAULT_ASSETS: list[dict] = [
     # ── Middle East / Africa ────────────────────────────────────────────
     {"symbol": "^TA125.TA", "name": "TA-125 Israel", "asset_class": "index", "source": "yahoo"},
     {"symbol": "^CASE30", "name": "EGX 30 Egypt", "asset_class": "index", "source": "yahoo"},
-    {"symbol": "JN0U.JO", "name": "FTSE/JSE Top 40", "asset_class": "index", "source": "yahoo"},
+    {"symbol": "^J203.JO", "name": "FTSE/JSE Top 40", "asset_class": "index", "source": "yahoo"},
     {"symbol": "EZA", "name": "iShares South Africa", "asset_class": "index", "source": "yahoo"},
     # ── Global / EM baskets ─────────────────────────────────────────────
     {"symbol": "EFA", "name": "iShares MSCI EAFE", "asset_class": "index", "source": "yahoo"},
@@ -116,3 +229,51 @@ def lookup_asset(symbol: str) -> dict | None:
 
 def normalize_symbol(symbol: str) -> str:
     return symbol.strip().upper()
+
+
+def resolve_region(asset: dict) -> str:
+    """Map an asset to a UI/API region bucket."""
+    ac = str(asset.get("asset_class", "")).lower()
+    if ac == "crypto":
+        return "crypto"
+    if ac == "bond":
+        return "bonds"
+    if ac == "commodity":
+        return "commodities"
+    if ac == "forex":
+        return "forex"
+    if ac == "stock":
+        return "usa"
+
+    sym = str(asset.get("symbol", "")).upper()
+    if sym in US_INDEX_SYMBOLS:
+        return "usa"
+    if sym in RUSSIA_SYMBOLS:
+        return "russia"
+    if sym in ASIA_SYMBOLS:
+        return "asia"
+    if sym in EUROPE_SYMBOLS:
+        return "europe"
+    if sym in AMERICAS_SYMBOLS:
+        return "americas"
+    if sym in MEA_SYMBOLS:
+        return "mea"
+    if sym in WORLD_EM_SYMBOLS:
+        return "world"
+    # Unknown indexes → treat as global basket
+    if ac == "index":
+        return "world"
+    return "usa"
+
+
+def enrich_asset(asset: dict) -> dict:
+    """Return a shallow copy with region + label filled in."""
+    out = dict(asset)
+    region = resolve_region(out)
+    out["region"] = region
+    out["region_label"] = REGION_LABELS.get(region, region)
+    return out
+
+
+def is_global_market(asset: dict) -> bool:
+    return resolve_region(asset) in GLOBAL_MARKET_REGIONS

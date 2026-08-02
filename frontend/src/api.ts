@@ -4,6 +4,7 @@ import {
   AgentsReport,
   DashboardResponse,
   HistoryResponse,
+  MarketsResponse,
   SuperOpportunitiesResponse,
   SuperOpportunity,
   WatchlistItem,
@@ -42,6 +43,11 @@ async function sendJson<T>(path: string, method: string, body?: unknown): Promis
 
 export async function fetchDashboard(): Promise<DashboardResponse> {
   return getJson<DashboardResponse>('/dashboard')
+}
+
+export async function fetchMarkets(region?: string): Promise<MarketsResponse> {
+  const q = region ? `?region=${encodeURIComponent(region)}` : ''
+  return getJson<MarketsResponse>(`/markets${q}`)
 }
 
 export async function triggerScan(): Promise<{

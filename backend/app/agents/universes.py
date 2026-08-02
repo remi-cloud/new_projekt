@@ -3,21 +3,12 @@
 from __future__ import annotations
 
 from app.agents.types import RegionClass, ScoutUniverse
-from app.data.assets import DEFAULT_ASSETS
+from app.data.assets import DEFAULT_ASSETS, US_INDEX_SYMBOLS
 from app.models.schemas import AssetClass
 
 # Only these indices/ETFs count as US equity universe.
 # Every other index (Asia, Russia, Brazil, Europe, EM baskets, …) → global_equity.
-US_INDEX_ETFS = {
-    "^GSPC",
-    "^DJI",
-    "^IXIC",
-    "^RUT",
-    "SPY",
-    "QQQ",
-    "IWM",
-    "DIA",
-}
+US_INDEX_ETFS = US_INDEX_SYMBOLS
 
 
 def default_universes(watchlist: list[dict] | None = None) -> dict[RegionClass, ScoutUniverse]:

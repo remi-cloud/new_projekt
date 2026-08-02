@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 import aiosqlite
 
 from app.config import settings
-from app.data.assets import DEFAULT_ASSETS, lookup_asset, normalize_symbol
+from app.data.assets import DEFAULT_ASSETS, RETIRED_SYMBOLS, lookup_asset, normalize_symbol
 
 
 async def ensure_settings_tables(db: aiosqlite.Connection) -> None:
@@ -71,6 +71,9 @@ async def ensure_settings_tables(db: aiosqlite.Connection) -> None:
                         now,
                     ),
                 )
+    # Drop broken / retired Yahoo tickers so they stop cluttering Markets
+    for dead in RETIRED_SYMBOLS:
+        await db.execute("DELETE FROM watchlist WHERE upper(symbol) = ?", (dead.upper(),))
     # Seed alert settings from env if missing
     defaults = {
         "alerts_enabled": "true" if settings.alerts_enabled else "false",

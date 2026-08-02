@@ -8,7 +8,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.data.assets import DEFAULT_ASSETS
+from app.data.assets import (
+    DEFAULT_ASSETS,
+    GLOBAL_MARKET_REGIONS,
+    REGION_LABELS,
+    enrich_asset,
+)
+from app.data.market_data import build_markets_quotes
 from app.db.database import (
     get_recent_opportunities,
     get_scan_history,
@@ -29,6 +35,8 @@ from app.models.schemas import (
     AlertSettings,
     DashboardResponse,
     HistoryResponse,
+    MarketRegionCount,
+    MarketsResponse,
     SuperOpportunitiesResponse,
     WatchlistAddRequest,
     WatchlistToggleRequest,
@@ -127,6 +135,100 @@ async def dashboard():
         monitored_assets=scanner.quotes,
         last_scan_at=scanner.last_scan_at,
         scanner_running=is_running(),
+    )
+
+
+@app.get("/api/markets", response_model=MarketsResponse)
+async def markets(region: str | None = Query(None)):
+    """
+    Full markets catalog with region tags.
+
+    Independent of Model Alpha/Beta scan — always lists global indexes
+    (Asia, Russia, Brazil, Europe, EM) even before the first orchestrator run.
+    """
+    from datetime import datetime, timezone
+
+    watchlist = await get_watchlist(enabled_only=True)
+    assets = [
+        enrich_asset(
+            {
+                "symbol": item["symbol"],
+                "name": item["name"],
+                "asset_class": item["asset_class"],
+                "source": item.get("source", "yahoo"),
+            }
+        )
+        for item in watchlist
+    ]
+    if not assets:
+        assets = [enrich_asset(a) for a in DEFAULT_ASSETS]
+
+    all_quotes = await build_markets_quotes(
+        assets,
+        cached=scanner.quotes or None,
+        fetch_missing=True,
+    )
+
+    region_order = {
+        "asia": 0,
+        "russia": 1,
+        "americas": 2,
+        "europe": 3,
+        "mea": 4,
+        "world": 5,
+        "usa": 6,
+        "crypto": 7,
+        "bonds": 8,
+        "commodities": 9,
+        "forex": 10,
+    }
+
+    selected = region or "global"
+    if selected == "all":
+        items = list(all_quotes)
+    elif selected == "global":
+        items = [q for q in all_quotes if q.region in GLOBAL_MARKET_REGIONS]
+    else:
+        items = [q for q in all_quotes if q.region == selected]
+
+    items.sort(
+        key=lambda q: (region_order.get(q.region, 50), q.region_label, q.name.lower())
+    )
+
+    by_region: dict[str, list] = {}
+    for q in all_quotes:
+        by_region.setdefault(q.region, []).append(q)
+
+    global_items = [q for q in all_quotes if q.region in GLOBAL_MARKET_REGIONS]
+    regions = [
+        MarketRegionCount(
+            id="global",
+            label="Rynki globalne",
+            count=len(global_items),
+            live_count=sum(1 for x in global_items if x.live and x.price > 0),
+        )
+    ]
+    regions.extend(
+        MarketRegionCount(
+            id=rid,
+            label=REGION_LABELS.get(rid, rid),
+            count=len(bucket),
+            live_count=sum(1 for x in bucket if x.live and x.price > 0),
+        )
+        for rid, bucket in sorted(
+            by_region.items(),
+            key=lambda kv: region_order.get(kv[0], 50),
+        )
+    )
+
+    now = datetime.now(timezone.utc).isoformat()
+    return MarketsResponse(
+        generated_at=now,
+        count=len(items),
+        global_count=len(global_items),
+        live_count=sum(1 for q in items if q.live and q.price > 0),
+        regions=regions,
+        items=items,
     )
 
 

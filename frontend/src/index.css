@@ -528,6 +528,13 @@ button {
   font-family: var(--font-sans);
 }
 
+.section-title .count-sub {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+}
+
 .opportunities-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -677,6 +684,12 @@ a.super-list-item {
 .tag.bond { color: var(--green); }
 .tag.commodity { color: var(--yellow); }
 .tag.forex { color: #fda4af; }
+.tag.region {
+  color: var(--text-secondary);
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+}
 
 .opp-rationale {
   font-size: 0.85rem;
@@ -780,6 +793,16 @@ a.super-list-item {
   border-color: var(--teal);
   color: #042f2e;
   font-weight: 600;
+}
+
+.chip-count {
+  margin-left: 6px;
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
+.chip.active .chip-count {
+  opacity: 0.85;
 }
 
 .timeline,
