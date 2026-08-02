@@ -1,7 +1,8 @@
-"""TradingView scanner — primary live quotes (+ Yahoo fallback in market_data)."""
+"""TradingView scanner — primary live quotes (multi-endpoint) + Yahoo/CG fallback."""
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -9,7 +10,11 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-TV_SCAN_URL = "https://scanner.tradingview.com/global/scan"
+TV_SCAN_URLS = (
+    "https://scanner.tradingview.com/global/scan",
+    "https://scanner.tradingview.com/america/scan",
+    "https://scanner.tradingview.com/cfd/scan",
+)
 TV_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     "Content-Type": "application/json",
@@ -35,7 +40,7 @@ TV_SYMBOL_MAP: dict[str, str] = {
     "^GSPTSE": "TSX:TSX",
     "^BVSP": "BMFBOVESPA:IBOV",
     "^MXX": "BMV:ME",
-    "^IPSA": "BCS:IPSA",
+    # Chile IPSA — no reliable TV tape; Yahoo fills. ECH = Chile ETF proxy optional.
     "EWZ": "AMEX:EWZ",
     "EWC": "AMEX:EWC",
     "EWW": "AMEX:EWW",
@@ -44,41 +49,35 @@ TV_SYMBOL_MAP: dict[str, str] = {
     "^GDAXI": "XETR:DAX",
     "^FCHI": "TVC:CAC40",
     "^STOXX50E": "TVC:SX5E",
-    "^IBEX": "BME:IB",
+    "^IBEX": "TVC:IBEX35",
     "^AEX": "TVC:AEX",
     "^SSMI": "SIX:SMI",
     "^OMXSPI": "OMXSTO:OMXSPI",
     "WIG20.WA": "GPW:WIG20",
     "EWG": "AMEX:EWG",
     "EWU": "AMEX:EWU",
-    "EZU": "AMEX:EZU",
-    # Russia
-    "IMOEX.ME": "RUS:IMOEX",
-    "RTSI.ME": "RUS:RTSI",
-    "ERUS": "AMEX:ERUS",
-    "RSX": "AMEX:RSX",
-    "SBER.ME": "RUS:SBER",
-    "GAZP.ME": "RUS:GAZP",
-    # Asia
+    "EZU": "CBOE:EZU",
+    # Russia — MOEX/ETFs often blocked on TV scanners; Yahoo fills these
+    # (ERUS/RSX delisted on many US venues — Yahoo last tape)
     "^N225": "TVC:NI225",
     "^HSI": "TVC:HSI",
     "000001.SS": "SSE:000001",
     "399001.SZ": "SZSE:399001",
     "^KS11": "TVC:KOSPI",
-    "^TWII": "TVC:TWII",
+    "^TWII": "TWSE:IX0001",
     "^BSESN": "BSE:SENSEX",
     "^NSEI": "NSE:NIFTY",
     "^STI": "TVC:STI",
     "^JKSE": "IDX:COMPOSITE",
-    "^KLSE": "MYX:FBMKLCI",
+    "^KLSE": "FTSEMYX:FBMKLCI",
     "^AXJO": "ASX:XJO",
-    "^NZ50": "NZX:NZ50",
+    "^NZ50": "NZX:NZ50G",
     "EWJ": "AMEX:EWJ",
     "FXI": "AMEX:FXI",
     "MCHI": "NASDAQ:MCHI",
     "EWY": "AMEX:EWY",
     "EWT": "AMEX:EWT",
-    "INDA": "AMEX:INDA",
+    "INDA": "CBOE:INDA",
     "EWA": "AMEX:EWA",
     # MEA
     "^TA125.TA": "TASE:TA125",
@@ -89,7 +88,7 @@ TV_SYMBOL_MAP: dict[str, str] = {
     "EFA": "AMEX:EFA",
     "EEM": "AMEX:EEM",
     "VXUS": "NASDAQ:VXUS",
-    "IEFA": "AMEX:IEFA",
+    "IEFA": "CBOE:IEFA",
     "ACWX": "NASDAQ:ACWX",
     "VWO": "AMEX:VWO",
     "IEMG": "AMEX:IEMG",
@@ -130,12 +129,26 @@ def tv_ticker_for(symbol: str) -> str | None:
     return TV_SYMBOL_MAP.get(key.upper()) or TV_SYMBOL_MAP.get(key)
 
 
+async def _scan_chunk(
+    client: httpx.AsyncClient,
+    url: str,
+    tickers: list[str],
+) -> list[dict[str, Any]]:
+    payload = {
+        "symbols": {"tickers": tickers, "query": {"types": []}},
+        "columns": TV_COLUMNS,
+    }
+    resp = await client.post(url, headers=TV_HEADERS, json=payload, timeout=25)
+    resp.raise_for_status()
+    return resp.json().get("data") or []
+
+
 async def fetch_tradingview_quotes(
     client: httpx.AsyncClient,
     symbols: list[str],
 ) -> dict[str, dict[str, Any]]:
     """
-    Batch-fetch live quotes from TradingView scanner.
+    Batch-fetch live quotes from TradingView (global + america + cfd scanners).
     Returns map: catalog_symbol → {close, change_pct, name, tv_symbol, source}.
     """
     pairs: list[tuple[str, str]] = []
@@ -147,44 +160,49 @@ async def fetch_tradingview_quotes(
         return {}
 
     out: dict[str, dict[str, Any]] = {}
-    chunk_size = 40
+    chunk_size = 35
     reverse = {tv: cat for cat, tv in pairs}
 
     for i in range(0, len(pairs), chunk_size):
         chunk = pairs[i : i + chunk_size]
-        payload = {
-            "symbols": {"tickers": [tv for _, tv in chunk], "query": {"types": []}},
-            "columns": TV_COLUMNS,
-        }
-        try:
-            resp = await client.post(TV_SCAN_URL, headers=TV_HEADERS, json=payload, timeout=25)
-            resp.raise_for_status()
-            data = resp.json().get("data") or []
+        tickers = [tv for _, tv in chunk]
+
+        async def one(url: str) -> list[dict[str, Any]]:
+            try:
+                return await _scan_chunk(client, url, tickers)
+            except Exception as exc:
+                logger.warning("TradingView %s failed: %s", url, exc)
+                return []
+
+        results = await asyncio.gather(*(one(u) for u in TV_SCAN_URLS))
+        for data in results:
             for row in data:
                 tv_sym = row.get("s") or ""
                 cols = row.get("d") or []
                 cat = reverse.get(tv_sym)
                 if not cat or len(cols) < 1 or cols[0] is None:
                     continue
+                key = cat.upper()
+                if key in out:
+                    continue
                 change = cols[1] if len(cols) > 1 else None
-                out[cat.upper()] = {
+                out[key] = {
                     "close": float(cols[0]),
                     "change_pct": float(change) if change is not None else None,
                     "name": cols[3] if len(cols) > 3 else cat,
                     "tv_symbol": tv_sym,
                     "source": "tradingview",
                 }
-        except Exception as exc:
-            logger.warning("TradingView scan failed (chunk %d): %s", i // chunk_size, exc)
 
+    logger.info("TradingView multi-scan: %d / %d mapped", len(out), len(pairs))
     return out
 
 
 async def probe_tradingview(client: httpx.AsyncClient) -> dict[str, Any]:
     """Health probe — one liquid ticker."""
     try:
-        data = await fetch_tradingview_quotes(client, ["AAPL"])
-        ok = "AAPL" in data and data["AAPL"]["close"] > 0
-        return {"ok": ok, "sample": data.get("AAPL")}
+        data = await fetch_tradingview_quotes(client, ["AAPL", "BTC-USD", "SPY"])
+        ok = any(k in data and data[k]["close"] > 0 for k in data)
+        return {"ok": ok, "sample": data.get("AAPL") or next(iter(data.values()), None), "count": len(data)}
     except Exception as exc:
         return {"ok": False, "error": str(exc)}

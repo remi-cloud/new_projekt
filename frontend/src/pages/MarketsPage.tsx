@@ -83,7 +83,8 @@ export default function MarketsPage() {
         <div>
           <h1>Rynki</h1>
           <p className="page-lead">
-            Notowania na żywo (TradingView → Yahoo → CoinGecko). Auto-odświeżanie co 12 s.
+            Katalog podpięty pod źródła na żywo: TradingView (główne) → Yahoo → CoinGecko.
+            Każdy wiersz ma kolumnę Src (TV/YH/CG). Auto-odświeżanie co 12 s.
           </p>
         </div>
         <button

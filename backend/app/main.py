@@ -498,8 +498,12 @@ async def live_plain():
     """
     from html import escape
 
-    quotes = await quote_cache.get_catalog_quotes(force=False)
+    quotes = await quote_cache.get_catalog_quotes(force=True)
     live_n = sum(1 for q in quotes if q.live and q.price > 0)
+    by_src: dict[str, int] = {}
+    for q in quotes:
+        by_src[q.quote_source or "stub"] = by_src.get(q.quote_source or "stub", 0) + 1
+    src_line = " · ".join(f"{k.upper()} {v}" for k, v in sorted(by_src.items()))
     alpha = scanner.alpha_model
     beta = scanner.beta_model
     alpha_txt = (
@@ -514,7 +518,7 @@ async def live_plain():
         else "—"
     )
     rows = []
-    for q in quotes[:40]:
+    for q in quotes:
         ch = q.change_pct_24h
         ch_s = f"{ch:+.2f}%" if ch is not None else "—"
         rows.append(
@@ -523,7 +527,7 @@ async def live_plain():
             f"<td>{escape(q.region_label or q.region or '—')}</td>"
             f"<td>{q.price:,.4f}</td>"
             f"<td>{ch_s}</td>"
-            f"<td>{escape(q.quote_source or '—')}</td>"
+            f"<td><strong>{escape((q.quote_source or '—').upper())}</strong></td>"
             "</tr>"
         )
     opps = []
@@ -546,13 +550,13 @@ small{{color:#9aada3}} .meta{{color:#9aada3;font-size:13px}}
 </style></head><body>
 <h1>Cyclical Trader · LIVE</h1>
 <p class="ok">POŁĄCZONO · {live_n}/{len(quotes)} notowań live</p>
-<p class="meta">Strona bez React — jeśli tu coś widać, serwer działa. <a href="/">Pełna aplikacja</a> · <a href="/rynki">Rynki SPA</a></p>
+<p class="meta">Źródła: {escape(src_line)}. TradingView → Yahoo → CoinGecko. <a href="/rynki">Rynki SPA</a> · <a href="/">App</a></p>
 <div class="box"><strong>Alpha:</strong> {alpha_txt}<br/><strong>Beta:</strong> {beta_txt}</div>
 <div class="box"><strong>Okazje ({len(scanner.opportunities)})</strong><ul>{''.join(opps) or '<li>Brak — odśwież za chwilę</li>'}</ul></div>
-<h2>Notowania (pierwsze 40)</h2>
-<table><thead><tr><th>Instrument</th><th>Region</th><th>Cena</th><th>24h</th><th>Src</th></tr></thead>
+<h2>Wszystkie rynki ({len(quotes)})</h2>
+<table><thead><tr><th>Instrument</th><th>Region</th><th>Cena</th><th>24h</th><th>Źródło</th></tr></thead>
 <tbody>{''.join(rows)}</tbody></table>
-<p class="meta">Odświeżanie strony: co 20 s</p>
+<p class="meta">Odświeżanie strony: co 20 s · każdy wiersz ma źródło TV/YH/CG</p>
 <meta http-equiv="refresh" content="20"/>
 </body></html>"""
 
@@ -566,7 +570,10 @@ if STATIC_DIR.is_dir():
 
     @app.get("/")
     async def spa_index():
-        return FileResponse(STATIC_DIR / "index.html")
+        return FileResponse(
+            STATIC_DIR / "index.html",
+            headers={"Cache-Control": "no-store, max-age=0"},
+        )
 
     @app.get("/{full_path:path}")
     async def spa_fallback(full_path: str):
@@ -578,8 +585,10 @@ if STATIC_DIR.is_dir():
         candidate = STATIC_DIR / full_path
         if candidate.is_file():
             return FileResponse(candidate)
-        return FileResponse(STATIC_DIR / "index.html")
-else:
+        return FileResponse(
+            STATIC_DIR / "index.html",
+            headers={"Cache-Control": "no-store, max-age=0"},
+        )else:
     @app.get("/")
     async def missing_static():
         return HTMLResponse(
