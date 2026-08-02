@@ -79,7 +79,7 @@ class SideSpecialist:
                 *best.factors,
             ]
 
-            accepted = conf >= 50.0 and trend_penalty > -20
+            accepted = conf >= 55.0 and trend_penalty > -20
             action = SignalAction.BUY if self.side == "long" else SignalAction.SELL
             opp = None
             if accepted:

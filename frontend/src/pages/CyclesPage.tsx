@@ -16,8 +16,9 @@ export default function CyclesPage() {
         <div>
           <h1>Modele sygnałowe</h1>
           <p className="page-lead">
-            Dwa niezależne silniki scoringu — Alpha (aktywa cyfrowe) i Beta (rynki tradycyjne).
-            Szczegóły wewnętrzne modeli nie są publikowane.
+            Dwa niezależne silniki — nie gryzą się nawzajem. Alpha liczy tylko krypto,
+            Beta tylko rynki tradycyjne. Singularity łączy scouting LONG/SHORT per instrument
+            (trend-first, bez sztucznego 50/50).
           </p>
         </div>
       </div>
@@ -34,17 +35,18 @@ export default function CyclesPage() {
         <h3>Jak czytać sygnały</h3>
         <ul>
           <li>
-            <strong>LONG</strong> — kierunek wzrostowy: szukaj wejścia long (kupno / long futures).
+            <strong>Model Alpha</strong> — wyłącznie BTC/ETH/SOL (cykl cyfrowy). Nie wpływa na akcje ani indeksy.
           </li>
           <li>
-            <strong>SHORT</strong> — kierunek spadkowy: szukaj shorta albo redukcji longów.
+            <strong>Model Beta</strong> — akcje, indeksy, obligacje, FX, surowce. Nie wpływa na krypto.
           </li>
           <li>
-            <strong>NEUTRAL</strong> — brak jasnego kierunku: nie forsuj nowej pozycji.
+            <strong>LONG / SHORT</strong> — scoutdzi polują osobno, ale na jeden symbol zostaje jedna strona
+            (wygrywa trend 7d; słabe sygnały nie dopełniają „parytetu”).
           </li>
           <li>
-            <strong>Superokazje + Singularity</strong> — po konsultacji wszystkich czynników dostajesz{' '}
-            <strong>KUP</strong> albo <strong>SPRZEDAJ</strong> (albo CZEKAJ przy konflikcie).
+            <strong>Superokazje + Singularity</strong> — po konsultacji czynników: <strong>KUP</strong>,{' '}
+            <strong>SPRZEDAJ</strong> albo <strong>CZEKAJ</strong> przy prawdziwym konflikcie.
           </li>
         </ul>
       </section>

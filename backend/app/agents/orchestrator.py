@@ -4,7 +4,10 @@ Final developer / orchestrator.
 Pipeline:
   6 LONG scouts + 6 SHORT scouts (global)
     → AI Specjalista LONG + AI Specjalista SHORT
-      → Orchestrator merges balanced book for the product
+      → Orchestrator merges quality book (no forced 50/50)
+
+Alpha scores crypto only; Beta scores traditional markets only —
+they never cancel each other on the same instrument.
 """
 
 from __future__ import annotations
@@ -161,8 +164,12 @@ class AgentOrchestrator:
         long_opps = self.long_specialist.to_opportunities(long_verdicts)
         short_opps = self.short_specialist.to_opportunities(short_verdicts)
 
-        # Final developer: balanced merge (equal voice)
-        opportunities = self._merge_balanced(long_opps, short_opps)
+        # Final developer: quality merge — NO forced LONG/SHORT parity.
+        # Alpha (crypto) and Beta (traditional) never fight on the same symbol;
+        # when LONG+SHORT both fire on one ticker, trend-first picks the winner.
+        opportunities = self._merge_book(
+            long_opps, short_opps, quotes=self.quotes
+        )
         self.opportunities = opportunities
         self.last_scan_at = now
 
@@ -172,6 +179,14 @@ class AgentOrchestrator:
             "long_accepted": len(long_opps),
             "short_accepted": len(short_opps),
             "merged": len(opportunities),
+            "merged_long": sum(
+                1
+                for o in opportunities
+                if o.action in (SignalAction.BUY, SignalAction.WATCH)
+            ),
+            "merged_short": sum(
+                1 for o in opportunities if o.action == SignalAction.SELL
+            ),
             "quotes": len(self.quotes),
             "scouts_long": len(long_scouts),
             "scouts_short": len(short_scouts),
@@ -200,39 +215,102 @@ class AgentOrchestrator:
         return self.last_result
 
     @staticmethod
+    def _resolve_side_conflict(
+        long_o: Opportunity | None,
+        short_o: Opportunity | None,
+        chg7: float | None,
+    ) -> Opportunity | None:
+        """One symbol → one side. Trend beats calendar; never keep both."""
+        if long_o and not short_o:
+            return long_o
+        if short_o and not long_o:
+            return short_o
+        if not long_o and not short_o:
+            return None
+        assert long_o is not None and short_o is not None
+
+        if chg7 is not None:
+            if chg7 >= 1.0:
+                winner = long_o
+                note = f"Konflikt LONG/SHORT → trend 7d {chg7:+.1f}% wygrywa LONG"
+            elif chg7 <= -1.5:
+                winner = short_o
+                note = f"Konflikt LONG/SHORT → trend 7d {chg7:+.1f}% wygrywa SHORT"
+            elif long_o.confidence >= short_o.confidence + 5:
+                winner = long_o
+                note = "Konflikt LONG/SHORT → wyższa pewność LONG"
+            elif short_o.confidence >= long_o.confidence + 5:
+                winner = short_o
+                note = "Konflikt LONG/SHORT → wyższa pewność SHORT"
+            else:
+                # Near-flat tape + near-tie → drop both (no fake signal)
+                return None
+        else:
+            winner = long_o if long_o.confidence >= short_o.confidence else short_o
+            note = "Konflikt LONG/SHORT → wyższa pewność (brak 7d)"
+
+        return winner.model_copy(
+            update={"rationale": f"{winner.rationale} | {note}"}
+        )
+
+    def _merge_book(
+        self,
+        longs: list[Opportunity],
+        shorts: list[Opportunity],
+        *,
+        quotes: list[AssetQuote] | None = None,
+        max_total: int = 28,
+        min_confidence: float = 55.0,
+    ) -> list[Opportunity]:
+        """
+        Merge LONG + SHORT books without forced 50/50 parity.
+
+        Forced balance was making weak SHORTs fight a dominant LONG tape
+        (and vice versa) — strategies looked like they cancel each other.
+        """
+        chg7_map = {
+            q.symbol.upper(): q.change_pct_7d for q in (quotes or [])
+        }
+
+        quality_long = sorted(
+            (o for o in longs if o.confidence >= min_confidence),
+            key=lambda o: o.confidence,
+            reverse=True,
+        )
+        quality_short = sorted(
+            (o for o in shorts if o.confidence >= min_confidence),
+            key=lambda o: o.confidence,
+            reverse=True,
+        )
+
+        by_sym: dict[str, dict[str, Opportunity]] = {}
+        for o in quality_long:
+            by_sym.setdefault(o.symbol.upper(), {})["long"] = o
+        for o in quality_short:
+            by_sym.setdefault(o.symbol.upper(), {})["short"] = o
+
+        resolved: list[Opportunity] = []
+        for sym, sides in by_sym.items():
+            picked = self._resolve_side_conflict(
+                sides.get("long"),
+                sides.get("short"),
+                chg7_map.get(sym),
+            )
+            if picked:
+                resolved.append(picked)
+
+        resolved.sort(key=lambda o: o.confidence, reverse=True)
+        return resolved[:max_total]
+
+    # Back-compat alias
     def _merge_balanced(
+        self,
         longs: list[Opportunity],
         shorts: list[Opportunity],
         *,
         per_side: int = 14,
     ) -> list[Opportunity]:
-        longs = sorted(longs, key=lambda o: o.confidence, reverse=True)[:per_side]
-        shorts = sorted(shorts, key=lambda o: o.confidence, reverse=True)[:per_side]
-        # Interleave SHORT/LONG so neither side is buried
-        merged: list[Opportunity] = []
-        i = j = 0
-        while i < len(shorts) or j < len(longs):
-            if i < len(shorts):
-                merged.append(shorts[i])
-                i += 1
-            if j < len(longs):
-                merged.append(longs[j])
-                j += 1
-        # De-dupe by symbol preferring higher confidence
-        best: dict[str, Opportunity] = {}
-        for o in merged:
-            prev = best.get(o.symbol)
-            if not prev or o.confidence > prev.confidence:
-                best[o.symbol] = o
-        # Preserve interleave order
-        ordered = []
-        seen: set[str] = set()
-        for o in merged:
-            if o.symbol in seen:
-                continue
-            ordered.append(best[o.symbol])
-            seen.add(o.symbol)
-        return ordered
+        return self._merge_book(longs, shorts, max_total=per_side * 2)
 
     def agent_report(self) -> dict[str, Any]:
         """Full war-room report for API/UI."""

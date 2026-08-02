@@ -17,6 +17,7 @@ from app.models.schemas import (
     BetaModelStatus,
     BetaPhase,
     CyclePhase,
+    Opportunity,
     SignalAction,
 )
 
@@ -249,3 +250,42 @@ async def test_orchestrator_pipeline_balanced():
     assert len(longs) >= 1  # rising indexes → LONG
     assert len(shorts) >= 1  # dumping AAPL/BTC → SHORT
     assert any(o.symbol in ("^GSPC", "QQQ", "EFA") for o in longs)
+    # No forced 50/50 — rising tape should not invent equal SHORTs
+    assert result.scout_stats["merged_long"] >= result.scout_stats["merged_short"]
+    # One symbol → one side only
+    syms = [o.symbol for o in result.opportunities]
+    assert len(syms) == len(set(syms))
+
+
+def test_merge_book_trend_resolves_conflict():
+    orch = AgentOrchestrator()
+    long_o = Opportunity(
+        symbol="SPY",
+        name="SPY",
+        asset_class=AssetClass.INDEX,
+        action=SignalAction.BUY,
+        confidence=70,
+        cycle_source="beta",
+        phase="phase_2",
+        price=500,
+        rationale="long",
+        created_at=datetime.now(timezone.utc),
+    )
+    short_o = Opportunity(
+        symbol="SPY",
+        name="SPY",
+        asset_class=AssetClass.INDEX,
+        action=SignalAction.SELL,
+        confidence=72,
+        cycle_source="beta",
+        phase="phase_2",
+        price=500,
+        rationale="short",
+        created_at=datetime.now(timezone.utc),
+    )
+    q = _q("SPY", AssetClass.INDEX, 4.0)
+    q.change_pct_24h = 1.0
+    merged = orch._merge_book([long_o], [short_o], quotes=[q])
+    assert len(merged) == 1
+    assert merged[0].action == SignalAction.BUY
+    assert "LONG" in merged[0].rationale or "trend" in merged[0].rationale.lower()

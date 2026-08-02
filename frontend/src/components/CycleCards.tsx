@@ -11,7 +11,7 @@ export function CycleCardAlpha({ model }: { model: AlphaModelStatus }) {
         <h2>Model Alpha</h2>
         <SignalTag action={model.signal} />
       </div>
-      <p className="cycle-sub">Warstwa sygnałowa — aktywa cyfrowe</p>
+      <p className="cycle-sub">Tylko krypto (BTC / ETH / SOL) — nie dotyczy akcji i indeksów</p>
       <div className="cycle-stats">
         <div className="stat">
           <div className="stat-label">Referencja</div>
@@ -51,7 +51,7 @@ export function CycleCardBeta({ model }: { model: BetaModelStatus }) {
         <h2>Model Beta</h2>
         <SignalTag action={model.signal} />
       </div>
-      <p className="cycle-sub">Warstwa sygnałowa — rynki tradycyjne</p>
+      <p className="cycle-sub">Tylko rynki tradycyjne — nie dotyczy krypto</p>
       <div className="cycle-stats">
         <div className="stat">
           <div className="stat-label">Okres</div>
