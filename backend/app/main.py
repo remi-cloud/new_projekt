@@ -33,7 +33,9 @@ from app.db.settings_store import (
 )
 from app.models.schemas import (
     AlertSettings,
+    BroadcastResponse,
     DashboardResponse,
+    EconomicEvent,
     HistoryResponse,
     MarketRegionCount,
     MarketsResponse,
@@ -43,9 +45,18 @@ from app.models.schemas import (
 )
 from app.agents import orchestrator
 from app.notifications.dispatcher import dispatch_signal_changes, send_test_alert
-from app.scheduler.jobs import is_running, run_scan_and_alert, scheduled_scan, start_scheduler, stop_scheduler
+from app.scheduler.jobs import (
+    is_running,
+    run_scan_and_alert,
+    scheduled_economic_sync,
+    scheduled_scan,
+    start_scheduler,
+    stop_scheduler,
+)
+from app.scanners.broadcast import build_broadcast
 from app.scanners.opportunity_scanner import scanner
 from app.scanners.super_opportunities import build_super_opportunities, build_super_opportunity
+from app.db.economic_store import count_economic_events, list_economic_events
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -58,6 +69,10 @@ async def lifespan(app: FastAPI):
 
     # Never block WWW startup on market APIs — scan in background.
     async def _initial_scan() -> None:
+        try:
+            await scheduled_economic_sync()
+        except Exception as exc:
+            logger.warning("Initial economic sync failed: %s", exc)
         try:
             await scheduled_scan()
         except Exception as exc:
@@ -89,13 +104,21 @@ STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 @app.get("/api/health")
 async def health():
     status = orchestrator.roster_status()
+    econ_n = 0
+    try:
+        econ_n = await count_economic_events()
+    except Exception:
+        pass
     return {
         "status": "ok",
         "scanner_running": is_running(),
         "last_scan_at": scanner.last_scan_at.isoformat() if scanner.last_scan_at else None,
         "opportunities_count": len(scanner.opportunities),
         "agents": status.get("counts"),
-        "version": "2.0.0",
+        "economic_events": econ_n,
+        "quote_sources": ["yahoo", "tradingview", "coingecko"],
+        "calendar_source": "faireconomy",
+        "version": "2.1.0",
     }
 
 
@@ -230,6 +253,38 @@ async def markets(region: str | None = Query(None)):
         regions=regions,
         items=items,
     )
+
+
+@app.get("/api/broadcast", response_model=BroadcastResponse)
+async def broadcast(force: bool = Query(False)):
+    """
+    Red TV ticker payload.
+    Visible for 2 minutes at the start of every 20-minute wall-clock window.
+    Carries best Singularity setup + high-impact economic headlines.
+    """
+    return await build_broadcast(force_visible=force)
+
+
+@app.get("/api/economic-calendar", response_model=list[EconomicEvent])
+async def economic_calendar(
+    hours_back: int = Query(24, ge=0, le=168),
+    hours_ahead: int = Query(168, ge=1, le=336),
+    min_impact: int = Query(0, ge=0, le=3),
+    limit: int = Query(200, ge=1, le=500),
+):
+    rows = await list_economic_events(
+        hours_back=hours_back,
+        hours_ahead=hours_ahead,
+        min_impact_rank=min_impact,
+        limit=limit,
+    )
+    return [EconomicEvent(**r) for r in rows]
+
+
+@app.post("/api/economic-calendar/sync")
+async def economic_calendar_sync():
+    await scheduled_economic_sync()
+    return {"synced": True, "count": await count_economic_events()}
 
 
 @app.post("/api/scan")

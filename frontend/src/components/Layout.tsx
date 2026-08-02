@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
+import BreakingTicker from './BreakingTicker'
 
 const NAV = [
   { to: '/', label: 'Start', end: true },
@@ -17,6 +18,7 @@ export default function Layout() {
   return (
     <div className="shell">
       <div className="shell-glow" aria-hidden />
+      <BreakingTicker />
       <header className="topbar">
         <NavLink to="/" className="brand">
           <span className="brand-mark">CT</span>

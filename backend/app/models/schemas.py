@@ -85,6 +85,7 @@ class AssetQuote(BaseModel):
     region: str = "usa"
     region_label: str = "USA"
     live: bool = True
+    quote_source: str = "yahoo"
 
 
 class MarketRegionCount(BaseModel):
@@ -101,6 +102,46 @@ class MarketsResponse(BaseModel):
     live_count: int
     regions: list[MarketRegionCount]
     items: list[AssetQuote]
+
+
+class EconomicEvent(BaseModel):
+    event_id: str
+    title: str
+    country: str
+    impact: str
+    impact_rank: int = 0
+    event_at: str
+    forecast: str = ""
+    previous: str = ""
+    actual: str = ""
+    source: str = "faireconomy"
+
+
+class BroadcastSetup(BaseModel):
+    symbol: str
+    name: str
+    side: str
+    confidence: float
+    super_score: float | None = None
+    price: float
+    rationale: str
+    path: str
+
+
+class BroadcastResponse(BaseModel):
+    """TV-style red ticker: visible 2 min every 20 min."""
+
+    visible: bool
+    cycle_minutes: int = 20
+    show_minutes: int = 2
+    seconds_remaining: int
+    next_show_in_seconds: int
+    headline: str
+    setup: Optional[BroadcastSetup] = None
+    events: list[EconomicEvent] = Field(default_factory=list)
+    lines: list[str] = Field(default_factory=list)
+    sources: list[str] = Field(default_factory=list)
+    generated_at: str
 
 
 class Opportunity(BaseModel):

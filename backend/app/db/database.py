@@ -6,6 +6,7 @@ import aiosqlite
 
 from app.config import settings
 from app.db.settings_store import ensure_settings_tables
+from app.db.economic_store import ensure_economic_tables
 from app.models.schemas import Opportunity
 
 logger = logging.getLogger(__name__)
@@ -79,6 +80,7 @@ async def init_db() -> None:
             "CREATE INDEX IF NOT EXISTS idx_signal_changes_created_at ON signal_changes(created_at DESC)"
         )
         await ensure_settings_tables(db)
+        await ensure_economic_tables(db)
         await db.commit()
 
 

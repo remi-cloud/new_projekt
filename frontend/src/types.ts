@@ -41,6 +41,7 @@ export interface AssetQuote {
   region?: string
   region_label?: string
   live?: boolean
+  quote_source?: string
 }
 
 export interface MarketRegionCount {
@@ -57,6 +58,44 @@ export interface MarketsResponse {
   live_count: number
   regions: MarketRegionCount[]
   items: AssetQuote[]
+}
+
+export interface EconomicEvent {
+  event_id: string
+  title: string
+  country: string
+  impact: string
+  impact_rank: number
+  event_at: string
+  forecast: string
+  previous: string
+  actual: string
+  source: string
+}
+
+export interface BroadcastSetup {
+  symbol: string
+  name: string
+  side: string
+  confidence: number
+  super_score: number | null
+  price: number
+  rationale: string
+  path: string
+}
+
+export interface BroadcastResponse {
+  visible: boolean
+  cycle_minutes: number
+  show_minutes: number
+  seconds_remaining: number
+  next_show_in_seconds: number
+  headline: string
+  setup: BroadcastSetup | null
+  events: EconomicEvent[]
+  lines: string[]
+  sources: string[]
+  generated_at: string
 }
 
 export interface Opportunity {

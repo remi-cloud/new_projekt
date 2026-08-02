@@ -2,7 +2,9 @@ import {
   AlertLogEntry,
   AlertSettings,
   AgentsReport,
+  BroadcastResponse,
   DashboardResponse,
+  EconomicEvent,
   HistoryResponse,
   MarketsResponse,
   SuperOpportunitiesResponse,
@@ -48,6 +50,15 @@ export async function fetchDashboard(): Promise<DashboardResponse> {
 export async function fetchMarkets(region?: string): Promise<MarketsResponse> {
   const q = region ? `?region=${encodeURIComponent(region)}` : ''
   return getJson<MarketsResponse>(`/markets${q}`)
+}
+
+export async function fetchBroadcast(force = false): Promise<BroadcastResponse> {
+  const q = force ? '?force=true' : ''
+  return getJson<BroadcastResponse>(`/broadcast${q}`)
+}
+
+export async function fetchEconomicCalendar(): Promise<EconomicEvent[]> {
+  return getJson<EconomicEvent[]>('/economic-calendar?min_impact=2&hours_ahead=72')
 }
 
 export async function triggerScan(): Promise<{

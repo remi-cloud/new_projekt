@@ -74,11 +74,48 @@ async def fetch_quotes(assets: list[dict] | None = None) -> list[AssetQuote]:
         tasks = [_fetch_single_quote(client, asset, now) for asset in universe]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
+    got: set[str] = set()
     for result in results:
         if isinstance(result, AssetQuote):
             quotes.append(result)
+            got.add(result.symbol.upper())
         elif isinstance(result, Exception):
             logger.warning("Quote fetch error: %s", result)
+
+    # TradingView fallback for anything Yahoo blocked / empty ("brak dostępu")
+    missing = [a for a in universe if a["symbol"].upper() not in got]
+    if missing:
+        try:
+            from app.data.tradingview import fetch_tradingview_quotes
+
+            async with httpx.AsyncClient(timeout=25, headers=YAHOO_HEADERS) as client:
+                tv_map = await fetch_tradingview_quotes(
+                    client, [a["symbol"] for a in missing]
+                )
+            by_asset = {a["symbol"].upper(): a for a in missing}
+            for sym_u, row in tv_map.items():
+                asset = by_asset.get(sym_u)
+                if not asset:
+                    continue
+                quotes.append(
+                    _quote_from_asset(
+                        asset,
+                        price=float(row["close"]),
+                        now=now,
+                        change_24h=row.get("change_pct"),
+                        change_7d=None,
+                        live=True,
+                        quote_source="tradingview",
+                    )
+                )
+                got.add(sym_u)
+            logger.info(
+                "TradingView filled %d / %d missing quotes",
+                len(tv_map),
+                len(missing),
+            )
+        except Exception as exc:
+            logger.warning("TradingView fallback failed: %s", exc)
 
     return quotes
 
@@ -123,6 +160,7 @@ async def _fetch_coingecko_quote(
             region=region,
             region_label=REGION_LABELS.get(region, region),
             live=True,
+            quote_source="coingecko",
         )
     except Exception as exc:
         logger.warning("CoinGecko quote failed for %s: %s", asset["symbol"], exc)
@@ -137,6 +175,7 @@ def _quote_from_asset(
     change_24h: float | None = None,
     change_7d: float | None = None,
     live: bool = True,
+    quote_source: str = "yahoo",
 ) -> AssetQuote:
     region = resolve_region(asset)
     return AssetQuote(
@@ -150,6 +189,7 @@ def _quote_from_asset(
         region=region,
         region_label=REGION_LABELS.get(region, region),
         live=live,
+        quote_source=quote_source,
     )
 
 
