@@ -50,6 +50,7 @@ export default function SuperOpportunitiesPage() {
         const one = await fetchSuperOpportunity(selectedSymbol)
         if (!cancelled) {
           setDetail(one)
+          setError(null)
           if (!one.is_super) setOnlySuper(false)
         }
       } catch (e) {
@@ -58,18 +59,27 @@ export default function SuperOpportunitiesPage() {
           const inList = data?.items.find(
             (i) => i.symbol.toUpperCase() === selectedSymbol.toUpperCase(),
           )
-          if (inList) setDetail(inList)
-          else {
-            setDetail(null)
-            setError(e instanceof Error ? e.message : 'Brak pozycji dla symbolu')
+          if (inList) {
+            setDetail(inList)
+            setError(null)
+            return
           }
+          setDetail(null)
+          // Prefer redirect to first ranking hit over sticky red banner
+          const first = data?.items[0]
+          if (first && first.symbol.toUpperCase() !== selectedSymbol.toUpperCase()) {
+            setError(null)
+            navigate(positionPath(first.symbol), { replace: true })
+            return
+          }
+          setError(e instanceof Error ? e.message : 'Brak pozycji dla symbolu')
         }
       }
     })()
     return () => {
       cancelled = true
     }
-  }, [selectedSymbol, data])
+  }, [selectedSymbol, data, navigate])
 
   // No symbol in URL → open first visible item
   useEffect(() => {

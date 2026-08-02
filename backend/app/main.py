@@ -54,7 +54,11 @@ from app.scheduler.jobs import (
 )
 from app.scanners.broadcast import build_broadcast
 from app.scanners.opportunity_scanner import scanner
-from app.scanners.super_opportunities import build_super_opportunities, build_super_opportunity
+from app.scanners.super_opportunities import (
+    build_super_opportunities,
+    build_super_opportunity,
+    resolve_opportunity_for_symbol,
+)
 from app.db.economic_store import count_economic_events, list_economic_events
 
 logging.basicConfig(level=logging.INFO)
@@ -351,13 +355,16 @@ async def super_opportunities(min_score: float = Query(0, ge=0, le=100)):
 
 @app.get("/api/super-opportunities/{symbol}")
 async def super_opportunity_detail(symbol: str):
-    if not scanner.opportunities:
-        if not scanner.alpha_model:
-            asyncio.create_task(scanner.scan())
-            raise HTTPException(status_code=503, detail="Skanowanie rynku w toku — odśwież za chwilę")
-    match = next((o for o in scanner.opportunities if o.symbol.upper() == symbol.upper()), None)
+    """Detail for any catalog symbol — synthesizes from quote+model if not in scan pool."""
+    if not scanner.alpha_model and not scanner.beta_model:
+        asyncio.create_task(scanner.scan())
+        raise HTTPException(status_code=503, detail="Skanowanie rynku w toku — odśwież za chwilę")
+    match = await resolve_opportunity_for_symbol(symbol)
     if not match:
-        raise HTTPException(status_code=404, detail="Brak okazji dla symbolu — uruchom skan / dodaj do watchlisty")
+        raise HTTPException(
+            status_code=404,
+            detail="Nieznany symbol — wybierz instrument z rankingu lub rynków",
+        )
     return await build_super_opportunity(match)
 
 

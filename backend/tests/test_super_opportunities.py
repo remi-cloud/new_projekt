@@ -1,9 +1,24 @@
+from datetime import date, datetime, timezone
+from unittest.mock import AsyncMock, patch
+
+import pytest
+
 from app.data.orderbook import estimate_liquidation_heatmap
-from app.models.schemas import AssetClass, Opportunity, SignalAction
+from app.models.schemas import (
+    AssetClass,
+    AssetQuote,
+    BetaModelStatus,
+    BetaPhase,
+    Opportunity,
+    SignalAction,
+)
 from app.scanners.ai_trade_advisor import consult_trade_signal
 from app.scanners.liq_prediction import predict_liq_path
-from app.scanners.super_opportunities import compute_entry_exit_levels, score_super_opportunity
-from datetime import datetime, timezone
+from app.scanners.super_opportunities import (
+    compute_entry_exit_levels,
+    resolve_opportunity_for_symbol,
+    score_super_opportunity,
+)
 
 
 def test_liquidation_heatmap_sides():
@@ -142,3 +157,77 @@ def test_ai_advisor_czekaj_on_conflict():
     )
     assert verdict["signal"] == "czekaj"
     assert verdict["conflict"] is True
+
+
+@pytest.mark.asyncio
+async def test_resolve_opportunity_synthesizes_catalog_symbol():
+    """Deep-link symbols like SPY must resolve even when outside the scan pool."""
+    from app.scanners.opportunity_scanner import scanner
+
+    spy_quote = AssetQuote(
+        symbol="SPY",
+        name="SPDR S&P 500",
+        asset_class=AssetClass.INDEX,
+        price=520.0,
+        updated_at=datetime.now(timezone.utc),
+        live=True,
+        quote_source="test",
+    )
+    beta = BetaModelStatus(
+        period_start=date(2025, 1, 20),
+        period_end=date(2029, 1, 20),
+        current_phase=BetaPhase.PHASE_2,
+        phase_number=2,
+        days_into_phase=100,
+        days_remaining_in_phase=200,
+        phase_progress_pct=33.0,
+        historical_bias="neutral",
+        signal=SignalAction.WATCH,
+        rationale="test beta",
+    )
+    prev_opps = list(scanner.opportunities)
+    prev_beta = scanner.beta_model
+    prev_alpha = scanner.alpha_model
+    try:
+        scanner.opportunities = []
+        scanner.beta_model = beta
+        scanner.alpha_model = None
+        with patch(
+            "app.scanners.super_opportunities.quote_cache.get_catalog_quotes",
+            new=AsyncMock(return_value=[spy_quote]),
+        ):
+            opp = await resolve_opportunity_for_symbol("SPY")
+        assert opp is not None
+        assert opp.symbol == "SPY"
+        assert opp.price == 520.0
+        assert opp.cycle_source == "beta"
+        assert opp.action == SignalAction.WATCH
+    finally:
+        scanner.opportunities = prev_opps
+        scanner.beta_model = prev_beta
+        scanner.alpha_model = prev_alpha
+
+
+@pytest.mark.asyncio
+async def test_resolve_opportunity_prefers_scanner_hit():
+    from app.scanners.opportunity_scanner import scanner
+
+    scanned = Opportunity(
+        symbol="BTC-USD",
+        name="Bitcoin",
+        asset_class=AssetClass.CRYPTO,
+        action=SignalAction.BUY,
+        confidence=70,
+        cycle_source="alpha",
+        phase="bear",
+        price=100,
+        rationale="from scan",
+        created_at=datetime.now(timezone.utc),
+    )
+    prev = list(scanner.opportunities)
+    try:
+        scanner.opportunities = [scanned]
+        opp = await resolve_opportunity_for_symbol("btc-usd")
+        assert opp is scanned
+    finally:
+        scanner.opportunities = prev

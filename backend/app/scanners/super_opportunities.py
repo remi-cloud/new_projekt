@@ -6,17 +6,99 @@ import asyncio
 import logging
 from datetime import datetime, timezone
 
+from app.data.assets import lookup_asset
 from app.data.orderbook import (
     estimate_liquidation_heatmap,
     fetch_bid_ask,
     fetch_volume_profile,
 )
-from app.models.schemas import Opportunity, SignalAction
+from app.data.quote_cache import quote_cache
+from app.models.schemas import AssetClass, Opportunity, SignalAction
 from app.scanners.ai_trade_advisor import consult_trade_signal
 from app.scanners.liq_prediction import predict_liq_path
 from app.scanners.opportunity_scanner import scanner
 
 logger = logging.getLogger(__name__)
+
+
+def _phase_label_for_asset(asset_class: AssetClass) -> tuple[str, SignalAction, float, str, str]:
+    """
+    Map catalog asset → (phase, action, confidence, cycle_source, rationale).
+    Crypto uses Model Alpha; everything else uses Model Beta when available.
+    """
+    if asset_class == AssetClass.CRYPTO and scanner.alpha_model:
+        a = scanner.alpha_model
+        conf = 58.0 if a.signal == SignalAction.WATCH else 62.0
+        if a.signal == SignalAction.HOLD:
+            conf = 45.0
+        return (
+            a.phase.value,
+            a.signal,
+            conf,
+            "alpha",
+            f"Pozycja katalogowa · Model Alpha ({a.phase.value}): {a.rationale}",
+        )
+    if scanner.beta_model:
+        b = scanner.beta_model
+        conf = 58.0 if b.signal == SignalAction.WATCH else 62.0
+        if b.signal == SignalAction.HOLD:
+            conf = 45.0
+        return (
+            b.current_phase.value,
+            b.signal,
+            conf,
+            "beta",
+            f"Pozycja katalogowa · Model Beta (faza {b.phase_number}): {b.rationale}",
+        )
+    return (
+        "neutral",
+        SignalAction.WATCH,
+        50.0,
+        "catalog",
+        "Pozycja z katalogu rynków — brak aktywnego modelu cyklu; tryb obserwacji.",
+    )
+
+
+async def resolve_opportunity_for_symbol(symbol: str) -> Opportunity | None:
+    """
+    Return a scanned Opportunity, or synthesize one for any catalog symbol
+    so deep-links like /superokazje/SPY never 404 when SPY is not in the scan pool.
+    """
+    sym = symbol.strip().upper()
+    match = next((o for o in scanner.opportunities if o.symbol.upper() == sym), None)
+    if match:
+        return match
+
+    meta = lookup_asset(sym)
+    if not meta:
+        return None
+
+    # Prefer cached catalog quote; force-refresh this symbol if missing/stale
+    quotes = await quote_cache.get_catalog_quotes()
+    q = next((x for x in quotes if x.symbol.upper() == sym), None)
+    price = float(q.price) if q and q.price > 0 else 0.0
+    if price <= 0:
+        # Last resort: try live bid/ask mid
+        book = await fetch_bid_ask(sym, str(meta.get("asset_class", "index")))
+        if book and book.get("mid"):
+            price = float(book["mid"])
+    if price <= 0:
+        return None
+
+    asset_class = AssetClass(meta["asset_class"])
+    phase, action, confidence, source, rationale = _phase_label_for_asset(asset_class)
+    return Opportunity(
+        symbol=meta["symbol"],
+        name=meta["name"],
+        asset_class=asset_class,
+        action=action,
+        confidence=confidence,
+        cycle_source=source,
+        phase=phase,
+        price=price,
+        rationale=rationale,
+        created_at=datetime.now(timezone.utc),
+    )
 
 
 def compute_entry_exit_levels(
