@@ -1492,8 +1492,8 @@ a.super-list-item {
   color: var(--text-muted);
 }
 
-.hm-leg.long { color: #34d399; }
-.hm-leg.short { color: #f87171; }
+.hm-leg.long { color: #10b981; font-weight: 700; }
+.hm-leg.short { color: #ef4444; font-weight: 700; }
 .hm-leg.mid { color: var(--amber-soft); }
 
 /* CoinGlass-style 2D liq map: time →, price ↑ */

@@ -12,19 +12,22 @@ function rgbFor(cell: HeatmapBin): [number, number, number] {
   const longI = cell.long_intensity
   const shortI = cell.short_intensity
   const side = longI >= shortI ? 'long' : 'short'
-  const t = Math.max(0, Math.min(1, side === 'long' ? longI : shortI))
-  if (t < 0.03) return [10, 16, 18]
+  // Boost mid intensities so opposite sides read as clearly green vs red
+  const raw = side === 'long' ? longI : shortI
+  const t = Math.max(0, Math.min(1, Math.pow(raw, 0.72)))
+  if (t < 0.025) return [8, 12, 14]
   if (side === 'long') {
-    // deep teal → neon mint → hot yellow-green (sharp peaks)
-    const r = Math.round(8 + 30 * t + 210 * t * t)
-    const g = Math.round(50 + 190 * t)
-    const b = Math.round(40 + 35 * (1 - t))
-    return [r, g, b]
+    // Pure emerald → neon green (no yellow bleed — opposite to red)
+    const r = Math.round(4 + 20 * t)
+    const g = Math.round(70 + 185 * t)
+    const b = Math.round(55 + 70 * (1 - t) + 40 * t)
+    return [r, Math.min(255, g), b]
   }
-  const r = Math.round(90 + 165 * t)
-  const g = Math.round(16 + 28 * (1 - t))
-  const b = Math.round(36 + 18 * (1 - t))
-  return [r, g, b]
+  // Pure crimson → hot red (no orange/yellow — opposite to green)
+  const r = Math.round(120 + 135 * t)
+  const g = Math.round(8 + 12 * (1 - t))
+  const b = Math.round(28 + 18 * (1 - t))
+  return [Math.min(255, r), g, b]
 }
 
 /** Bilinear upsample for 8K-sharp mesh density without heavier API payload. */
@@ -232,27 +235,27 @@ function drawPredictionPath(
   ctx.save()
   ctx.lineJoin = 'round'
   ctx.lineCap = 'round'
-  ctx.strokeStyle = prediction.direction === 'down' ? 'rgba(248,113,113,0.25)' : 'rgba(52,211,153,0.28)'
-  ctx.lineWidth = 10
+  ctx.strokeStyle = prediction.direction === 'down' ? 'rgba(239,68,68,0.35)' : 'rgba(16,185,129,0.35)'
+  ctx.lineWidth = 12
   ctx.beginPath()
   pts.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)))
   ctx.stroke()
 
-  // Main prediction stroke
+  // Main prediction stroke — strong opposite greens/reds
   const grad = ctx.createLinearGradient(pts[0].x, pts[0].y, pts[pts.length - 1].x, pts[pts.length - 1].y)
   if (prediction.direction === 'down') {
-    grad.addColorStop(0, '#e8a317')
-    grad.addColorStop(0.55, '#fb923c')
-    grad.addColorStop(1, '#f87171')
+    grad.addColorStop(0, '#f87171')
+    grad.addColorStop(0.5, '#ef4444')
+    grad.addColorStop(1, '#dc2626')
   } else {
-    grad.addColorStop(0, '#e8a317')
-    grad.addColorStop(0.55, '#34d399')
-    grad.addColorStop(1, '#fde047')
+    grad.addColorStop(0, '#34d399')
+    grad.addColorStop(0.5, '#10b981')
+    grad.addColorStop(1, '#059669')
   }
   ctx.strokeStyle = grad
-  ctx.lineWidth = 3.2
-  ctx.shadowColor = prediction.direction === 'down' ? 'rgba(248,113,113,0.55)' : 'rgba(52,211,153,0.55)'
-  ctx.shadowBlur = 12
+  ctx.lineWidth = 3.6
+  ctx.shadowColor = prediction.direction === 'down' ? 'rgba(239,68,68,0.7)' : 'rgba(16,185,129,0.7)'
+  ctx.shadowBlur = 14
   ctx.beginPath()
   pts.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)))
   ctx.stroke()
@@ -376,7 +379,8 @@ function renderScene(
   const rows = grid[0]?.length ?? 0
   if (!cols || !rows) return
 
-  const heightScale = 0.95
+  // Flatter terrain — głębia still readable, less "wall"
+  const heightScale = 0.48
   const faces: Face[] = []
 
   for (let ci = 0; ci < cols - 1; ci++) {
@@ -533,9 +537,10 @@ export default function LiquidationHeatmapBar({
   )
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
-  const [yaw, setYaw] = useState(-0.55)
-  const [pitch, setPitch] = useState(0.55)
-  const [zoom, setZoom] = useState(1.05)
+  // Flatter default camera (more top-down / horizontal board)
+  const [yaw, setYaw] = useState(-0.38)
+  const [pitch, setPitch] = useState(0.28)
+  const [zoom, setZoom] = useState(1.12)
   const drag = useRef<{ x: number; y: number; yaw: number; pitch: number } | null>(null)
 
   useEffect(() => {
@@ -599,9 +604,9 @@ export default function LiquidationHeatmapBar({
         </div>
       )}
       <div className="heatmap-legend">
-        <span className="hm-leg long">Long liq (zieleń) ↓</span>
-        <span className="hm-leg mid">linia AI: IN → TP → LIQ · przeciągnij mapę</span>
-        <span className="hm-leg short">Short liq (czerwień) ↑</span>
+        <span className="hm-leg long">LONG = zieleń</span>
+        <span className="hm-leg mid">płaska mapa · AI: IN → LIQ</span>
+        <span className="hm-leg short">SHORT = czerwień</span>
       </div>
 
       <div className="hm3-toolbar">
@@ -611,10 +616,10 @@ export default function LiquidationHeatmapBar({
         <button type="button" className="btn btn-ghost btn-sm" onClick={() => setYaw((y) => y + 0.15)}>
           ⟳
         </button>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPitch((p) => Math.min(1.2, p + 0.08))}>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPitch((p) => Math.min(1.05, p + 0.06))}>
           Góra
         </button>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPitch((p) => Math.max(0.2, p - 0.08))}>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPitch((p) => Math.max(0.12, p - 0.06))}>
           Dół
         </button>
         <button type="button" className="btn btn-ghost btn-sm" onClick={() => setZoom((z) => Math.min(1.6, z + 0.1))}>
@@ -627,9 +632,9 @@ export default function LiquidationHeatmapBar({
           type="button"
           className="btn btn-ghost btn-sm"
           onClick={() => {
-            setYaw(-0.55)
-            setPitch(0.55)
-            setZoom(1.05)
+            setYaw(-0.38)
+            setPitch(0.28)
+            setZoom(1.12)
           }}
         >
           Reset
@@ -648,7 +653,7 @@ export default function LiquidationHeatmapBar({
           const dx = e.clientX - drag.current.x
           const dy = e.clientY - drag.current.y
           setYaw(drag.current.yaw + dx * 0.006)
-          setPitch(Math.max(0.15, Math.min(1.25, drag.current.pitch + dy * 0.004)))
+          setPitch(Math.max(0.12, Math.min(1.05, drag.current.pitch + dy * 0.004)))
         }}
         onPointerUp={() => {
           drag.current = null
