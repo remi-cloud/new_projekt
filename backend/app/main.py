@@ -588,7 +588,9 @@ if STATIC_DIR.is_dir():
         return FileResponse(
             STATIC_DIR / "index.html",
             headers={"Cache-Control": "no-store, max-age=0"},
-        )else:
+        )
+
+else:
     @app.get("/")
     async def missing_static():
         return HTMLResponse(
