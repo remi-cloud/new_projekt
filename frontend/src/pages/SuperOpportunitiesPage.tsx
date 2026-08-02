@@ -46,8 +46,8 @@ export default function SuperOpportunitiesPage() {
         <div>
           <h1>Superokazje</h1>
           <p className="page-lead">
-            Osobne okno: modele Alpha/Beta + bid/ask + poziomy wejścia/wyjścia + pozioma heatmapa
-            likwidacji (zieleń = long liq, czerwień = short liq).
+            Modele Alpha/Beta + bid/ask + poziomy wejścia/wyjścia + heatmapa liq 2D (zieleń = long,
+            czerwień = short; oś X = czas, Y = cena).
           </p>
         </div>
         <div className="page-actions">
@@ -204,7 +204,7 @@ function SuperDetail({ item }: { item: SuperOpportunity }) {
       </div>
       <p className="opp-rationale">{levels.note}</p>
 
-      <h3 className="mini-title">Heatmapa likwidacji (pozioma)</h3>
+      <h3 className="mini-title">Heatmapa likwidacji</h3>
       <LiquidationHeatmapBar
         heatmap={item.heatmap}
         entry={levels.entry}

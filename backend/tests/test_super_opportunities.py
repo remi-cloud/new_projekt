@@ -5,9 +5,14 @@ from datetime import datetime, timezone
 
 
 def test_liquidation_heatmap_sides():
-    hm = estimate_liquidation_heatmap(100.0, highs=[98, 102], lows=[96, 100], volumes=[10, 20])
+    highs = [98 + i * 0.2 for i in range(24)]
+    lows = [96 + i * 0.2 for i in range(24)]
+    volumes = [10 + i for i in range(24)]
+    hm = estimate_liquidation_heatmap(100.0, highs=highs, lows=lows, volumes=volumes)
     assert hm["range_low"] < 100 < hm["range_high"]
-    assert len(hm["bins"]) == 48
+    assert len(hm["bins"]) == 40
+    assert len(hm["columns"]) == 36
+    assert len(hm["columns"][0]) == 40
     below = [b for b in hm["bins"] if b["price"] < 100]
     above = [b for b in hm["bins"] if b["price"] > 100]
     assert sum(b["long_intensity"] for b in below) > sum(b["long_intensity"] for b in above)

@@ -154,6 +154,7 @@ export interface LiquidationHeatmap {
   range_low: number
   range_high: number
   bins: HeatmapBin[]
+  columns?: HeatmapBin[][]
   max_intensity: number
 }
 

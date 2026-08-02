@@ -107,84 +107,139 @@ async def fetch_bid_ask(symbol: str, asset_class: str) -> Optional[dict]:
     return await fetch_yahoo_bid_ask(symbol)
 
 
+def _column_intensities(
+    mid: float,
+    lo: float,
+    step: float,
+    bins: int,
+    highs: list[float] | None,
+    lows: list[float] | None,
+    volumes: list[float] | None,
+    slice_start: int = 0,
+    slice_end: int | None = None,
+) -> tuple[list[float], list[float]]:
+    """Build long/short intensity arrays for one time column around mid price."""
+    long_intensity = [0.0] * bins
+    short_intensity = [0.0] * bins
+
+    for lev in LEVERAGE_BANDS:
+        long_liq = mid * (1 - 1 / lev)
+        short_liq = mid * (1 + 1 / lev)
+        weight = math.sqrt(lev) / 2.5
+        _accumulate(long_intensity, lo, step, bins, long_liq, weight, side="long", mid=mid)
+        _accumulate(short_intensity, lo, step, bins, short_liq, weight, side="short", mid=mid)
+
+    if highs and lows and volumes and len(highs) == len(lows) == len(volumes):
+        end = slice_end if slice_end is not None else len(highs)
+        start = max(0, min(slice_start, end))
+        segment_v = volumes[start:end] or [1.0]
+        max_vol = max(segment_v) or 1.0
+        for h, l, v in zip(highs[start:end], lows[start:end], volumes[start:end]):
+            if h is None or l is None or v is None:
+                continue
+            mid_bar = (float(h) + float(l)) / 2
+            vol_w = (float(v) / max_vol) * 1.8
+            if mid_bar < mid:
+                _accumulate(long_intensity, lo, step, bins, mid_bar, vol_w, side="long", mid=mid)
+            elif mid_bar > mid:
+                _accumulate(short_intensity, lo, step, bins, mid_bar, vol_w, side="short", mid=mid)
+
+    for offset, w in ((-0.025, 1.4), (-0.04, 1.1), (0.025, 1.4), (0.04, 1.1)):
+        lvl = mid * (1 + offset)
+        if offset < 0:
+            _accumulate(long_intensity, lo, step, bins, lvl, w, side="long", mid=mid)
+        else:
+            _accumulate(short_intensity, lo, step, bins, lvl, w, side="short", mid=mid)
+
+    return long_intensity, short_intensity
+
+
 def estimate_liquidation_heatmap(
     price: float,
     highs: list[float] | None = None,
     lows: list[float] | None = None,
     volumes: list[float] | None = None,
-    bins: int = 48,
+    bins: int = 40,
+    time_cols: int = 36,
 ) -> dict:
     """
-    Build a horizontal liquidation heatmap around current price.
+    Build a CoinGlass-style 2D liquidation heatmap (time × price).
 
     - Long liquidations sit BELOW price (green)
     - Short liquidations sit ABOVE price (red)
     Intensity blends leverage-band density with local volume concentration.
+
+    Returns:
+      bins: latest 1D slice (compat / markers)
+      columns: list of time columns, each a list of cells (low→high price)
     """
     if price <= 0:
-        return {"price": price, "bins": [], "max_intensity": 0}
+        return {
+            "price": price,
+            "bins": [],
+            "columns": [],
+            "max_intensity": 0,
+            "range_low": 0,
+            "range_high": 0,
+        }
 
-    # Range: ±12% around mid (typical dense liq zone)
     span = price * 0.12
     lo = price - span
     hi = price + span
-    step = (hi - lo) / bins
+    if highs and lows:
+        try:
+            hist_lo = min(float(x) for x in lows if x is not None)
+            hist_hi = max(float(x) for x in highs if x is not None)
+            lo = min(lo, hist_lo)
+            hi = max(hi, hist_hi)
+        except ValueError:
+            pass
+    step = (hi - lo) / bins if bins else 1.0
 
-    long_intensity = [0.0] * bins
-    short_intensity = [0.0] * bins
+    n = len(highs) if highs and lows and volumes else 0
+    cols = max(1, time_cols)
+    columns: list[list[dict]] = []
+    global_max = 0.01
 
-    # 1) Leverage liquidation anchors
-    for lev in LEVERAGE_BANDS:
-        # Isolated-ish approx: long liq ≈ price * (1 - 1/lev), short ≈ price * (1 + 1/lev)
-        long_liq = price * (1 - 1 / lev)
-        short_liq = price * (1 + 1 / lev)
-        # Higher leverage = tighter to price = often denser retail cluster
-        weight = math.sqrt(lev) / 2.5
-        _accumulate(long_intensity, lo, step, bins, long_liq, weight, side="long", mid=price)
-        _accumulate(short_intensity, lo, step, bins, short_liq, weight, side="short", mid=price)
-
-    # 2) Volume-profile proxy near recent extremes (magnets for stops/liqs)
-    if highs and lows and volumes and len(highs) == len(lows) == len(volumes):
-        max_vol = max(volumes) or 1.0
-        for h, l, v in zip(highs, lows, volumes):
-            if h is None or l is None or v is None:
-                continue
-            mid_bar = (float(h) + float(l)) / 2
-            vol_w = (float(v) / max_vol) * 1.8
-            if mid_bar < price:
-                _accumulate(long_intensity, lo, step, bins, mid_bar, vol_w, side="long", mid=price)
-            elif mid_bar > price:
-                _accumulate(short_intensity, lo, step, bins, mid_bar, vol_w, side="short", mid=price)
-
-    # Soft peak around ±2–4% (classic cascade zone)
-    for offset, w in ((-0.025, 1.4), (-0.04, 1.1), (0.025, 1.4), (0.04, 1.1)):
-        lvl = price * (1 + offset)
-        if offset < 0:
-            _accumulate(long_intensity, lo, step, bins, lvl, w, side="long", mid=price)
+    raw_cols: list[tuple[list[float], list[float]]] = []
+    for c in range(cols):
+        if n >= 4:
+            # Expanding window ending near "now" so clusters evolve left→right
+            end = max(1, int((c + 1) / cols * n))
+            start = max(0, end - max(4, n // 8))
+            mid = (float(highs[end - 1]) + float(lows[end - 1])) / 2
         else:
-            _accumulate(short_intensity, lo, step, bins, lvl, w, side="short", mid=price)
+            start, end = 0, n
+            mid = price
+        li, si = _column_intensities(mid, lo, step, bins, highs, lows, volumes, start, end)
+        raw_cols.append((li, si))
+        global_max = max(global_max, max(li or [0]), max(si or [0]))
 
-    max_i = max(max(long_intensity), max(short_intensity), 0.01)
-    out_bins = []
-    for i in range(bins):
-        price_level = lo + (i + 0.5) * step
-        li = long_intensity[i] / max_i
-        si = short_intensity[i] / max_i
-        out_bins.append(
-            {
-                "price": round(price_level, 6),
-                "long_intensity": round(li, 4),
-                "short_intensity": round(si, 4),
-                "dominant": "long" if li >= si else "short",
-                "intensity": round(max(li, si), 4),
-            }
-        )
+    for li, si in raw_cols:
+        col_bins = []
+        for i in range(bins):
+            price_level = lo + (i + 0.5) * step
+            l_norm = li[i] / global_max
+            s_norm = si[i] / global_max
+            col_bins.append(
+                {
+                    "price": round(price_level, 6),
+                    "long_intensity": round(l_norm, 4),
+                    "short_intensity": round(s_norm, 4),
+                    "dominant": "long" if l_norm >= s_norm else "short",
+                    "intensity": round(max(l_norm, s_norm), 4),
+                }
+            )
+        columns.append(col_bins)
+
+    out_bins = columns[-1] if columns else []
 
     return {
         "price": round(price, 6),
         "range_low": round(lo, 6),
         "range_high": round(hi, 6),
         "bins": out_bins,
+        "columns": columns,
         "max_intensity": 1.0,
     }
 

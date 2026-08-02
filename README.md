@@ -34,9 +34,17 @@ Modele scoringu są wewnętrzne — UI pokazuje tylko **Alpha / Beta** i fazy sy
 - **Surowce**: Złoto, Srebro, Ropa, Gaz
 - **Forex**: EUR/USD, GBP/USD, USD/JPY, DXY
 
-## Uruchomienie
+## Uruchomienie (debut / developing)
 
-### Docker (zalecane) — jeden adres WWW
+### Jedna komenda (dev)
+
+```bash
+./scripts/dev-up.sh
+```
+
+Instaluje zależności, buduje SPA i odpala WWW na **http://localhost:8080**.
+
+### Docker (zalecane na produkcję) — jeden adres WWW
 
 ```bash
 docker compose up --build
@@ -47,6 +55,10 @@ docker compose up --build
 - Docs: http://localhost:8080/docs
 
 Strony: `/` `/dashboard` `/okazje` `/superokazje` `/modele` `/historia` `/rynki` `/watchlista` `/alerty`
+
+### Cursor Cloud
+
+Konfiguracja debiutu: `.cursor/environment.json` + `./scripts/install.sh`. Terminal `www` uruchamia `./scripts/dev-up.sh`.
 
 ### Telefon / publiczny link
 

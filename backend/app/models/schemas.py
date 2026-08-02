@@ -197,6 +197,7 @@ class LiquidationHeatmap(BaseModel):
     range_low: float
     range_high: float
     bins: list[HeatmapBin]
+    columns: list[list[HeatmapBin]] = Field(default_factory=list)
     max_intensity: float = 1.0
 
 
