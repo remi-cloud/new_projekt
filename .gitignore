@@ -9,3 +9,5 @@ backend/static/
 *.db
 *.tsbuildinfo
 PUBLIC_URL.txt
+.tunnel.log
+.tools/
