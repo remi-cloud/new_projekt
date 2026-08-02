@@ -1,16 +1,42 @@
 #!/usr/bin/env bash
 # Start Cyclical Trader WWW on :8080 and expose a public internet URL.
+# Works on macOS (Apple Silicon / Intel) and Linux.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+if [[ ! -f "$ROOT/scripts/build-www.sh" ]]; then
+  cat <<'EOF'
+✗ Brak folderu scripts/ — jesteś na starej gałęzi (prawdopodobnie main).
+
+Zrób TAK (skopiuj całość):
+
+  cd ~
+  rm -rf new_projekt
+  git clone -b cursor/market-scanner-product-018e https://github.com/remi-cloud/new_projekt.git
+  cd new_projekt
+  chmod +x scripts/*.sh
+  ./scripts/start-public.sh
+
+EOF
+  exit 1
+fi
 
 "$ROOT/scripts/build-www.sh"
 
 cd "$ROOT/backend"
+# Prefer python3.12/3.11 if present (3.14 sometimes breaks wheels)
+PY=python3
+if command -v python3.12 >/dev/null 2>&1; then PY=python3.12
+elif command -v python3.11 >/dev/null 2>&1; then PY=python3.11
+fi
+echo "→ Python: $($PY --version 2>&1)"
+
 if [[ ! -d .venv/bin ]]; then
   rm -rf .venv
-  python3 -m venv .venv
+  "$PY" -m venv .venv
   # shellcheck disable=SC1091
   source .venv/bin/activate
+  pip install -q --upgrade pip
   pip install -q -r requirements.txt
 else
   # shellcheck disable=SC1091
@@ -47,13 +73,71 @@ if [[ "${LIVE:-0}" -lt 1 ]]; then
   exit 1
 fi
 echo "✓ Local WWW OK: http://127.0.0.1:8080 (markets live=$LIVE)"
+echo "  (w LAN też: http://$(ipconfig getifaddr en0 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}'):8080 )"
 
-CLOUDFLARED="${CLOUDFLARED:-/tmp/cloudflared}"
-if [[ ! -x "$CLOUDFLARED" ]]; then
-  echo "→ Downloading cloudflared…"
-  curl -sL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o "$CLOUDFLARED"
+# ── cloudflared for macOS / Linux ──────────────────────────────────────
+CLOUDFLARED_DIR="${ROOT}/.tools"
+mkdir -p "$CLOUDFLARED_DIR"
+CLOUDFLARED="${CLOUDFLARED:-$CLOUDFLARED_DIR/cloudflared}"
+
+download_cloudflared() {
+  local os arch asset url tmp
+  os="$(uname -s | tr '[:upper:]' '[:lower:]')"
+  arch="$(uname -m)"
+  case "$os-$arch" in
+    darwin-arm64|darwin-aarch64)
+      asset="cloudflared-darwin-arm64.tgz"
+      ;;
+    darwin-x86_64|darwin-amd64)
+      asset="cloudflared-darwin-amd64.tgz"
+      ;;
+    linux-x86_64|linux-amd64)
+      # bare binary on Linux
+      url="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64"
+      echo "→ Downloading cloudflared (linux amd64)…"
+      curl -fsSL "$url" -o "$CLOUDFLARED"
+      chmod +x "$CLOUDFLARED"
+      return 0
+      ;;
+    linux-arm64|linux-aarch64)
+      url="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64"
+      echo "→ Downloading cloudflared (linux arm64)…"
+      curl -fsSL "$url" -o "$CLOUDFLARED"
+      chmod +x "$CLOUDFLARED"
+      return 0
+      ;;
+    *)
+      echo "✗ Nieznana platforma: $os $arch — zainstaluj cloudflared ręcznie: brew install cloudflared"
+      return 1
+      ;;
+  esac
+
+  # Prefer Homebrew binary on Mac if present
+  if command -v cloudflared >/dev/null 2>&1; then
+    CLOUDFLARED="$(command -v cloudflared)"
+    echo "→ Używam systemowego cloudflared: $CLOUDFLARED"
+    return 0
+  fi
+
+  url="https://github.com/cloudflare/cloudflared/releases/latest/download/${asset}"
+  tmp="$(mktemp -d)"
+  echo "→ Downloading cloudflared ($asset)…"
+  curl -fsSL "$url" -o "$tmp/cf.tgz"
+  tar -xzf "$tmp/cf.tgz" -C "$tmp"
+  # tarball contains a single 'cloudflared' binary
+  cp "$tmp/cloudflared" "$CLOUDFLARED"
   chmod +x "$CLOUDFLARED"
+  rm -rf "$tmp"
+}
+
+if [[ ! -x "$CLOUDFLARED" ]] || ! "$CLOUDFLARED" --version >/dev/null 2>&1; then
+  download_cloudflared
 fi
+# If brew has it, prefer that
+if command -v cloudflared >/dev/null 2>&1; then
+  CLOUDFLARED="$(command -v cloudflared)"
+fi
+echo "→ cloudflared: $("$CLOUDFLARED" --version 2>&1 | head -1)"
 
 URL_FILE="${ROOT}/PUBLIC_URL.txt"
 LOG_FILE="${ROOT}/.tunnel.log"
@@ -64,11 +148,15 @@ echo "→ Opening public tunnel (internet)…"
 TUNNEL_PID=$!
 
 PUBLIC_URL=""
-for _ in $(seq 1 60); do
+for _ in $(seq 1 90); do
   if [[ -f "$LOG_FILE" ]]; then
     PUBLIC_URL="$(grep -oE 'https://[a-zA-Z0-9-]+\.trycloudflare\.com' "$LOG_FILE" | head -1 || true)"
   fi
   if [[ -n "$PUBLIC_URL" ]]; then
+    break
+  fi
+  # bail early if process died
+  if ! kill -0 "$TUNNEL_PID" 2>/dev/null; then
     break
   fi
   sleep 1
@@ -76,7 +164,7 @@ done
 
 if [[ -z "$PUBLIC_URL" ]]; then
   echo "✗ Nie udało się uzyskać publicznego URL — log:"
-  tail -40 "$LOG_FILE" || true
+  tail -50 "$LOG_FILE" || true
   exit 1
 fi
 
@@ -84,7 +172,7 @@ echo "$PUBLIC_URL" > "$URL_FILE"
 cat <<EOF
 
 ════════════════════════════════════════════════
-  APLIKACJA W SIECI (otwórz na telefonie / PC):
+  APLIKACJA W SIECI (telefon / dowolny internet):
 
   $PUBLIC_URL
 
@@ -93,11 +181,11 @@ cat <<EOF
   Whale API:    $PUBLIC_URL/api/whale-flows
   Live HTML:    $PUBLIC_URL/live
 
-  URL zapisany w: PUBLIC_URL.txt
-  Zatrzymanie: Ctrl+C
+  Lokalnie:     http://127.0.0.1:8080
+  URL zapisany: PUBLIC_URL.txt
+  Stop:         Ctrl+C
 ════════════════════════════════════════════════
 
 EOF
 
-# Keep process alive while tunnel + app run
 wait "$TUNNEL_PID"
