@@ -94,14 +94,27 @@ async def market_assessments(
 @router.get("/api/markets/assessment/{symbol:path}", response_model=AssetCycleAssessment)
 async def market_assessment(symbol: str):
     """Full cycle assessment or price-only fallback (monitored + pearls + Yahoo)."""
-    if not scanner.market_assessments:
-        await scanner.scan()
     item = next((a for a in scanner.market_assessments if a.symbol == symbol), None)
     if item:
         return _with_broker(item)
 
     meta = ASSET_MAP.get(symbol)
-    pearl = None if meta else await get_find_by_symbol(symbol)
+    # Unknown ticker: never kick a full market scan (Yahoo/proxy flaky in CI).
+    if not meta:
+        pearl = await get_find_by_symbol(symbol)
+        if not pearl:
+            raise HTTPException(status_code=404, detail=f"Nieznany instrument: {symbol}")
+    else:
+        pearl = None
+        if not scanner.market_assessments:
+            try:
+                await scanner.scan()
+            except Exception:
+                # Fall through to price-only path below
+                pass
+            item = next((a for a in scanner.market_assessments if a.symbol == symbol), None)
+            if item:
+                return _with_broker(item)
 
     name = (meta or {}).get("name") or (pearl or {}).get("name") or symbol
     asset_cls = (meta or {}).get("asset_class") or (pearl or {}).get("asset_class") or "stock"
