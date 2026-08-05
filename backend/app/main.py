@@ -34,7 +34,16 @@ async def lifespan(app: FastAPI):
     from app.execution.db import init_execution_db
 
     await init_execution_db()
+    from app.telegram.predator_db import init_predator_db
+
+    await init_predator_db()
     ensure_vapid_keys()
+    try:
+        from app.cycles.seasonality_monitor import run_seasonality_monitor
+
+        run_seasonality_monitor(persist=True)
+    except Exception as exc:
+        logger.warning("Seasonality monitor bootstrap failed: %s", exc)
     start_scheduler()
 
     async def _initial_portfolio_sync() -> None:

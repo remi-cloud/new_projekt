@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException
 from app.ai import agent as ai_agent
 from app.ai import db as ai_db
 from app.ai.learning import process_feedback
-from app.ai.llm import llm_configured
+from app.ai.llm import llm_configured, resolve_llm
 from app.config import settings
 from app.models.schemas import (
     AiAnalyzeResponse,
@@ -19,19 +19,27 @@ router = APIRouter(tags=["ai"])
 @router.get("/api/ai/status", response_model=AiStatusResponse)
 async def ai_status():
     stats = await ai_db.get_stats()
+    base_url, model, api_key, provider = resolve_llm()
     return AiStatusResponse(
         enabled=settings.ai_enabled,
         llm_configured=llm_configured(),
-        model=settings.openai_model,
+        model=model,
+        provider=provider if llm_configured() else "none",
+        base_url=base_url if llm_configured() else "",
+        requires_api_key=provider == "openai",
         features=[
             "finance_guard",
             "trend_analysis",
             "pattern_detection",
             "knowledge_base",
             "self_critique",
+            "self_learn",
+            "learn_from_news_chat",
             "learning_from_feedback",
             "macro_cycles",
             "news_image_agent",
+            "calendar_ai",
+            "free_llm7",
         ],
         knowledge_entries=stats["knowledge_entries"],
         learning_notes=stats["learning_notes"],

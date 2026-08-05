@@ -1,11 +1,70 @@
+import { useState } from 'react'
+import { IntramonthSeasonalityPanel } from './IntramonthSeasonalityPanel'
+import { MonthPumpSnippet } from './MonthPumpSnippet'
 import { useLocale } from '../context/LocaleContext'
 import { useDomainLabels } from '../i18n/useDomainLabels'
-import { BitcoinCycleStatus } from '../types'
+import { BitcoinCycleStatus, BitcoinMonthReturn } from '../types'
+
+const MONTH_KEYS = [
+  'monthJan',
+  'monthFeb',
+  'monthMar',
+  'monthApr',
+  'monthMay',
+  'monthJun',
+  'monthJul',
+  'monthAug',
+  'monthSep',
+  'monthOct',
+  'monthNov',
+  'monthDec',
+] as const
+
+function formatReturn(pct: number): string {
+  const sign = pct >= 0 ? '+' : ''
+  return `${sign}${pct.toFixed(1)}%`
+}
+
+function MonthCell({
+  item,
+  selected,
+  onSelect,
+}: {
+  item: BitcoinMonthReturn
+  selected?: boolean
+  onSelect?: (month: number) => void
+}) {
+  const { t } = useLocale()
+  const key = MONTH_KEYS[item.month - 1]
+  const label = t(`cyclesCard.${key}`)
+  const up = item.bias === 'up' || item.avg_return_pct >= 0
+  return (
+    <button
+      type="button"
+      className={`pres-month-cell clickable ${up ? 'up' : 'down'} ${item.is_current ? 'active' : ''} ${selected ? 'selected' : ''}`}
+      title={`${label}: ${formatReturn(item.avg_return_pct)} — ${t('cyclesCard.intramonthHint')}`}
+      onClick={() => onSelect?.(item.month)}
+    >
+      <span className="pres-month-label">{label}</span>
+      <span className="pres-month-value">{formatReturn(item.avg_return_pct)}</span>
+    </button>
+  )
+}
 
 export function CycleCardBitcoin({ cycle }: { cycle: BitcoinCycleStatus }) {
   const { t } = useLocale()
   const { signal, phase } = useDomainLabels()
+  const [openMonth, setOpenMonth] = useState<number | null>(null)
   const progressClass = cycle.phase === 'bear' ? 'bear' : cycle.phase === 'bull' ? 'bull' : 'neutral'
+  const monthReturns = cycle.month_returns ?? []
+  const season = cycle.calendar_season === 'worst_six' ? 'worst_six' : 'best_six'
+  const cmp = cycle.spx_comparison
+  const corr =
+    cmp?.corr_rolling_24m_latest != null
+      ? cmp.corr_rolling_24m_latest.toFixed(2)
+      : cmp?.corr_full != null
+        ? cmp.corr_full.toFixed(2)
+        : '—'
 
   return (
     <div className="cycle-card bitcoin">
@@ -62,6 +121,49 @@ export function CycleCardBitcoin({ cycle }: { cycle: BitcoinCycleStatus }) {
           days: cycle.days_remaining_in_phase,
         })}
       </div>
+
+      {monthReturns.length === 12 && (
+        <div className="pres-month-seasonality">
+          <div className="pres-month-head">
+            <span className="pres-month-title">{t('cyclesCard.btcMonthSeasonality')}</span>
+            <span className={`pres-season-chip season-${season}`}>
+              {season === 'best_six' ? t('cyclesCard.bestSix') : t('cyclesCard.worstSix')}
+            </span>
+          </div>
+          <p className="pres-next-term-note">{t('cyclesCard.intramonthHint')}</p>
+          <div className="pres-month-grid">
+            {monthReturns.map((m) => (
+              <MonthCell
+                key={m.month}
+                item={m}
+                selected={openMonth === m.month}
+                onSelect={(month) => setOpenMonth((cur) => (cur === month ? null : month))}
+              />
+            ))}
+          </div>
+          {cmp && (
+            <div className="phase-meta" style={{ marginTop: '0.5rem' }}>
+              {t('cyclesCard.btcVsSpx', {
+                verdict: cmp.verdict ?? '—',
+                regime: cmp.regime ?? '—',
+                corr,
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {openMonth != null && (
+        <>
+          <MonthPumpSnippet month={openMonth} />
+          <IntramonthSeasonalityPanel
+            month={openMonth}
+            universe="btc"
+            onClose={() => setOpenMonth(null)}
+          />
+        </>
+      )}
+
       <p className="cycle-rationale">{cycle.rationale}</p>
     </div>
   )

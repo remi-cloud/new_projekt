@@ -6,6 +6,20 @@ export function toTradingViewSymbol(
   assetClass?: AssetClass,
   region?: Region,
 ): string {
+  // xStocks: chart the underlying equity (price exposure proxy)
+  if (assetClass === 'tokenized' && symbol.endsWith('-USD')) {
+    const base = symbol.replace(/-USD$/i, '').toUpperCase()
+    const underlying = base.endsWith('X') ? base.slice(0, -1) : base
+    const nasdaq = new Set([
+      'AAPL', 'MSFT', 'GOOGL', 'GOOG', 'AMZN', 'NVDA', 'META', 'TSLA',
+      'AVGO', 'COST', 'NFLX', 'AMD', 'INTC', 'ADBE', 'PYPL', 'QCOM',
+      'PLTR', 'COIN', 'HOOD', 'MSTR', 'CRCL', 'GME',
+    ])
+    if (nasdaq.has(underlying)) return `NASDAQ:${underlying}`
+    if (['SPY', 'QQQ', 'VTI', 'GLD', 'IBIT'].includes(underlying)) return `AMEX:${underlying}`
+    return `NYSE:${underlying}`
+  }
+
   if (symbol.endsWith('-USD')) {
     const base = symbol.replace('-USD', '')
     return `BINANCE:${base}USDT`

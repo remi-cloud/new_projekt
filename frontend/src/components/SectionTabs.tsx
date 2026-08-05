@@ -7,6 +7,19 @@ export type SectionTab = {
   labelKey: TranslationPath
 }
 
+function isTabActive(pathname: string, tabPath: string, tabs: SectionTab[]): boolean {
+  if (pathname === tabPath) return true
+  if (tabPath === '/' || !pathname.startsWith(`${tabPath}/`)) return false
+  // Prefer the most specific tab (e.g. /narzedzia/singularity over /narzedzia)
+  const longerMatch = tabs.some(
+    (other) =>
+      other.path !== tabPath &&
+      other.path.startsWith(`${tabPath}/`) &&
+      (pathname === other.path || pathname.startsWith(`${other.path}/`)),
+  )
+  return !longerMatch
+}
+
 export function SectionTabs({ tabs }: { tabs: SectionTab[] }) {
   const location = useLocation()
   const { t } = useLocale()
@@ -15,9 +28,7 @@ export function SectionTabs({ tabs }: { tabs: SectionTab[] }) {
   return (
     <nav className="section-tabs" aria-label={t('layout.navMain')}>
       {tabs.map((tab) => {
-        const active =
-          location.pathname === tab.path ||
-          (tab.path !== '/' && location.pathname.startsWith(`${tab.path}/`))
+        const active = isTabActive(location.pathname, tab.path, tabs)
         return (
           <Link
             key={tab.path}

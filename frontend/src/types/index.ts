@@ -1,7 +1,24 @@
-export type AssetClass = 'crypto' | 'stock' | 'etf' | 'index' | 'bond' | 'commodity' | 'forex'
+export type AssetClass = 'crypto' | 'stock' | 'etf' | 'tokenized' | 'index' | 'bond' | 'commodity' | 'forex'
 export type SignalAction = 'buy' | 'sell' | 'hold' | 'watch'
 export type CyclePhase = 'bear' | 'accumulation' | 'bull' | 'distribution' | 'neutral'
 export type Region = 'global' | 'us' | 'eu' | 'asia' | 'em' | 'pl'
+
+export interface BtcSpxComparison {
+  corr_full?: number | null
+  corr_rolling_24m_latest?: number | null
+  best_six_delta_pct?: number | null
+  month_sign_agreement?: number | null
+  verdict?: 'similar_to_spx' | 'partially' | 'idiosyncratic' | string
+  regime?: 'equity_beta' | 'mixed' | 'crypto_idiosyncratic' | string
+}
+
+export interface BitcoinMonthReturn {
+  month: number
+  avg_return_pct: number
+  bias: 'up' | 'down' | 'neutral' | string
+  is_current: boolean
+  n?: number
+}
 
 export interface BitcoinCycleStatus {
   last_ath_date: string
@@ -15,6 +32,13 @@ export interface BitcoinCycleStatus {
   days_remaining_in_phase: number
   signal: SignalAction
   rationale: string
+  month_returns?: BitcoinMonthReturn[]
+  current_month_avg_return_pct?: number | null
+  current_month_bias?: string
+  phase_month_bias?: string
+  seasonality_sample_count?: number
+  calendar_season?: 'best_six' | 'worst_six' | string
+  spx_comparison?: BtcSpxComparison | null
 }
 
 export interface PresidentialYearReturn {
@@ -26,6 +50,30 @@ export interface PresidentialYearReturn {
   bias: string
   tone: 'weak' | 'moderate' | 'strong' | 'best'
   is_current: boolean
+}
+
+export interface PresidentialMonthReturn {
+  month: number
+  avg_return_pct: number
+  bias: 'up' | 'down' | string
+  is_current: boolean
+}
+
+export interface PresidentialYearMonthRow {
+  year: string
+  year_number: number
+  label: string
+  calendar_year?: number | null
+  is_current: boolean
+  months: PresidentialMonthReturn[]
+}
+
+export interface PresidentialNextTermOutlook {
+  term_start: string
+  term_end: string
+  label: string
+  note: string
+  year_rows: PresidentialYearMonthRow[]
 }
 
 export interface PresidentialCycleStatus {
@@ -45,6 +93,14 @@ export interface PresidentialCycleStatus {
   cycle_avg_return_pct?: number
   year_returns?: PresidentialYearReturn[]
   current_year_expected_return_pct?: number
+  month_returns?: PresidentialMonthReturn[]
+  month_matrices?: PresidentialYearMonthRow[]
+  current_month_avg_return_pct?: number
+  current_month_bias?: string
+  calendar_season?: 'best_six' | 'worst_six' | string
+  seasonality_universe_size?: number
+  buy_weight?: number
+  next_term_outlook?: PresidentialNextTermOutlook | null
 }
 
 export interface AssetQuote {
@@ -64,6 +120,16 @@ export interface LiveQuote {
   currency: string
   change_pct_24h: number | null
   updated_at: string | null
+}
+
+export interface InstrumentSeasonality {
+  available: boolean
+  bias?: string | null
+  avg_pct?: number | null
+  source?: string | null
+  n?: number | null
+  calendar_season?: string | null
+  reason?: string | null
 }
 
 export interface AssetCycleAssessment {
@@ -88,6 +154,11 @@ export interface AssetCycleAssessment {
   rationale: string
   updated_at: string
   broker_info?: BrokerPurchaseInfo | null
+  tags?: string[]
+  chain?: string | null
+  related_symbols?: string[]
+  community?: InstrumentCommunity | null
+  seasonality?: InstrumentSeasonality | null
 }
 
 export interface BrokerOption {
@@ -102,6 +173,15 @@ export interface BrokerPurchaseInfo {
   primary_exchange?: string | null
   brokers: BrokerOption[]
   disclaimer: string
+}
+
+export interface InstrumentCommunity {
+  x: string
+  x_official?: boolean
+  telegram?: string | null
+  discord?: string | null
+  website?: string | null
+  x_community?: string | null
 }
 
 export interface PearlFind {
@@ -212,6 +292,7 @@ export interface Opportunity {
   is_momentum_pick: boolean
   rationale: string
   created_at: string
+  community?: InstrumentCommunity | null
 }
 
 export interface RegionalCycleSnapshot {
@@ -251,6 +332,13 @@ export interface MacroCalendarEvent {
   impact: string
   time_utc: string
   region: string
+  kind?: string | null
+  current_state?: string | null
+  expectations?: string | null
+  ai_bias?: string | null
+  ai_confidence?: number | null
+  ai_assessed_at?: string | null
+  ai_source?: string | null
 }
 
 export interface MacroCalendarMonth {
@@ -547,3 +635,177 @@ export interface RoiShowcaseResult {
   disclaimer: string
 }
 
+// ── Scanner desk (heatmap / Superokazje / Singularity) ──
+
+export interface TradeLevels {
+  side: string
+  entry: number
+  stop_loss: number
+  take_profit_1: number
+  take_profit_2: number
+  risk_reward: number
+  note: string
+}
+
+export interface HeatmapBin {
+  price: number
+  long_intensity: number
+  short_intensity: number
+  dominant: 'long' | 'short' | string
+  intensity: number
+}
+
+export interface LiquidationHeatmap {
+  price: number
+  range_low: number
+  range_high: number
+  bins: HeatmapBin[]
+  columns?: HeatmapBin[][]
+  max_intensity: number
+}
+
+export interface LiqPathPoint {
+  t: number
+  price: number
+  role: string
+  intensity: number
+}
+
+export interface LiqAnchor {
+  price: number
+  role: string
+  label: string
+  t: number
+  liq_side?: string
+}
+
+export interface LiqPrediction {
+  direction: string
+  confidence: number
+  summary: string
+  target_price: number
+  target_side: string
+  target_intensity: number
+  pull_up: number
+  pull_down: number
+  momentum: number
+  path: LiqPathPoint[]
+  anchors: LiqAnchor[]
+  features?: Record<string, number>
+}
+
+export interface AiTradeFactor {
+  name: string
+  side: string
+  weight: number
+  detail: string
+}
+
+export interface AiTradeSignal {
+  signal: 'kup' | 'sprzedaj' | 'czekaj' | string
+  label: string
+  confidence: number
+  buy_score: number
+  sell_score: number
+  aligned: boolean
+  conflict: boolean
+  summary: string
+  factors: AiTradeFactor[]
+  verdict_detail: string
+}
+
+export interface SuperOpportunity {
+  symbol: string
+  name: string
+  asset_class: AssetClass
+  action: SignalAction
+  cycle_confidence: number
+  super_score: number
+  is_super: boolean
+  cycle_source: string
+  phase: string
+  price: number
+  bid: number | null
+  ask: number | null
+  spread_pct: number | null
+  book_source: string | null
+  levels: TradeLevels
+  heatmap: LiquidationHeatmap
+  prediction?: LiqPrediction | null
+  ai_signal?: AiTradeSignal | null
+  whale?: WhaleFlowSignal | null
+  reasons: string[]
+  rationale: string
+  updated_at: string
+  community?: InstrumentCommunity | null
+}
+
+export interface WhaleFlowSignal {
+  symbol: string
+  bias: 'accumulate' | 'distribute' | 'neutral' | string
+  side_hint: string
+  strength: number
+  score: number
+  summary: string
+  factors: string[]
+  updated_at?: string | null
+}
+
+export interface SuperOpportunitiesResponse {
+  generated_at: string
+  count: number
+  super_count: number
+  long_count?: number
+  short_count?: number
+  items: SuperOpportunity[]
+  supers: SuperOpportunity[]
+  scanner_last_scan_at: string | null
+}
+
+export interface AgentScoutInfo {
+  id: string
+  label: string
+  symbols: number
+  region: string
+}
+
+export interface AgentVerdictInfo {
+  symbol: string
+  name: string
+  accepted: boolean
+  confidence: number
+  summary: string
+  scout_ids: string[]
+  factors: Array<{ name: string; detail: string; weight?: number }>
+}
+
+export interface AgentsReport {
+  ready?: boolean
+  pipeline?: string
+  long_scouts?: AgentScoutInfo[]
+  short_scouts?: AgentScoutInfo[]
+  counts?: {
+    long_scouts: number
+    short_scouts: number
+    equal: boolean
+  }
+  specialists?: Array<{ id: string; label: string }>
+  orchestrator?: { id: string; label: string }
+  last_scan_at?: string | null
+  last_stats?: Record<string, unknown>
+  opportunities?: { total: number; long: number; short: number }
+  long_verdicts?: AgentVerdictInfo[]
+  short_verdicts?: AgentVerdictInfo[]
+  long_findings_sample?: Array<{
+    scout_id: string
+    symbol: string
+    confidence: number
+    rationale: string
+  }>
+  short_findings_sample?: Array<{
+    scout_id: string
+    symbol: string
+    confidence: number
+    rationale: string
+  }>
+}

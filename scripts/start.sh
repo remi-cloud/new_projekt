@@ -25,10 +25,7 @@ source .venv/bin/activate
 pip install -q -r requirements.txt
 
 mkdir -p data/baza_portfela
-if [ ! -f data/baza_portfela/portfolio.db ] && [ -f "$ROOT/backups/portfolio_latest.sqlite" ]; then
-  cp "$ROOT/backups/portfolio_latest.sqlite" data/baza_portfela/portfolio.db
-  echo "Przywrócono portfel z backupu."
-fi
+# Nowy portfolio.db = czyste 1M PLN (bez kopiowania backups/portfolio_latest.sqlite)
 
 echo "Aplikacja: http://localhost:${PORT}"
 exec uvicorn app.main:app --host 0.0.0.0 --port "$PORT"

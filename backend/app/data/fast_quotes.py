@@ -9,10 +9,10 @@ from urllib.parse import quote as url_quote
 
 import httpx
 
-from app.data.assets import MONITORED_ASSETS
+from app.data.assets import MONITORED_ASSETS, resolve_yahoo_symbol
 from app.data.investing_com import fetch_investing_quote, uses_investing
+from app.data.market_data import _quote_price_round
 from app.models.schemas import AssetClass, AssetQuote
-
 logger = logging.getLogger(__name__)
 
 YAHOO_HEADERS = {
@@ -85,7 +85,7 @@ async def _fetch_yahoo_batch(
     if not symbols:
         return {}
 
-    encoded = ",".join(url_quote(s, safe="") for s in symbols)
+    encoded = ",".join(url_quote(resolve_yahoo_symbol(s), safe="") for s in symbols)
     url = f"https://query1.finance.yahoo.com/v7/finance/quote?symbols={encoded}"
     try:
         resp = await client.get(url)
@@ -95,9 +95,12 @@ async def _fetch_yahoo_batch(
         logger.warning("Yahoo batch quote failed: %s", exc)
         return {}
 
+    # Map Yahoo ticker back to app symbol
+    yahoo_to_app = {resolve_yahoo_symbol(s): s for s in symbols}
     out: dict[str, AssetQuote] = {}
     for item in results:
-        sym = item.get("symbol")
+        yahoo_sym = item.get("symbol")
+        sym = yahoo_to_app.get(yahoo_sym) or yahoo_sym
         meta = ASSET_BY_SYMBOL.get(sym)
         if not meta:
             continue
@@ -109,7 +112,7 @@ async def _fetch_yahoo_batch(
             symbol=sym,
             name=meta["name"],
             asset_class=AssetClass(meta["asset_class"]),
-            price=round(float(price), 4),
+            price=_quote_price_round(float(price)),
             change_pct_24h=round(float(change_pct), 2) if change_pct is not None else None,
             updated_at=now,
         )
@@ -126,7 +129,7 @@ async def _fetch_yahoo_v8_spot(
     if not meta:
         return None
 
-    encoded = url_quote(symbol, safe="")
+    encoded = url_quote(resolve_yahoo_symbol(symbol), safe="")
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{encoded}"
     try:
         resp = await client.get(url, params={"range": "1d", "interval": "1m"})
@@ -151,7 +154,7 @@ async def _fetch_yahoo_v8_spot(
             symbol=symbol,
             name=meta["name"],
             asset_class=AssetClass(meta["asset_class"]),
-            price=round(float(price), 4),
+            price=_quote_price_round(float(price)),
             change_pct_24h=change_pct,
             updated_at=now,
         )

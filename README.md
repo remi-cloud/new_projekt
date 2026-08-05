@@ -16,13 +16,31 @@ Aplikacja webowa (**Cyclical Academy**) do **edukacji rynków przez cykle** — 
 Od folderów do działającej apki: **[`docs/MAC-SETUP.md`](docs/MAC-SETUP.md)**
 
 ```bash
-mkdir -p ~/Projects && cd ~/Projects
-git clone --branch cursor/paper-trading-21d6 https://github.com/remi-cloud/new_projekt.git
-cd new_projekt && ./scripts/mac-bootstrap.sh
+./scripts/mac-bootstrap.sh     # raz
 ./scripts/mac-start.sh         # http://localhost:8080
 ```
 
 Szczegóły: [`docs/MAC.md`](docs/MAC.md) · Deploy: [`docs/DEPLOY-AWS.md`](docs/DEPLOY-AWS.md)
+
+### Jedna komenda (dev / Cursor)
+
+```bash
+./scripts/dev-up.sh
+```
+
+Instaluje zależności, buduje SPA i odpala WWW na **http://localhost:8080**.
+
+### Telefon / publiczny link
+
+```bash
+chmod +x scripts/*.sh
+./scripts/start-public.sh
+```
+
+Opcjonalnie: `brew install cloudflared` (skrypt też pobierze binary do `.tools/`).  
+`localhost` na telefonie = telefon — użyj linku `https://….trycloudflare.com` (zapis w `PUBLIC_URL.txt`).
+
+Smoke po starcie: `./scripts/audit.sh`
 
 ### Docker (jeden kontener WWW)
 
@@ -51,6 +69,8 @@ Frontend hot-reload: `cd frontend && npm install && npm run dev` → http://loca
 | Dashboard | `/dashboard` | Cykle + okazje + notowania |
 | Cykle | `/cykle` | Szczegóły cykli BTC i prezydenckiego |
 | Okazje | `/okazje` | Sygnały z filtrami (klasa, akcja) |
+| Superokazje | `/superokazje` | Heatmapa 3D + IN/SL/TP + whale + Singularity |
+| Narzędzia | `/narzedzia` | Singularity war room + skróty desk |
 | Rynki | `/rynki` | Tabela instrumentów z filtrami |
 | Portfel | `/portfel` | Paper trading |
 | Powiadomienia | `/powiadomienia` | Alerty / ntfy / SMS |

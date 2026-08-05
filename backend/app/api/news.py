@@ -76,6 +76,14 @@ async def macro_news_refresh(lang: str | None = None):
     events = news_alert_engine.diff(all_items)
     if events:
         await dispatch_news_alerts(events)
+    try:
+        from app.notifications.social_dispatcher import queue_social_from_news_items
+
+        social = await queue_social_from_news_items(all_items, locale=lang or "pl")
+        if social.get("queued"):
+            logger.info("Social desk queued: %s", social)
+    except Exception as exc:
+        logger.warning("Social desk queue failed: %s", exc)
     asyncio.create_task(kick_news_images(feed.items))
     return await get_macro_news(limit=100, locale=lang)
 

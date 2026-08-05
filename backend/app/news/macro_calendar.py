@@ -94,7 +94,10 @@ ALL_SPECS = _all_specs()
 def _event_category(kind: str) -> str:
     if kind == "fomc":
         return "fed"
-    if kind in ("cpi", "nfp", "ecb", "boe", "boj"):
+    # US data releases → USA (legend / dots), not generic macro
+    if kind in ("cpi", "nfp"):
+        return "usa"
+    if kind in ("ecb", "boe", "boj"):
         return "macro"
     return "global"
 
@@ -142,6 +145,7 @@ def _build_event(idx: int, spec: CalendarSpec, as_of: date, locale: str | None) 
         impact="high",
         time_utc=_event_time(spec.kind),
         region=_event_region(spec.kind),
+        kind=spec.kind,
     )
 
 

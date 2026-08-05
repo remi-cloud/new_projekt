@@ -8,7 +8,7 @@ import httpx
 
 from app.config import settings
 from app.cycles.momentum_cycle import compute_momentum_indicators
-from app.data.assets import MONITORED_ASSETS
+from app.data.assets import MONITORED_ASSETS, resolve_yahoo_symbol
 from app.data.investing_com import fetch_investing_quote, uses_investing
 from app.models.schemas import AssetClass, AssetQuote
 
@@ -20,6 +20,18 @@ YAHOO_HEADERS = {
 
 FETCH_SEMAPHORE = asyncio.Semaphore(12)
 INVESTING_SEMAPHORE = asyncio.Semaphore(2)
+
+
+def _quote_price_round(value: float) -> float:
+    """Preserve micro-cap crypto prices (MEW ~1e-6 would become 0.0 at 4dp)."""
+    ax = abs(value)
+    if ax == 0:
+        return 0.0
+    if ax < 1e-4:
+        return round(value, 12)
+    if ax < 1e-2:
+        return round(value, 8)
+    return round(value, 4)
 
 
 async def fetch_bitcoin_ath() -> tuple:
@@ -108,7 +120,7 @@ async def _fetch_yahoo_asset(
     client: httpx.AsyncClient, asset: dict, now: datetime
 ) -> tuple[Optional[AssetQuote], dict]:
     symbol = asset["symbol"]
-    encoded = url_quote(symbol, safe="")
+    encoded = url_quote(resolve_yahoo_symbol(symbol), safe="")
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{encoded}"
     params = {"range": "1y", "interval": "1d"}
     stats: dict = {}
@@ -121,9 +133,11 @@ async def _fetch_yahoo_asset(
             return None, stats
 
         meta = result[0]["meta"]
-        highs = [h for h in result[0]["indicators"]["quote"][0].get("high", []) if h]
-        lows = [l for l in result[0]["indicators"]["quote"][0].get("low", []) if l]
-        closes = [c for c in result[0]["indicators"]["quote"][0]["close"] if c is not None]
+        quote = (result[0].get("indicators") or {}).get("quote") or [{}]
+        q0 = quote[0] or {}
+        highs = [h for h in (q0.get("high") or []) if h]
+        lows = [l for l in (q0.get("low") or []) if l]
+        closes = [c for c in (q0.get("close") or []) if c is not None]
 
         high_52w = float(meta.get("fiftyTwoWeekHigh") or (max(highs) if highs else 0)) or None
         low_52w = float(meta.get("fiftyTwoWeekLow") or (min(lows) if lows else 0)) or None
@@ -141,7 +155,7 @@ async def _fetch_yahoo_asset(
                 symbol=symbol,
                 name=asset["name"],
                 asset_class=AssetClass(asset["asset_class"]),
-                price=round(price, 4),
+                price=_quote_price_round(price),
                 updated_at=now,
             ), stats
 
@@ -159,7 +173,7 @@ async def _fetch_yahoo_asset(
             symbol=symbol,
             name=asset["name"],
             asset_class=AssetClass(asset["asset_class"]),
-            price=round(price, 4),
+            price=_quote_price_round(price),
             change_pct_24h=change_24h,
             change_pct_7d=change_7d,
             updated_at=now,

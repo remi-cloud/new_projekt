@@ -12,6 +12,11 @@ import {
   MacroNewsFeed,
   TwilioConfig,
 } from './types'
+import type {
+  AgentsReport,
+  SuperOpportunitiesResponse,
+  SuperOpportunity,
+} from './types'
 import { ChartPreset, ChartResponse, CHART_PRESETS } from './types/chart'
 import { ApiError, type ApiErrorCode } from './i18n/apiErrors'
 
@@ -232,10 +237,101 @@ export async function refreshMacroNews(lang?: string): Promise<MacroNewsFeed> {
   return res.json()
 }
 
+export interface SocialDeskStatus {
+  enabled: boolean
+  dry_run: boolean
+  auto_post: boolean
+  cooldown_minutes: number
+  max_per_cycle: number
+  public_base_url: string | null
+  x_configured: boolean
+  linkedin_configured: boolean
+}
+
+export interface SocialPost {
+  id: number
+  platform: string
+  news_id: string
+  url: string | null
+  title: string
+  body: string
+  media_path: string | null
+  status: string
+  error: string | null
+  external_id: string | null
+  created_at: string
+  posted_at: string | null
+}
+
+export async function fetchSocialStatus(): Promise<SocialDeskStatus> {
+  const res = await fetch(`${API_BASE}/social/status`)
+  if (!res.ok) await throwApiError(res, 'serverUnavailable')
+  return res.json()
+}
+
+export async function fetchSocialPosts(limit = 20): Promise<{
+  count: number
+  posts: SocialPost[]
+  status: SocialDeskStatus
+}> {
+  const res = await fetch(`${API_BASE}/social/posts?limit=${limit}`)
+  if (!res.ok) await throwApiError(res, 'serverUnavailable')
+  return res.json()
+}
+
+export async function publishSocialPost(postId: number): Promise<{ ok: boolean; post: SocialPost }> {
+  const res = await fetch(`${API_BASE}/social/posts/${postId}/publish`, { method: 'POST' })
+  if (!res.ok) await throwApiError(res, 'badRequest')
+  return res.json()
+}
+
+export interface PredatorStatus {
+  enabled: boolean
+  configured: boolean
+  notify: boolean
+  chat_id_filter?: string | null
+  bot?: { id?: number; username?: string; first_name?: string } | null
+  free_setup?: string
+  recent?: PredatorSignal[]
+}
+
+export interface PredatorSignal {
+  id: number
+  tg_message_id?: number | null
+  chat_id: string
+  symbol: string
+  action: string
+  confidence: number
+  reason: string
+  raw_text?: string
+  created_at: string
+}
+
+export async function fetchPredatorStatus(): Promise<PredatorStatus> {
+  const res = await fetch(`${API_BASE}/predator/status`)
+  if (!res.ok) await throwApiError(res, 'serverUnavailable')
+  return res.json()
+}
+
+export async function fetchPredatorSignals(limit = 30): Promise<{ count: number; signals: PredatorSignal[] }> {
+  const res = await fetch(`${API_BASE}/predator/signals?limit=${limit}`)
+  if (!res.ok) await throwApiError(res, 'serverUnavailable')
+  return res.json()
+}
+
+export async function pollPredatorFeed(): Promise<{ ok: boolean; updates: number; new: number }> {
+  const res = await fetch(`${API_BASE}/predator/poll`, { method: 'POST' })
+  if (!res.ok) await throwApiError(res, 'badRequest')
+  return res.json()
+}
+
 export interface AiStatus {
   enabled: boolean
   llm_configured: boolean
   model: string
+  provider?: string
+  base_url?: string
+  requires_api_key?: boolean
   features: string[]
   knowledge_entries: number
   learning_notes: number
@@ -257,6 +353,8 @@ export interface AiChatResponse {
   critic_score?: number | null
   llm_active: boolean
   tool_count: number
+  focus_symbol?: string | null
+  desk_ui?: Record<string, unknown> | null
 }
 
 export interface AiMessage {
@@ -281,6 +379,8 @@ export interface AiAnalyzeResponse {
   summary: string
   tools: { tool: string; result: Record<string, unknown> }[]
   llm_active: boolean
+  focus_symbol?: string | null
+  desk_ui?: Record<string, unknown> | null
 }
 
 export async function fetchAiStatus(): Promise<AiStatus> {
@@ -342,6 +442,270 @@ export async function fetchRoiShowcase(years = 10, amount = 10000): Promise<impo
   const res = await fetch(`${API_BASE}/roi/showcase${qs}`)
   if (!res.ok) await throwApiError(res, 'roiShowcaseFailed')
   return res.json()
+}
+
+export type AgentTelemetryPoint = {
+  ts: string
+  time: number
+  agent_nav: number
+  spx_nav: number
+  agent_ret_pct: number
+  spx_ret_pct: number
+  n_long: number
+  n_universe: number
+  health_ok: boolean
+}
+
+export type AgentTelemetryResponse = {
+  range: string
+  points: AgentTelemetryPoint[]
+  last: AgentTelemetryPoint | null
+  max_drawdown_pct: number
+  vs_spx_nav: number | null
+  count: number
+}
+
+export async function fetchAgentTelemetry(
+  range: '7d' | '30d' | '90d' | 'all' = '30d',
+): Promise<AgentTelemetryResponse> {
+  const res = await fetch(`${API_BASE}/telemetry/agent-vs-sp500?range=${range}`)
+  if (!res.ok) await throwApiError(res, 'noData')
+  return res.json()
+}
+
+export type ProgramUsBacktestResponse = {
+  final_value?: number
+  cagr_pct?: number
+  max_drawdown_pct?: number
+  disclaimer?: string
+  equity_curve?: { time: number; equity: number }[]
+  buy_hold?: {
+    final_value?: number
+    equity_curve?: { time: number; equity: number }[]
+  }
+  program?: {
+    agent_final?: number
+    buy_hold_final?: number
+    ratio_agent_vs_bh?: number | null
+    disclaimer?: string
+    trades_count?: number
+  }
+}
+
+export async function fetchProgramUs1995(amount = 1000): Promise<ProgramUsBacktestResponse> {
+  const res = await fetch(`${API_BASE}/roi/program-us-1995?amount=${amount}`)
+  if (!res.ok) await throwApiError(res, 'roiCalculateFailed')
+  return res.json()
+}
+
+export async function fetchSeasonalityHealth(refresh = false): Promise<Record<string, unknown>> {
+  const qs = refresh ? '?refresh=true' : ''
+  const res = await fetch(`${API_BASE}/cycles/seasonality-health${qs}`)
+  if (!res.ok) await throwApiError(res, 'noData')
+  return res.json()
+}
+
+export type IntramonthDay = {
+  day: number
+  avg_return_pct: number | null
+  bias: string
+  n: number
+  week: number
+}
+
+export type IntramonthWeek = {
+  week: number
+  label: string
+  day_range: string
+  avg_return_pct: number | null
+  bias: string
+  n: number
+}
+
+export type IntramonthResponse = {
+  universe: 'us' | 'btc'
+  universe_label: string
+  month: number
+  month_name_pl: string
+  days: IntramonthDay[]
+  weeks: IntramonthWeek[]
+  strongest_days: IntramonthDay[]
+  weakest_days: IntramonthDay[]
+  note: string
+}
+
+export async function fetchIntramonth(
+  month: number,
+  universe: 'us' | 'btc' = 'us',
+): Promise<IntramonthResponse> {
+  const res = await fetch(
+    `${API_BASE}/cycles/intramonth?month=${month}&universe=${universe}`,
+  )
+  if (!res.ok) await throwApiError(res, 'noData')
+  return res.json()
+}
+
+export type GlobalBookEntry = {
+  id: string
+  horizon: 'monthly' | 'weekly' | 'yearly'
+  slot: number
+  slot_label: string
+  side: 'bid' | 'ask'
+  avg_return_pct: number
+  markets: string[]
+  markets_n: number
+  markets_total: number
+  reproduction_score: number
+  status: 'adopted' | 'watch' | 'rejected'
+  rank: number
+}
+
+export type GlobalCycleBookResponse = {
+  generated_at?: string
+  meta: Record<string, unknown>
+  pairwise_month_corr: Record<string, number>
+  profiles: Record<
+    string,
+    {
+      universe: string
+      label: string
+      symbols_included: number
+      symbols_total: number
+      months: Array<{
+        month: number
+        label: string
+        avg_return_pct: number | null
+        n: number
+        bias: string
+      }>
+      weeks: Array<{
+        week: number
+        label: string
+        day_range: string
+        avg_return_pct: number | null
+        n: number
+        bias: string
+      }>
+      yearly: Record<string, unknown>
+    }
+  >
+  order_book: GlobalBookEntry[]
+  adopted: GlobalBookEntry[]
+  note: string
+}
+
+export async function fetchGlobalCycleBook(
+  status: 'all' | 'adopted' | 'watch' | 'rejected' = 'all',
+): Promise<GlobalCycleBookResponse> {
+  const res = await fetch(`${API_BASE}/cycles/global-book?status=${status}`)
+  if (!res.ok) await throwApiError(res, 'noData')
+  return res.json()
+}
+
+export type CalendarMonthCell = {
+  month: number
+  label_pl: string
+  label_en: string
+  avg_return_pct: number | null
+  median_pct?: number | null
+  win_rate?: number | null
+  n: number
+  bias: string
+  source?: string
+}
+
+export type InstrumentCalendarResponse = {
+  symbol: string
+  name: string
+  asset_class: string
+  region: string
+  available: boolean
+  source: string
+  months: CalendarMonthCell[]
+  strongest_months: CalendarMonthCell[]
+  weakest_months: CalendarMonthCell[]
+  pump_score: number | null
+  narrative: string | null
+  note: string
+}
+
+export type MonthPumpEntry = {
+  symbol: string
+  name: string
+  asset_class: string
+  region: string
+  avg_return_pct: number | null
+  median_pct?: number | null
+  win_rate?: number | null
+  n: number
+  bias: string
+}
+
+export type MonthPumpsResponse = {
+  month: number
+  label_pl: string
+  label_en: string
+  asset_class?: string | null
+  region?: string | null
+  pumped: MonthPumpEntry[]
+  drained: MonthPumpEntry[]
+  universe_n: number
+  note: string
+}
+
+export type MonthPumpSnippet = {
+  month: number
+  label_pl: string
+  label_en: string
+  text: string
+  pumped: MonthPumpEntry[]
+  drained: MonthPumpEntry[]
+}
+
+export type CalendarSearchHit = {
+  symbol: string
+  name: string
+  asset_class: string
+  region: string
+  has_calendar: boolean
+}
+
+export async function fetchInstrumentCalendar(symbol: string): Promise<InstrumentCalendarResponse> {
+  const res = await fetch(
+    `${API_BASE}/cycles/instrument-calendar?symbol=${encodeURIComponent(symbol)}`,
+  )
+  if (!res.ok) await throwApiError(res, 'noData')
+  return res.json()
+}
+
+export async function fetchMonthPumps(
+  month: number,
+  opts?: { class?: string; region?: string; limit?: number },
+): Promise<MonthPumpsResponse> {
+  const qs = new URLSearchParams({ month: String(month) })
+  if (opts?.class) qs.set('class', opts.class)
+  if (opts?.region) qs.set('region', opts.region)
+  if (opts?.limit) qs.set('limit', String(opts.limit))
+  const res = await fetch(`${API_BASE}/cycles/month-pumps?${qs}`)
+  if (!res.ok) await throwApiError(res, 'noData')
+  return res.json()
+}
+
+export async function fetchMonthPumpSnippet(month: number, topN = 3): Promise<MonthPumpSnippet> {
+  const res = await fetch(
+    `${API_BASE}/cycles/month-pumps/snippet?month=${month}&top_n=${topN}`,
+  )
+  if (!res.ok) await throwApiError(res, 'noData')
+  return res.json()
+}
+
+export async function fetchCalendarSearch(q: string, limit = 20): Promise<CalendarSearchHit[]> {
+  const res = await fetch(
+    `${API_BASE}/cycles/calendar-search?q=${encodeURIComponent(q)}&limit=${limit}`,
+  )
+  if (!res.ok) await throwApiError(res, 'noData')
+  const data = await res.json()
+  return data.results ?? []
 }
 
 export async function calculateRoi(body: {
@@ -532,6 +896,7 @@ export interface WatchlistItem {
   name: string
   votes: number
   updated_at: string
+  community?: import('./types').InstrumentCommunity | null
 }
 
 export interface GrowthPackage {
@@ -559,4 +924,37 @@ export interface EmbedCyclePayload {
   embed_url: string
   live_url: string
   disclaimer: string
+}
+
+
+export async function fetchSuperOpportunities(
+  minScore = 0,
+): Promise<SuperOpportunitiesResponse> {
+  const res = await fetch(`${API_BASE}/super-opportunities?min_score=${minScore}`)
+  if (!res.ok) await throwApiError(res, 'noData')
+  return res.json()
+}
+
+export async function fetchSuperOpportunity(symbol: string): Promise<SuperOpportunity> {
+  const res = await fetch(`${API_BASE}/super-opportunities/${encodeURIComponent(symbol)}`)
+  if (!res.ok) await throwApiError(res, 'noData')
+  return res.json()
+}
+
+export async function fetchAgentsReport(refresh = false): Promise<AgentsReport> {
+  const q = refresh ? '?refresh=true' : ''
+  const res = await fetch(`${API_BASE}/singularity${q}`)
+  if (!res.ok) await throwApiError(res, 'noConnection')
+  return res.json()
+}
+
+export async function fetchWhaleFlows(force = false): Promise<{
+  count: number
+  items: unknown[]
+  by_symbol: Record<string, unknown>
+}> {
+  const q = force ? '?force=true' : ''
+  const res = await fetch(`${API_BASE}/whale-flows${q}`)
+  if (!res.ok) await throwApiError(res, 'noData')
+  return res.json()
 }

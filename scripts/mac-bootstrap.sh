@@ -126,10 +126,7 @@ fi
 ok "Python venv + requirements"
 
 mkdir -p data/baza_portfela
-if [ ! -f data/baza_portfela/portfolio.db ] && [ -f "$PROJECT_DIR/backups/portfolio_latest.sqlite" ]; then
-  cp "$PROJECT_DIR/backups/portfolio_latest.sqlite" data/baza_portfela/portfolio.db
-  ok "Portfel przywrócony z backupu"
-fi
+# Nowy portfolio.db powstanie przy pierwszym starcie z kontem 1M PLN (bez restore z backupu)
 
 # Zapisz helper: ścieżka do projektu
 MARKER="$HOME/.cyclical-trader-path"

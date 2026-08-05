@@ -1,0 +1,138 @@
+/* Single-touch navigation — no sticky-hover / double-tap required */
+
+html {
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+a,
+button,
+input,
+select,
+textarea,
+summary,
+label,
+.tap-target,
+[role='button'],
+[role='link'],
+.sidebar-nav-item,
+.bottom-nav-item,
+.link-btn,
+.filter-chip,
+.opp-card,
+.instrument-panel:not(.expanded),
+.market-card-clickable,
+.momentum-item,
+.cycle-card a {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+/* Kill sticky :hover on coarse pointers (phones / tablets) */
+@media (hover: none), (pointer: coarse) {
+  .cycle-card:hover,
+  .opp-card:hover,
+  .instrument-panel:not(.expanded):hover,
+  .market-card-clickable:hover,
+  .momentum-item:hover,
+  .sidebar-nav-item:hover,
+  .bottom-nav-item:hover,
+  .filter-chip:hover,
+  .link-btn:hover,
+  .btn:hover,
+  .btn-ghost:hover,
+  .btn-primary:hover,
+  button.tag-tip-trigger:hover,
+  .chart-zoom-btn:hover,
+  .about-pillar-link:hover,
+  .about-not-link:hover,
+  .about-method-link:hover {
+    transform: none !important;
+    box-shadow: inherit;
+    filter: none;
+    outline: none;
+  }
+
+  /* Instant press feedback instead of hover */
+  .opp-card:active,
+  .instrument-panel:not(.expanded):active,
+  .market-card-clickable:active,
+  .momentum-item:active,
+  .sidebar-nav-item:active,
+  .bottom-nav-item:active,
+  .tap-target:active {
+    opacity: 0.92;
+  }
+}
+
+/* Card hit areas — native links, one tap */
+a.card-nav-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+}
+
+a.card-nav-link:focus-visible {
+  outline: 1px solid var(--accent-gold, #b8975a);
+  outline-offset: 2px;
+}
+
+a.instrument-nav-hit {
+  display: block;
+  width: 100%;
+}
+
+a.btn.card-nav-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+a.link-btn.card-nav-link {
+  display: inline-flex;
+  text-decoration: none;
+}
+
+a.momentum-item.card-nav-link,
+a.market-card.card-nav-link {
+  text-align: left;
+  width: 100%;
+}
+
+/* Full-card single-tap hit target — chart/content stay outside the <a> */
+.card-stretch-host {
+  position: relative;
+}
+
+a.card-stretch-link {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+  border-radius: inherit;
+}
+
+a.card-stretch-link:focus-visible {
+  outline: 1px solid var(--accent-gold, #b8975a);
+  outline-offset: 2px;
+}
+
+.card-stretch-above {
+  position: relative;
+  z-index: 2;
+}
+
+.instrument-panel:not(.expanded) .instrument-chart-preview {
+  pointer-events: none;
+}

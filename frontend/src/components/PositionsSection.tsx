@@ -3,6 +3,8 @@ import { useLocale } from '../context/LocaleContext'
 import { PaperClosedPosition, PaperLimitOrder, PaperPosition } from '../types'
 import { formatPln } from '../utils/format'
 import { BrokerPurchaseHint } from './BrokerPurchaseHint'
+import { AskAgentButton } from './AskAgentButton'
+import { CommunityActions } from './CommunityActions'
 import { InstrumentShareMenu } from './InstrumentShareMenu'
 import { PositionTradeControl } from './PositionTradeControl'
 
@@ -95,14 +97,18 @@ export function PositionsSection({
                       </span>
                     )}
                     <BrokerPurchaseHint info={p.broker_info} compact />
-                    <InstrumentShareMenu
-                      symbol={p.symbol}
-                      name={p.name}
-                      kind="position"
-                      side={p.is_short ? t('common.short') : t('common.long')}
-                      pnlPct={p.unrealized_pnl_pct}
-                      compact
-                    />
+                    <div className="dash-agent-actions" onClick={(e) => e.stopPropagation()}>
+                      <AskAgentButton mode="instrument" symbol={p.symbol} name={p.name} compact />
+                      <CommunityActions symbol={p.symbol} name={p.name} compact />
+                      <InstrumentShareMenu
+                        symbol={p.symbol}
+                        name={p.name}
+                        kind="position"
+                        side={p.is_short ? t('common.short') : t('common.long')}
+                        pnlPct={p.unrealized_pnl_pct}
+                        compact
+                      />
+                    </div>
                   </div>
                   <span className="position-qty tabular">
                     {p.is_short ? `${t('common.short')} ${Math.abs(p.quantity)}` : p.quantity}
@@ -158,15 +164,18 @@ export function PositionsSection({
                     {t('positions.opened', { date: formatDt(p.opened_at)! })}
                   </span>
                 )}
-                <InstrumentShareMenu
-                  symbol={p.symbol}
-                  name={p.name}
-                  kind="position"
-                  side={p.is_short ? t('common.short') : t('common.long')}
-                  pnlPct={p.realized_pnl_pct}
-                  compact
-                  className="closed-position-share"
-                />
+                <div className="dash-agent-actions closed-position-share" onClick={(e) => e.stopPropagation()}>
+                  <AskAgentButton mode="instrument" symbol={p.symbol} name={p.name} compact />
+                  <CommunityActions symbol={p.symbol} name={p.name} compact />
+                  <InstrumentShareMenu
+                    symbol={p.symbol}
+                    name={p.name}
+                    kind="position"
+                    side={p.is_short ? t('common.short') : t('common.long')}
+                    pnlPct={p.realized_pnl_pct}
+                    compact
+                  />
+                </div>
               </div>
               <span className={p.is_short ? 'side-sell' : 'side-buy'}>
                 {p.is_short ? t('common.short') : t('common.long')}

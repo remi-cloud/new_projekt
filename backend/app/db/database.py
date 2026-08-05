@@ -8,6 +8,7 @@ from app.db.paths import ensure_data_dir
 from app.db.sqlite import db_session
 from app.models.schemas import Opportunity
 from app.ai.db import init_ai_db
+from app.news.social_db import init_social_db
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +87,10 @@ async def init_db() -> None:
         )
         await db.commit()
     await init_ai_db()
+    await init_social_db()
+    from app.telemetry.agent_vs_spx import init_telemetry_table
+
+    await init_telemetry_table()
 
 
 async def _migrate_alert_settings(db: aiosqlite.Connection) -> None:

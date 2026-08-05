@@ -49,9 +49,17 @@ async def growth_contact(body: BusinessLeadRequest):
 
 @router.get("/api/growth/watchlist")
 async def growth_watchlist(limit: int = 12):
+    from app.data.community_links import resolve_community_links
     from app.growth import top_watchlist
 
-    return await top_watchlist(min(limit, 30))
+    rows = await top_watchlist(min(limit, 30))
+    return [
+        {
+            **w,
+            "community": resolve_community_links(w.get("symbol", ""), w.get("name")),
+        }
+        for w in rows
+    ]
 
 
 @router.post("/api/growth/watchlist/vote")

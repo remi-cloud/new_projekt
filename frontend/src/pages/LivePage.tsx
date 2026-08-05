@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { fetchPublicLive, voteWatchlist, type PublicLiveDigest } from '../api'
 import { NewsletterSignup } from '../components/NewsletterSignup'
+import { CommunityActions } from '../components/CommunityActions'
 import { ErrorState } from '../components/Loading'
 import { useLocale } from '../context/LocaleContext'
 import { useDomainLabels } from '../i18n/useDomainLabels'
@@ -152,9 +153,17 @@ export function LivePage() {
               <span>
                 <strong>{w.symbol}</strong> {w.name}
               </span>
-              <button type="button" className="tap-target" onClick={() => void onVote(w.symbol, w.name)}>
-                ▲ {w.votes}
-              </button>
+              <div className="growth-watch-actions">
+                <CommunityActions
+                  symbol={w.symbol}
+                  name={w.name}
+                  community={w.community}
+                  compact
+                />
+                <button type="button" className="tap-target" onClick={() => void onVote(w.symbol, w.name)}>
+                  ▲ {w.votes}
+                </button>
+              </div>
             </li>
           ))}
         </ul>

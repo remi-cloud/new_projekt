@@ -53,9 +53,9 @@ _BROKERS: dict[str, dict[str, Any]] = {
         "id": "kraken",
         "name": "Kraken",
         "regions": ["global", "us", "eu"],
-        "url": "https://www.kraken.com/",
-        "notes": "Spot crypto",
-        "asset_classes": ["crypto"],
+        "url": "https://www.kraken.com/xstocks",
+        "notes": "Spot crypto + xStocks (tokenized equities; geo-restricted)",
+        "asset_classes": ["crypto", "tokenized"],
     },
     "coinbase": {
         "id": "coinbase",
@@ -112,6 +112,8 @@ _SYMBOL_OVERRIDES: dict[str, list[str]] = {
 
 
 def primary_exchange(symbol: str, asset_class: str | None = None) -> str:
+    if asset_class == "tokenized":
+        return "xStock / Kraken (tokenized)"
     if symbol.endswith("-USD"):
         return "CRYPTO / Binance-style"
     if symbol.endswith(".WA"):
@@ -151,6 +153,9 @@ def primary_exchange(symbol: str, asset_class: str | None = None) -> str:
 def _broker_ids_for(symbol: str, asset_class: str, region: str | None) -> list[str]:
     if symbol in _SYMBOL_OVERRIDES:
         return list(_SYMBOL_OVERRIDES[symbol])
+
+    if asset_class == "tokenized":
+        return ["kraken", "binance", "etoro"]
 
     if symbol.endswith("-USD") or asset_class == "crypto":
         return ["binance", "kraken", "coinbase", "xtb"]
@@ -208,6 +213,9 @@ def resolve_execution_brokers(
     broker_equity_fallback: str = "etoro",
 ) -> tuple[str, str | None]:
     """Pick primary and fallback broker for live execution routing."""
+    if asset_class == "tokenized":
+        return "kraken", "etoro"
+
     if symbol.endswith("-USD") or asset_class == "crypto":
         primary = broker_crypto
         fallback = "nexo" if primary != "nexo" else "kraken"

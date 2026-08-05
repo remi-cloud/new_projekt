@@ -58,12 +58,21 @@ class NewsAlertEngine:
             should_alert = False
             reason = ""
 
+            title_l = (item.title or "").lower()
+            stagflation_hit = "stagflation" in title_l or "stagflacj" in title_l or "cost of living" in title_l
+
             if item.impact == "high" and age <= fresh_window:
                 should_alert = True
                 reason = "Nowy news wysokiego wpływu"
             elif item.category == "usa" and age <= timedelta(hours=3):
                 should_alert = True
-                reason = "Świeży news USA / polityka"
+                reason = "Świeży news USA / Trump"
+            elif item.category == "musk" and age <= timedelta(hours=3):
+                should_alert = True
+                reason = "Świeży news Musk / Tesla / SpaceX"
+            elif stagflation_hit and age <= timedelta(hours=6):
+                should_alert = True
+                reason = "Stagflacja / koszt życia"
             elif item.category == "fed" and age <= timedelta(hours=6):
                 should_alert = True
                 reason = "Świeży news Fed"

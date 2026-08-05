@@ -212,7 +212,7 @@ async def project_forward(
             days_since_ath = 400  # mid-cycle fallback
             cycle_phase = "bull"
             cycle_rationale = "Fallback mid-cycle (ATH fetch failed)"
-    elif region == "us" and asset_class in ("stock", "etf", "index"):
+    elif region == "us" and asset_class in ("stock", "etf", "index", "tokenized"):
         cycle_source = "presidential+price"
         pres = analyze_presidential_cycle(today)
         cycle_phase = f"{pres.current_year.value}+{price_phase.value}"
@@ -249,7 +249,7 @@ async def project_forward(
             # Soft floor using observed hist CAGR for near-term realism
             if m < 36:
                 annual = 0.7 * annual + 0.3 * min(hist_cagr, 80.0)
-        elif region == "us" and asset_class in ("stock", "etf", "index"):
+        elif region == "us" and asset_class in ("stock", "etf", "index", "tokenized"):
             pres = analyze_presidential_cycle(as_of)
             annual = PRESIDENTIAL_ANNUAL.get(pres.current_year.value, EQUITY_BASE_ANNUAL)
             annual *= PRICE_PHASE_ADJ.get(price_phase.value, 1.0)

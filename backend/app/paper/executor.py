@@ -20,7 +20,7 @@ def _get_live_price(symbol: str) -> tuple[float, str]:
 
 
 def _round_qty(qty: float, asset_class: str) -> float:
-    if asset_class == "crypto":
+    if asset_class in ("crypto", "tokenized"):
         return round(qty, 6)
     if asset_class in ("stock", "etf", "index", "bond"):
         return round(qty, 4)

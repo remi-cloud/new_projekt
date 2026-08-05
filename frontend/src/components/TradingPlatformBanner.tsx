@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { KarDigitalLogo } from './KarDigitalLogo'
 import { MarketSummary } from '../types'
 import { useLocale } from '../context/LocaleContext'
@@ -25,7 +25,6 @@ export function TradingPlatformBanner({
   scanning,
   onScan,
 }: TradingPlatformBannerProps) {
-  const navigate = useNavigate()
   const { t } = useLocale()
   const { signal } = useDomainLabels()
   const outlookClass =
@@ -130,22 +129,18 @@ export function TradingPlatformBanner({
             </div>
 
             <div className="trading-banner-actions">
-              <button
-                type="button"
-                className="btn btn-primary btn-lg tap-target"
-                onClick={() => navigate('/dashboard')}
-              >
+              <Link to="/dashboard" className="btn btn-primary btn-lg tap-target card-nav-link">
                 {t('banner.openDashboard')}
-              </button>
-              <button type="button" className="btn btn-ghost tap-target" onClick={() => navigate('/rynki')}>
+              </Link>
+              <Link to="/rynki" className="btn btn-ghost tap-target card-nav-link">
                 {t('banner.globalMarkets', { n: totalAssets })}
-              </button>
-              <button type="button" className="btn btn-ghost tap-target" onClick={() => navigate('/portfel')}>
+              </Link>
+              <Link to="/portfel" className="btn btn-ghost tap-target card-nav-link">
                 {t('banner.paperPortfolio')}
-              </button>
-              <button type="button" className="btn btn-ghost tap-target" onClick={() => navigate('/o-nas')}>
+              </Link>
+              <Link to="/o-nas" className="btn btn-ghost tap-target card-nav-link">
                 {t('banner.about')}
-              </button>
+              </Link>
             </div>
 
             <div className="trading-banner-stats">

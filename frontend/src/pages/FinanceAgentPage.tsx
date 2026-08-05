@@ -1,6 +1,9 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useLocale } from '../context/LocaleContext'
 import { GrowthFunnelStrip } from '../components/GrowthFunnelStrip'
+import { AgentDeskCard } from '../components/AgentDeskCard'
+import { focusSymbolFromMeta, toolResultsFromMeta } from '../components/AgentPatternChart'
 import {
   fetchAiHistory,
   fetchAiStatus,
@@ -12,9 +15,9 @@ import {
   type AiStatus,
 } from '../api'
 import { formatThrownError, resolveApiMessage } from '../i18n/utils'
+import { consumeAgentSeed, instrumentAnalysisPrompt } from '../lib/agentSeed'
 
 const SESSION_KEY = 'cyclical_ai_session'
-const ROI_AGENT_SEED_KEY = 'cyclical_agent_roi_seed'
 
 interface ChatEntry {
   id?: number
@@ -23,8 +26,27 @@ interface ChatEntry {
   meta?: Record<string, unknown>
 }
 
+function normalizeHistoryMeta(meta?: Record<string, unknown> | null): Record<string, unknown> | undefined {
+  if (!meta) return undefined
+  const out: Record<string, unknown> = { ...meta }
+  if (!Array.isArray(out.tools_used) && Array.isArray(out.tools)) {
+    out.tools_used = out.tools
+  }
+  if (!Array.isArray(out.tool_results) && Array.isArray(out.tool_data)) {
+    out.tool_results = out.tool_data
+  }
+  return out
+}
+
+function deskUiFromMeta(meta?: Record<string, unknown> | null): Record<string, unknown> | null {
+  if (!meta) return null
+  if (meta.desk_ui && typeof meta.desk_ui === 'object') return meta.desk_ui as Record<string, unknown>
+  return null
+}
+
 export function FinanceAgentPage() {
   const { t, locale } = useLocale()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [status, setStatus] = useState<AiStatus | null>(null)
   const [sessionId, setSessionId] = useState<string>(() => localStorage.getItem(SESSION_KEY) || '')
   const [messages, setMessages] = useState<ChatEntry[]>([])
@@ -34,6 +56,8 @@ export function FinanceAgentPage() {
   const [error, setError] = useState<string | null>(null)
   const [lastQuestion, setLastQuestion] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
+  const seededRef = useRef(false)
+  const skipNextHistoryRef = useRef(false)
 
   useEffect(() => {
     fetchAiStatus()
@@ -46,6 +70,10 @@ export function FinanceAgentPage() {
 
   useEffect(() => {
     if (!sessionId) return
+    if (skipNextHistoryRef.current) {
+      skipNextHistoryRef.current = false
+      return
+    }
     fetchAiHistory(sessionId)
       .then((data) => {
         setMessages(
@@ -53,7 +81,7 @@ export function FinanceAgentPage() {
             id: m.id,
             role: m.role as 'user' | 'assistant',
             content: m.content,
-            meta: m.meta ?? undefined,
+            meta: normalizeHistoryMeta(m.meta),
           })),
         )
       })
@@ -66,8 +94,17 @@ export function FinanceAgentPage() {
 
   const applyResponse = useCallback((res: AiChatResponse, question: string) => {
     if (res.session_id) {
+      if (res.session_id !== sessionId) {
+        skipNextHistoryRef.current = true
+      } else {
+        // Same session: still skip one history wipe so live tool_results/SVG stay
+        skipNextHistoryRef.current = true
+      }
       setSessionId(res.session_id)
       localStorage.setItem(SESSION_KEY, res.session_id)
+    }
+    if (res.focus_symbol) {
+      setSymbol(res.focus_symbol)
     }
     setMessages((prev) => [
       ...prev,
@@ -80,10 +117,13 @@ export function FinanceAgentPage() {
           tools_used: res.tools_used,
           critic_score: res.critic_score,
           llm_active: res.llm_active,
+          tool_results: res.tool_results,
+          focus_symbol: res.focus_symbol,
+          desk_ui: res.desk_ui,
         },
       },
     ])
-  }, [])
+  }, [sessionId])
 
   const sendMessage = useCallback(
     async (text: string, sym?: string) => {
@@ -111,19 +151,31 @@ export function FinanceAgentPage() {
   )
 
   useEffect(() => {
-    const raw = sessionStorage.getItem(ROI_AGENT_SEED_KEY)
-    if (!raw) return
-    sessionStorage.removeItem(ROI_AGENT_SEED_KEY)
-    try {
-      const seed = JSON.parse(raw) as { message?: string; symbol?: string }
-      if (seed.message) {
-        if (seed.symbol) setSymbol(seed.symbol)
-        void sendMessage(seed.message, seed.symbol)
-      }
-    } catch {
-      /* ignore malformed seed */
+    if (seededRef.current || loading) return
+
+    const seed = consumeAgentSeed()
+    if (seed?.message) {
+      seededRef.current = true
+      if (seed.symbol) setSymbol(seed.symbol)
+      void sendMessage(seed.message, seed.symbol)
+      return
     }
-  }, [sendMessage])
+
+    const qSym = searchParams.get('symbol')?.trim()
+    const qMsg = searchParams.get('q')?.trim()
+    const auto = searchParams.get('auto') === '1'
+    if (qSym || qMsg) {
+      seededRef.current = true
+      if (qSym) setSymbol(qSym)
+      const message = qMsg || (qSym ? instrumentAnalysisPrompt(locale, qSym) : '')
+      if (message && (auto || qMsg)) {
+        void sendMessage(message, qSym || undefined)
+      } else if (qMsg) {
+        setInput(qMsg)
+      }
+      setSearchParams({}, { replace: true })
+    }
+  }, [sendMessage, searchParams, setSearchParams, locale, loading])
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
@@ -149,16 +201,19 @@ export function FinanceAgentPage() {
     setLastQuestion(t('agent.analyzeOnly').replace('{{symbol}}', sym))
     try {
       const res = await postAiAnalyze(sym, locale)
+      const focus = res.focus_symbol || res.symbol || sym
       const fake: AiChatResponse = {
         session_id: sessionId,
         reply: res.summary,
         message_id: 0,
-        tools_used: res.tools.map((t) => String(t.tool)),
+        tools_used: res.tools.map((x) => String(x.tool)),
         tool_results: res.tools,
         llm_active: res.llm_active,
         tool_count: res.tools.length,
+        focus_symbol: focus,
+        desk_ui: res.desk_ui,
       }
-      applyResponse(fake, t('agent.analyzeOnly').replace('{{symbol}}', sym))
+      applyResponse(fake, t('agent.analyzeOnly').replace('{{symbol}}', focus))
     } catch {
       setError(t('agent.errorAnalyze'))
     } finally {
@@ -183,9 +238,26 @@ export function FinanceAgentPage() {
   }
 
   const newSession = () => {
+    skipNextHistoryRef.current = false
     setSessionId('')
     setMessages([])
     localStorage.removeItem(SESSION_KEY)
+  }
+
+  const deskLabels = {
+    patternChart: t('agent.patternChart'),
+    openInstrument: t('agent.openInstrument'),
+    deskBias: t('agent.deskBias'),
+    deskLevels: t('agent.deskLevels'),
+    deskRisk: t('agent.deskRisk'),
+    analyzingSymbol: t('agent.analyzingSymbol'),
+    deskMtf: t('agent.deskMtf'),
+    deskPatterns: t('agent.deskPatterns'),
+    deskThesis: t('agent.deskThesis'),
+    deskCouncil: t('agent.deskCouncil'),
+    deskSetup: t('agent.deskSetup'),
+    deskPlan: t('agent.deskPlan'),
+    deskAnalysis: t('agent.deskAnalysis'),
   }
 
   return (
@@ -200,6 +272,8 @@ export function FinanceAgentPage() {
               {status.llm_configured ? t('agent.modeLlm') : t('agent.modeLocal')}
             </span>
             <span className="agent-meta">
+              {status.provider && status.provider !== 'none' ? `${status.provider} · ${status.model}` : status.model}
+              {' · '}
               {t('agent.knowledge')}: {status.knowledge_entries} · {t('agent.learning')}: {status.learning_notes}
             </span>
           </div>
@@ -248,30 +322,57 @@ export function FinanceAgentPage() {
               </ul>
             </div>
           )}
-          {messages.map((msg, i) => (
-            <div key={`${msg.id ?? i}-${msg.role}`} className={`agent-msg agent-msg-${msg.role}`}>
-              <div className="agent-msg-role">{msg.role === 'user' ? t('agent.you') : t('agent.bot')}</div>
-              <div className="agent-msg-body">{msg.content}</div>
-              {msg.role === 'assistant' && msg.meta && (
-                <div className="agent-msg-meta">
-                  {Array.isArray(msg.meta.tools_used) && (msg.meta.tools_used as string[]).length > 0 && (
-                    <span>{t('agent.tools')}: {(msg.meta.tools_used as string[]).join(', ')}</span>
-                  )}
-                  {typeof msg.meta.critic_score === 'number' && (
-                    <span>{t('agent.critic')}: {Math.round((msg.meta.critic_score as number) * 100)}%</span>
-                  )}
-                  <div className="agent-feedback">
-                    <button type="button" aria-label={t('agent.thumbsUp')} onClick={() => handleFeedback(msg.id, 5)}>
-                      👍
-                    </button>
-                    <button type="button" aria-label={t('agent.thumbsDown')} onClick={() => handleFeedback(msg.id, 1)}>
-                      👎
-                    </button>
+          {messages.map((msg, i) => {
+            const hasDesk =
+              msg.role === 'assistant' &&
+              (Boolean(focusSymbolFromMeta(msg.meta)) ||
+                Boolean(deskUiFromMeta(msg.meta)) ||
+                Boolean(toolResultsFromMeta(msg.meta)) ||
+                Boolean(msg.content))
+            return (
+              <div key={`${msg.id ?? i}-${msg.role}`} className={`agent-msg agent-msg-${msg.role}`}>
+                <div className="agent-msg-role">{msg.role === 'user' ? t('agent.you') : t('agent.bot')}</div>
+                {msg.role === 'user' && <div className="agent-msg-body">{msg.content}</div>}
+                {msg.role === 'assistant' && hasDesk && (
+                  <AgentDeskCard
+                    focusSymbol={focusSymbolFromMeta(msg.meta)}
+                    toolResults={toolResultsFromMeta(msg.meta)}
+                    deskUi={deskUiFromMeta(msg.meta)}
+                    reply={msg.content}
+                    labels={deskLabels}
+                  />
+                )}
+                {msg.role === 'assistant' && msg.meta && (
+                  <div className="agent-msg-meta">
+                    {typeof msg.meta.focus_symbol === 'string' && (
+                      <span>
+                        {t('agent.analyzingSymbol').replace('{{symbol}}', msg.meta.focus_symbol as string)}
+                      </span>
+                    )}
+                    {typeof msg.meta.critic_score === 'number' && (
+                      <span>
+                        {t('agent.critic')}:{' '}
+                        {Math.round(
+                          (msg.meta.critic_score as number) <= 1
+                            ? (msg.meta.critic_score as number) * 100
+                            : (msg.meta.critic_score as number),
+                        )}
+                        %
+                      </span>
+                    )}
+                    <div className="agent-feedback">
+                      <button type="button" aria-label={t('agent.thumbsUp')} onClick={() => handleFeedback(msg.id, 5)}>
+                        👍
+                      </button>
+                      <button type="button" aria-label={t('agent.thumbsDown')} onClick={() => handleFeedback(msg.id, 1)}>
+                        👎
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          ))}
+                )}
+              </div>
+            )
+          })}
           {loading && (
             <div className="agent-msg agent-msg-assistant">
               <div className="agent-msg-role">{t('agent.bot')}</div>

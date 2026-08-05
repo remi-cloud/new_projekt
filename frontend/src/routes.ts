@@ -10,6 +10,8 @@ export const ALIAS_REDIRECTS: { from: string; to: string }[] = [
   { from: 'portfolio', to: '/portfel' },
   { from: 'cycles', to: '/cykle' },
   { from: 'opportunities', to: '/okazje' },
+  { from: 'super', to: '/superokazje' },
+  { from: 'tools', to: '/narzedzia' },
   { from: 'ai', to: '/agent' },
   { from: 'panel', to: '/dashboard' },
   { from: 'home', to: '/' },

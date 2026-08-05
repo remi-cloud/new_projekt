@@ -5,14 +5,30 @@ from datetime import datetime, timezone
 from app.cycles.bitcoin_cycle import analyze_bitcoin_cycle
 from app.cycles.macro_types import MacroCycleResult
 from app.cycles.momentum_cycle import analyze_momentum, momentum_aligns_with_cycle
+from app.cycles.bitcoin_seasonality import (
+    adjust_signal_for_btc_seasonality,
+    btc_seasonality_overlay_delta,
+    calendar_season as btc_calendar_season,
+    month_bias as btc_month_bias,
+    resolve_month_avg,
+)
+from app.cycles.presidential_seasonality import (
+    calendar_season as us_calendar_season,
+    month_bias as us_month_bias,
+    seasonality_overlay_delta,
+    symbol_month_avg,
+)
 from app.cycles.price_cycle import analyze_price_cycle
 from app.cycles.regional_macro import analyze_regional_macro, macro_weight_for_region
+from app.data.assets import lookup_asset
 from app.models.schemas import (
     AssetClass,
     AssetCycleAssessment,
     AssetQuote,
     BitcoinCycleStatus,
     CyclePhase,
+    InstrumentSeasonality,
+    PresidentialYear,
     PresidentialCycleStatus,
     SignalAction,
 )
@@ -27,6 +43,21 @@ SIGNAL_PRIORITY = {
 # Base split: regional macro vs price cycle vs momentum.
 PRICE_CYCLE_WEIGHT = 0.35
 MOMENTUM_WEIGHT = 0.25
+
+
+def _link_fields(symbol: str, name: str | None = None) -> dict:
+    from app.data.community_links import resolve_community_links
+    from app.models.schemas import InstrumentCommunity
+
+    meta = lookup_asset(symbol) or {}
+    display_name = name or meta.get("name")
+    community = InstrumentCommunity(**resolve_community_links(symbol, display_name))
+    return {
+        "tags": list(meta.get("tags") or []),
+        "chain": meta.get("chain"),
+        "related_symbols": list(meta.get("related") or []),
+        "community": community,
+    }
 
 
 def _combine_three_signals(
@@ -141,7 +172,7 @@ def _combine_signals(
 def _class_modifier(asset_class: AssetClass, macro: MacroCycleResult) -> float:
     if asset_class == AssetClass.INDEX:
         return 1.0
-    if asset_class in (AssetClass.STOCK, AssetClass.ETF):
+    if asset_class in (AssetClass.STOCK, AssetClass.ETF, AssetClass.TOKENIZED):
         return 0.95
     if asset_class == AssetClass.BOND:
         if macro.cycle_id == "presidential_cycle":
@@ -170,7 +201,7 @@ def _apply_traditional_adjustments(
             macro_sig = SignalAction.BUY
             macro_conf += 12
 
-    if quote.asset_class in (AssetClass.INDEX, AssetClass.STOCK, AssetClass.ETF):
+    if quote.asset_class in (AssetClass.INDEX, AssetClass.STOCK, AssetClass.ETF, AssetClass.TOKENIZED):
         if macro.cycle_id == "presidential_cycle" and macro.phase == "year_3":
             macro_conf += 10
 
@@ -252,9 +283,40 @@ class AssetAnalyzer:
             macro_sig, macro_conf, price_sig, price_conf, mom_sig, mom_conf, region="global"
         )
 
+        weight = 1.0 if quote.symbol == "BTC-USD" else 0.5
+        delta, season_note, month_avg = btc_seasonality_overlay_delta(
+            macro_phase,
+            btc_cycle.days_since_ath,
+            now.date(),
+            weight=weight,
+            bear_end=btc_cycle.bear_phase_end_day,
+            bull_days=max(1, btc_cycle.bull_phase_end_day - btc_cycle.bear_phase_end_day),
+        )
+        final_conf = min(95.0, max(35.0, final_conf + delta))
+        final_sig = adjust_signal_for_btc_seasonality(final_sig, month_avg, macro_phase)
+        if month_avg is not None and month_avg <= -0.3 and final_sig == SignalAction.BUY:
+            if macro_phase != CyclePhase.DISTRIBUTION:
+                final_sig = SignalAction.WATCH
+
         rationale = (
             f"[Cykl BTC: {macro_phase.value}, {btc_cycle.days_since_ath}d od ATH] "
-            f"[Cena: {price_rat}] [Momentum: {mom_rat}]"
+            f"[Cena: {price_rat}] [Momentum: {mom_rat}] [{season_note}]"
+        )
+        avg_r, n_r, src_r = resolve_month_avg(
+            macro_phase,
+            btc_cycle.days_since_ath,
+            now.date().month,
+            btc_cycle.bear_phase_end_day,
+            max(1, btc_cycle.bull_phase_end_day - btc_cycle.bear_phase_end_day),
+        )
+        seasonality = InstrumentSeasonality(
+            available=avg_r is not None,
+            bias=btc_month_bias(avg_r) if avg_r is not None else None,
+            avg_pct=round(avg_r, 2) if avg_r is not None else None,
+            source=src_r if avg_r is not None else "unavailable",
+            n=n_r if avg_r is not None else None,
+            calendar_season=btc_calendar_season(now.date().month),
+            reason=None if avg_r is not None else "min_n",
         )
 
         return AssetCycleAssessment(
@@ -278,6 +340,8 @@ class AssetAnalyzer:
             confidence=round(final_conf, 1),
             rationale=rationale,
             updated_at=now,
+            seasonality=seasonality,
+            **_link_fields(quote.symbol, quote.name),
         )
 
     def _assess_traditional(
@@ -331,6 +395,38 @@ class AssetAnalyzer:
         if quote.change_pct_7d is not None:
             rationale += f" [7d: {quote.change_pct_7d:+.1f}%]"
 
+        seasonality = InstrumentSeasonality(
+            available=False,
+            source="unavailable",
+            reason=f"no_matrix_for_region_{region}",
+        )
+        if region == "us":
+            try:
+                py = PresidentialYear(macro_phase) if macro_phase.startswith("year_") else PresidentialYear.YEAR_2
+            except ValueError:
+                py = PresidentialYear.YEAR_2
+            delta, season_note = seasonality_overlay_delta(
+                quote.symbol,
+                py,
+                now.date(),
+                asset_class=quote.asset_class.value,
+            )
+            final_conf = min(95.0, max(35.0, final_conf + delta))
+            month_avg = symbol_month_avg(
+                quote.symbol, py, now.date().month, quote.asset_class.value
+            )
+            if month_avg <= -0.3 and final_sig == SignalAction.BUY:
+                final_sig = SignalAction.WATCH
+            rationale += f" [{season_note}]"
+            seasonality = InstrumentSeasonality(
+                available=True,
+                bias=us_month_bias(month_avg),
+                avg_pct=round(month_avg, 2),
+                source="symbol_class_universe",
+                n=None,
+                calendar_season=us_calendar_season(now.date().month),
+            )
+
         return AssetCycleAssessment(
             symbol=quote.symbol,
             name=quote.name,
@@ -352,6 +448,8 @@ class AssetAnalyzer:
             confidence=round(final_conf, 1),
             rationale=rationale,
             updated_at=now,
+            seasonality=seasonality,
+            **_link_fields(quote.symbol, quote.name),
         )
 
 

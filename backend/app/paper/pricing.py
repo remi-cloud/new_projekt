@@ -6,6 +6,7 @@ import logging
 
 from app.data.assets import MONITORED_ASSETS
 from app.data.fast_quotes import fetch_fast_quotes
+from app.data.market_data import _quote_price_round
 from app.models.schemas import AssetQuote
 from app.paper.currency import native_currency
 from app.scanners.opportunity_scanner import scanner
@@ -53,6 +54,9 @@ def get_live_price(symbol: str) -> tuple[float, str]:
     """Sync lookup from scanner cache (order execution hot path)."""
     for q in scanner.quotes:
         if q.symbol == symbol:
+            # Stale rounded-to-zero cache for micro-cap crypto — force refresh path.
+            if q.price == 0 and symbol.endswith("-USD"):
+                break
             return q.price, native_currency(symbol)
     raise PaperTradeError(f"Brak ceny na żywo dla {symbol}", "no_price")
 
@@ -90,7 +94,7 @@ async def get_live_price_async(symbol: str) -> tuple[float, str]:
                     symbol=symbol,
                     name=name,
                     asset_class=asset_class,
-                    price=round(price, 6),
+                    price=_quote_price_round(price),
                     change_pct_24h=None,
                     updated_at=datetime.now(timezone.utc),
                 )

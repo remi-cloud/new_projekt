@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from app.growth import top_watchlist
+from app.news.ideology_lens import sort_by_alignment
 from app.news.macro_news import get_macro_news
 from app.scanners.opportunity_scanner import scanner
 
@@ -19,8 +20,18 @@ async def build_live_digest(locale: str = "pl") -> dict:
         reverse=True,
     )[:5]
 
-    news_feed = await get_macro_news(category="all", limit=8, locale=locale)
+    news_feed = await get_macro_news(category="all", limit=16, locale=locale)
+    digest_news = sort_by_alignment(list(news_feed.items))[:6]
     watch = await top_watchlist(10)
+    from app.data.community_links import resolve_community_links
+
+    watch = [
+        {
+            **w,
+            "community": resolve_community_links(w.get("symbol", ""), w.get("name")),
+        }
+        for w in watch
+    ]
 
     return {
         "fetched_at": now.isoformat(),
@@ -66,8 +77,9 @@ async def build_live_digest(locale: str = "pl") -> dict:
                 "url": n.url,
                 "age_minutes": n.age_minutes,
                 "image_url": n.image_url,
+                "is_curated": n.is_curated,
             }
-            for n in news_feed.items[:6]
+            for n in digest_news
         ],
         "watchlist": watch,
         "cta": {

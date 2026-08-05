@@ -7,6 +7,7 @@ import {
 } from '../api'
 import { subscribeToPush } from '../hooks/useLiveFeed'
 import { ErrorState } from '../components/Loading'
+import { PredatorDeskPanel } from '../components/PredatorDeskPanel'
 import { useLocale } from '../context/LocaleContext'
 import { formatThrownError } from '../i18n/utils'
 import { AlertSettings, NotificationStatus, TwilioConfig } from '../types'
@@ -201,6 +202,8 @@ export function AlertsPage() {
           {t('alerts.enablePush')}
         </button>
       </section>
+
+      <PredatorDeskPanel />
 
       <section className="settings-card">
         <h3>{t('alerts.thresholdsTitle')}</h3>

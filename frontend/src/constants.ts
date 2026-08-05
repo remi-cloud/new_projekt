@@ -49,11 +49,9 @@ export const NAV_ITEMS: { path: string; labelKey: TranslationPath }[] = [
   { path: '/dashboard', labelKey: 'nav.panel' },
   { path: '/live', labelKey: 'nav.live' },
   { path: '/rynki', labelKey: 'nav.markets' },
-  { path: '/kalkulator', labelKey: 'nav.calculator' },
+  { path: '/narzedzia', labelKey: 'nav.tools' },
   { path: '/news', labelKey: 'nav.news' },
   { path: '/biznes', labelKey: 'nav.business' },
-  { path: '/agent', labelKey: 'nav.agent' },
-  { path: '/execution', labelKey: 'nav.execution' },
   { path: '/powiadomienia', labelKey: 'nav.alerts' },
   { path: '/o-nas', labelKey: 'nav.about' },
 ]
@@ -72,8 +70,21 @@ export const NAV_HUBS: NavHub[] = [
     tabs: [
       { path: '/rynki', labelKey: 'nav.markets' },
       { path: '/okazje', labelKey: 'nav.opportunities' },
+      { path: '/superokazje', labelKey: 'nav.super' },
       { path: '/perly', labelKey: 'nav.pearls' },
       { path: '/cykle', labelKey: 'nav.cycles' },
+    ],
+  },
+  {
+    id: 'tools',
+    root: '/narzedzia',
+    tabs: [
+      { path: '/narzedzia', labelKey: 'nav.toolsCatalog' },
+      { path: '/narzedzia/singularity', labelKey: 'nav.singularity' },
+      { path: '/narzedzia/astra', labelKey: 'nav.astra' },
+      { path: '/agent', labelKey: 'nav.agent' },
+      { path: '/execution', labelKey: 'nav.execution' },
+      { path: '/kalkulator', labelKey: 'nav.calculator' },
     ],
   },
   {
@@ -87,11 +98,20 @@ export const NAV_HUBS: NavHub[] = [
 ]
 
 export function hubForPath(pathname: string): NavHub | undefined {
-  return NAV_HUBS.find((hub) =>
-    hub.tabs.some(
-      (tab) => pathname === tab.path || (tab.path !== '/' && pathname.startsWith(`${tab.path}/`)),
-    ),
-  )
+  // Prefer hub whose tab is the longest match (avoid /narzedzia stealing /narzedzia/singularity incorrectly across hubs)
+  let best: NavHub | undefined
+  let bestLen = -1
+  for (const hub of NAV_HUBS) {
+    for (const tab of hub.tabs) {
+      const match =
+        pathname === tab.path || (tab.path !== '/' && pathname.startsWith(`${tab.path}/`))
+      if (match && tab.path.length > bestLen) {
+        best = hub
+        bestLen = tab.path.length
+      }
+    }
+  }
+  return best
 }
 
 /** Resolve which sidebar item should look active for the current URL. */

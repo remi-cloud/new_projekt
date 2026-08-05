@@ -164,13 +164,25 @@ async def sync_on_startup() -> dict:
         portfolio_snapshot_path(),
         snapshot["portfolio"]["total_equity_pln"],
     )
+
+    # Seed finance-agent memory from persisted paper desk (previous session → this process).
+    try:
+        from app.paper.portfolio_memory import seed_agent_portfolio_memory
+
+        await seed_agent_portfolio_memory(snapshot.get("portfolio"))
+    except Exception as exc:
+        logger.warning("Portfolio → agent memory seed failed: %s", exc)
+
     return snapshot
 
 
 async def sync_after_trade() -> None:
-    """Lightweight post-trade update of the JSON snapshot."""
+    """Lightweight post-trade update of the JSON snapshot + agent memory."""
     try:
-        await refresh_snapshot()
+        snapshot = await refresh_snapshot()
+        from app.paper.portfolio_memory import seed_agent_portfolio_memory
+
+        await seed_agent_portfolio_memory(snapshot.get("portfolio"))
     except Exception as exc:
         logger.warning("Portfolio snapshot update failed: %s", exc)
 

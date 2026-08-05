@@ -29,6 +29,20 @@ async def roi_showcase(years: int = 10, amount: float = 10000):
         raise HTTPException(status_code=502, detail="Could not build ROI showcase") from exc
 
 
+@router.get("/api/roi/program-us-1995")
+async def program_us_1995(amount: float = 1000.0):
+    """Backtest program cycle signals on ^GSPC from 1995 with $1000 vs buy&hold."""
+    from app.roi.calculator import calculate_program_us_backtest
+
+    try:
+        return await calculate_program_us_backtest(amount=amount)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Program US 1995 backtest failed: %s", exc)
+        raise HTTPException(status_code=502, detail="Could not run program backtest") from exc
+
+
 @router.post("/api/roi/calculate")
 async def roi_calculate(body: RoiCalculateRequest):
     from datetime import date as date_cls

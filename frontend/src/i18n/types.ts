@@ -4,11 +4,79 @@ export type Locale = 'pl' | 'de' | 'en' | 'fil' | 'es' | 'fr' | 'it'
 
 export interface Translations {
   lang: Record<Locale, string>
-  nav: Record<'start' | 'panel' | 'markets' | 'opportunities' | 'pearls' | 'cycles' | 'news' | 'alerts' | 'about' | 'portfolio' | 'agent' | 'calculator' | 'live' | 'business' | 'partners' | 'embed' | 'growth' | 'execution', string>
+  nav: Record<'start' | 'panel' | 'markets' | 'opportunities' | 'pearls' | 'cycles' | 'news' | 'alerts' | 'about' | 'portfolio' | 'agent' | 'calculator' | 'live' | 'business' | 'partners' | 'embed' | 'growth' | 'execution' | 'super' | 'tools' | 'toolsCatalog' | 'singularity' | 'astra', string>
+  tools: {
+    eyebrow: string
+    title: string
+    lead: string
+    open: string
+    groups: Record<'ai' | 'desk' | 'trade', string>
+    tags: Record<'ai' | 'desk' | 'trade', string>
+    items: Record<
+      'singularity' | 'agent' | 'execution' | 'calculator' | 'super' | 'pearls' | 'news' | 'astra',
+      { name: string; blurb: string }
+    >
+  }
+  astraMath: {
+    eyebrow: string
+    title: string
+    lead: string
+    source: string
+    manuscript: string
+    backTools: string
+    leanNote: string
+    disclaimer: string
+    financeLabel: string
+    marketLabel: string
+    glossaryTitle: string
+    glossaryLead: string
+    fields: Record<
+      | 'geometry'
+      | 'coding'
+      | 'groups'
+      | 'operators'
+      | 'complexity'
+      | 'quantum'
+      | 'crypto'
+      | 'combinatorics',
+      string
+    >
+    items: Record<
+      | 'spherePacking'
+      | 'codes'
+      | 'nonSofic'
+      | 'connes'
+      | 'circuits'
+      | 'quantumRep'
+      | 'cvp'
+      | 'ehrhart'
+      | 'ramsey'
+      | 'extremal',
+      { title: string; summary: string; finance: string; market: string }
+    >
+    glossary: Record<
+      | 'drawdown'
+      | 'momentum'
+      | 'rsi'
+      | 'atr'
+      | 'sharpe'
+      | 'kelly'
+      | 'correlation'
+      | 'volatility'
+      | 'cyclePhase'
+      | 'confidence'
+      | 'heatmap'
+      | 'spread'
+      | 'riskReward'
+      | 'cagr'
+      | 'beta',
+      { math: string; finance: string; market: string }
+    >
+  }
   layout: Record<'scan' | 'scanning' | 'scanDone' | 'scanError' | 'statusScan' | 'statusLive' | 'statusOnline' | 'statusOffline' | 'language' | 'loading' | 'brand' | 'navMain' | 'navMobile' | 'autoRefresh' | 'notFoundTitle' | 'notFoundLead' | 'notFoundHome', string>
   common: Record<'retry' | 'all' | 'world' | 'save' | 'saving' | 'cancel' | 'close' | 'refresh' | 'loading' | 'loadingMarket' | 'seeAll' | 'back' | 'units' | 'pieces' | 'long' | 'short' | 'buy' | 'sell' | 'live' | 'today' | 'tomorrow' | 'inDays', string>
   labels: {
-    asset: Record<'crypto' | 'stock' | 'etf' | 'index' | 'bond' | 'commodity' | 'forex', string>
+    asset: Record<'crypto' | 'stock' | 'etf' | 'tokenized' | 'index' | 'bond' | 'commodity' | 'forex', string>
     region: Record<'global' | 'us' | 'eu' | 'asia' | 'em' | 'pl', string>
     signal: Record<'buy' | 'sell' | 'hold' | 'watch', string>
     phase: Record<string, string>
@@ -73,10 +141,37 @@ export interface Translations {
       refreshMeta: string
       legendFed: string
       legendUsa: string
+      legendMusk: string
       legendMacro: string
       legendGlobal: string
+      currentState: string
+      expectations: string
+      aiConfidence: string
+      aiSourceOpenAI: string
+      aiSourceHeuristic: string
+      bias: {
+        hawkish: string
+        dovish: string
+        neutral: string
+        risk_on: string
+        risk_off: string
+      }
     }
     errors: Record<'fetchNews' | 'fetchCalendar' | 'refresh', string>
+    social: {
+      title: string
+      loading: string
+      empty: string
+      modeDryRun: string
+      modeAuto: string
+      modeManual: string
+      ready: string
+      noTokens: string
+      publish: string
+      confirmPublish: string
+      published: string
+      publishFailed: string
+    }
   }
   home: Record<string, string>
   investmentShowcase: {
@@ -174,6 +269,21 @@ export interface Translations {
     quickAnalyze: string
     quickCycles: string
     analyzeOnly: string
+    askAgent: string
+    analyzeNews: string
+    patternChart: string
+    openInstrument: string
+    deskBias: string
+    deskLevels: string
+    deskRisk: string
+    analyzingSymbol: string
+    deskMtf: string
+    deskPatterns: string
+    deskThesis: string
+    deskCouncil: string
+    deskSetup: string
+    deskPlan: string
+    deskAnalysis: string
   }
   roi: {
     eyebrow: string
@@ -302,6 +412,8 @@ export interface Translations {
     errors: Record<'live' | 'packages', string>
   }
 
+  predator: Record<string, string>
+  community: Record<string, string>
   tagTips: {
     meaning: string
     suggestion: string
@@ -310,7 +422,9 @@ export interface Translations {
     layerPrice: { body: string; hint: string }
     layerMomentum: { body: string; hint: string }
     layerOther: { body: string; hint: string }
-    asset: Record<'crypto' | 'stock' | 'etf' | 'index' | 'bond' | 'commodity' | 'forex', { body: string; hint: string }>
+    chain: { body: string; hint: string }
+    related: { body: string; hint: string }
+    asset: Record<'crypto' | 'stock' | 'etf' | 'tokenized' | 'index' | 'bond' | 'commodity' | 'forex', { body: string; hint: string }>
     region: Record<'global' | 'us' | 'eu' | 'asia' | 'em' | 'pl', { body: string; hint: string }>
     phase: Record<
       | 'bear'

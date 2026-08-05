@@ -14,6 +14,9 @@ import httpx
 
 from app.config import settings
 from app.models.schemas import MacroCalendarMonthResponse, MacroNewsCategory, MacroNewsFeed, MacroNewsItem
+from app.news.calendar_ai import enrich_calendar_events
+from app.news.google_news_urls import resolve_item_urls
+from app.news.ideology_lens import curated_desk_briefings, sort_by_alignment
 from app.news.image_agent import enrich_items, generate_missing
 from app.news.image_sources import extract_image_from_rss_description
 from app.news.macro_calendar import get_calendar_month, get_upcoming_calendar
@@ -34,10 +37,26 @@ RSS_SOURCES: list[tuple[str, str, MacroNewsCategory]] = [
     ("https://news.google.com/rss/search?q=SpaceX+Starship+OR+Starlink+when:3h&hl=en-US&gl=US&ceid=US:en", "SpaceX", "musk"),
     ("https://news.google.com/rss/search?q=xAI+OR+Grok+when:3h&hl=en-US&gl=US&ceid=US:en", "xAI · Grok", "musk"),
     ("https://news.google.com/rss/search?q=Neuralink+when:3h&hl=en-US&gl=US&ceid=US:en", "Neuralink", "musk"),
+    ("https://news.google.com/rss/search?q=Elon+Musk+(Robotaxi+OR+Optimus+OR+%22free+speech%22+OR+Starship)+when:3h&hl=en-US&gl=US&ceid=US:en", "Musk · Growth", "musk"),
+    ("https://news.google.com/rss/search?q=Musk+DOGE+OR+%22Department+of+Government+Efficiency%22+OR+Trump+Musk+when:3h&hl=en-US&gl=US&ceid=US:en", "Musk · DOGE", "musk"),
     ("https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10000161", "CNBC · Tesla", "musk"),
     ("https://electrek.co/feed/", "Electrek", "musk"),
     ("https://www.teslarati.com/feed/", "Teslarati", "musk"),
     ("https://www.space.com/feeds/all", "Space.com", "musk"),
+
+    # ── Trump / USA — pro-growth & policy (priority) ───────────────
+    ("https://news.google.com/rss/search?q=Donald+Trump+(economy+OR+tariff+OR+deregulation+OR+%22America+First%22)+when:3h&hl=en-US&gl=US&ceid=US:en", "Trump · Economy", "usa"),
+    ("https://news.google.com/rss/search?q=Trump+(energy+OR+drill+OR+%22energy+dominance%22+OR+border)+when:3h&hl=en-US&gl=US&ceid=US:en", "Trump · Energy", "usa"),
+    ("https://news.google.com/rss/search?q=Trump+White+House+OR+executive+order+when:3h&hl=en-US&gl=US&ceid=US:en", "Trump · WH", "usa"),
+    ("https://moxie.foxnews.com/google-publisher/politics.xml", "Fox News · Politics", "usa"),
+    ("https://moxie.foxbusiness.com/google-publisher/politics.xml", "Fox Business · Politics", "usa"),
+    ("https://nypost.com/politics/feed/", "NY Post · Politics", "usa"),
+    ("https://www.washingtonexaminer.com/news/feed/", "Washington Examiner", "usa"),
+
+    # ── Stagflation / Fed / cost-of-living (Trump–Musk macro frame) ─
+    ("https://news.google.com/rss/search?q=stagflation+OR+%22sticky+inflation%22+OR+%22cost+of+living%22+Fed+when:3h&hl=en-US&gl=US&ceid=US:en", "Stagflation · Fed", "macro"),
+    ("https://news.google.com/rss/search?q=stagflation+(energy+OR+tariff+OR+spending+OR+Trump)+when:3h&hl=en-US&gl=US&ceid=US:en", "Stagflation · Policy", "macro"),
+    ("https://news.google.com/rss/search?q=site:zerohedge.com+when:3h&hl=en-US&gl=US&ceid=US:en", "ZeroHedge", "macro"),
 
     # ── Google News — tylko agregaty bez własnego RSS (when:3h = świeże) ──
     ("https://news.google.com/rss/search?q=site:reuters.com+when:3h&hl=en-US&gl=US&ceid=US:en", "Reuters", "global"),
@@ -66,7 +85,6 @@ RSS_SOURCES: list[tuple[str, str, MacroNewsCategory]] = [
     ("https://www.ft.com/?format=rss", "Financial Times", "macro"),
     ("https://moxie.foxbusiness.com/google-publisher/economy.xml", "Fox Business · Economy", "macro"),
     ("https://moxie.foxbusiness.com/google-publisher/latest.xml", "Fox Business", "macro"),
-    ("https://moxie.foxnews.com/google-publisher/politics.xml", "Fox News · Politics", "usa"),
 
     # ── Europe ────────────────────────────────────────────────────
     ("https://feeds.bbci.co.uk/news/business/rss.xml", "BBC Business", "global"),
@@ -94,7 +112,19 @@ RSS_SOURCES: list[tuple[str, str, MacroNewsCategory]] = [
 
 _MUSK_SOURCE_LABELS = frozenset({
     "Elon Musk", "Tesla", "SpaceX", "xAI · Grok", "Neuralink",
+    "Musk · Growth", "Musk · DOGE",
     "CNBC · Tesla", "Electrek", "Teslarati", "Space.com",
+})
+
+_USA_SOURCE_LABELS = frozenset({
+    "Trump · Economy", "Trump · Energy", "Trump · WH", "Google · USA",
+    "Fox News · Politics", "Fox Business · Politics",
+    "NY Post · Politics", "Washington Examiner", "CNBC · Politics",
+})
+
+_PRIORITY_SOURCE_LABELS = _MUSK_SOURCE_LABELS | _USA_SOURCE_LABELS | frozenset({
+    "Stagflation · Fed", "Stagflation · Policy", "ZeroHedge",
+    "Desk · Trump · wzrost", "Desk · Musk · podaż", "Desk · Stagflacja",
 })
 
 _CATEGORY_RULES: list[tuple[MacroNewsCategory, tuple[str, ...]]] = [
@@ -110,6 +140,10 @@ _CATEGORY_RULES: list[tuple[MacroNewsCategory, tuple[str, ...]]] = [
             r"\bxai\b",
             r"\bgrok\b",
             r"\bx\.com\b",
+            r"\brobotaxi\b",
+            r"\boptimus\b",
+            r"\bdoge\b",
+            r"department of government efficiency",
             r"musk",
         ),
     ),
@@ -141,6 +175,9 @@ _CATEGORY_RULES: list[tuple[MacroNewsCategory, tuple[str, ...]]] = [
             r"u\.s\.",
             r"\busa\b",
             r"america first",
+            r"energy dominance",
+            r"deregulat",
+            r"reciprocal tariff",
         ),
     ),
     (
@@ -150,6 +187,10 @@ _CATEGORY_RULES: list[tuple[MacroNewsCategory, tuple[str, ...]]] = [
             r"\bppi\b",
             r"\bgdp\b",
             r"inflation",
+            r"stagflation",
+            r"stagflacj",
+            r"cost.?of.?living",
+            r"sticky inflation",
             r"unemployment",
             r"jobs report",
             r"payroll",
@@ -194,6 +235,9 @@ _IMPACT_HIGH = (
     r"gdp",
     r"tariff",
     r"\btrump\b",
+    r"stagflation",
+    r"cost.?of.?living",
+    r"\bdoge\b",
     r"sanction",
     r"war ",
     r"emergency",
@@ -202,6 +246,7 @@ _IMPACT_HIGH = (
     r"elon musk",
     r"\btesla\b",
     r"\bspacex\b",
+    r"\brobotaxi\b",
 )
 
 _cache: MacroNewsFeed | None = None
@@ -218,9 +263,10 @@ def _strip_html(text: str) -> str:
     return re.sub(r"<[^>]+>", "", text or "").strip()
 
 
-def _parse_date(raw: str | None) -> datetime:
+def _parse_date(raw: str | None) -> datetime | None:
+    """Parse RSS date. Missing/invalid → None (never invent 'now' for stale articles)."""
     if not raw:
-        return datetime.now(timezone.utc)
+        return None
     try:
         dt = parsedate_to_datetime(raw)
         if dt.tzinfo is None:
@@ -231,7 +277,46 @@ def _parse_date(raw: str | None) -> datetime:
     try:
         return datetime.fromisoformat(raw.replace("Z", "+00:00")).astimezone(timezone.utc)
     except ValueError:
-        return datetime.now(timezone.utc)
+        return None
+
+
+_URL_YMD = re.compile(r"/(20\d{2})/(\d{1,2})/(\d{1,2})(?:/|$)")
+_URL_YM = re.compile(r"/(20\d{2})/(\d{1,2})(?:/|$)")
+
+
+def _article_date_from_url(url: str | None) -> date | None:
+    if not url:
+        return None
+    m = _URL_YMD.search(url)
+    if m:
+        try:
+            return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        except ValueError:
+            return None
+    m = _URL_YM.search(url)
+    if m:
+        try:
+            return date(int(m.group(1)), int(m.group(2)), 1)
+        except ValueError:
+            return None
+    return None
+
+
+def _is_stale_article(
+    published: datetime | None,
+    url: str | None,
+    now: datetime,
+) -> bool:
+    """Drop old pieces that Google/RSS re-surface with a fresh pubDate."""
+    max_days = max(1, settings.news_article_max_age_days)
+    if published is None:
+        return True
+    if now - published > timedelta(hours=settings.news_fresh_hours):
+        return True
+    url_day = _article_date_from_url(url)
+    if url_day is not None and (now.date() - url_day).days > max_days:
+        return True
+    return False
 
 
 def _local_name(tag: str) -> str:
@@ -293,7 +378,8 @@ def _parse_rss_xml(content: bytes, source: str, default_category: MacroNewsCateg
             elif name in ("pubDate", "published", "updated"):
                 published = text or child.get("datetime")
         source_image_url = _extract_item_image_url(node, raw_description, link)
-        if title:
+        published_at = _parse_date(published)
+        if title and published_at is not None:
             items.append(
                 {
                     "title": title,
@@ -302,7 +388,7 @@ def _parse_rss_xml(content: bytes, source: str, default_category: MacroNewsCateg
                     "source_image_url": source_image_url,
                     "source": source,
                     "default_category": default_category,
-                    "published_at": _parse_date(published),
+                    "published_at": published_at,
                 }
             )
     return items
@@ -343,6 +429,10 @@ def _impact_level(title: str, summary: str | None) -> str:
 def _source_cap(source: str) -> int:
     if source in _MUSK_SOURCE_LABELS:
         return settings.news_musk_max_per_source
+    if source in _USA_SOURCE_LABELS or source.startswith("Desk ·"):
+        return settings.news_usa_max_per_source
+    if source in ("Stagflation · Fed", "Stagflation · Policy", "ZeroHedge"):
+        return settings.news_usa_max_per_source
     return settings.news_max_per_source
 
 
@@ -354,16 +444,16 @@ def _age_minutes(item: MacroNewsItem, now: datetime | None = None) -> int:
 
 
 def _display_fresh(pool: list[MacroNewsItem], category: MacroNewsCategory | None = None) -> list[MacroNewsItem]:
-    """Keep only items fresh enough for the live feed; relax slightly if a category is thin."""
+    """Only very fresh items — no relaxation to older windows."""
     max_mins = settings.news_display_max_hours * 60
-    fallback_mins = settings.news_fresh_hours * 60
-
     scoped = pool if category is None else [n for n in pool if n.category == category]
-    fresh = [n for n in scoped if _age_minutes(n) <= max_mins]
-    if len(fresh) >= 15:
-        return fresh
-    relaxed = [n for n in scoped if _age_minutes(n) <= fallback_mins]
-    return relaxed if relaxed else fresh
+    now = datetime.now(timezone.utc)
+    fresh = [
+        n
+        for n in scoped
+        if _age_minutes(n) <= max_mins and not _is_stale_article(n.published_at, n.url, now)
+    ]
+    return fresh
 
 
 def _category_counts(pool: list[MacroNewsItem]) -> dict[str, int]:
@@ -385,7 +475,10 @@ def _diversify_by_source(items: list[MacroNewsItem], limit: int) -> list[MacroNe
     picked: list[MacroNewsItem] = []
     sources = sorted(
         by_source.keys(),
-        key=lambda s: (0 if s in _MUSK_SOURCE_LABELS else 1, s),
+        key=lambda s: (
+            0 if s in _MUSK_SOURCE_LABELS else 1 if s in _PRIORITY_SOURCE_LABELS else 2,
+            s,
+        ),
     )
 
     while len(picked) < limit:
@@ -408,26 +501,88 @@ def _build_category_view(
     category: MacroNewsCategory | None,
     limit: int,
 ) -> list[MacroNewsItem]:
-    """Build a freshness-first feed for one tab (or all)."""
+    """Build a freshness-first feed for one tab (or all), Trump/Musk biased."""
+    boost = settings.news_ideology_boost
+
     if category and category != "all":
         scoped = _display_fresh(pool, category)
-        scoped.sort(key=lambda n: n.published_at, reverse=True)
+        if boost:
+            scoped = sort_by_alignment(scoped)
+        else:
+            scoped.sort(key=lambda n: n.published_at, reverse=True)
         return _diversify_by_source(scoped, limit)
 
     fresh_pool = _display_fresh(pool)
     musk_slots = settings.news_musk_feed_slots
-    musk_items = sorted(
-        [n for n in fresh_pool if n.category == "musk"],
-        key=lambda n: n.published_at,
-        reverse=True,
-    )
-    other_items = [n for n in fresh_pool if n.category != "musk"]
+    usa_slots = settings.news_usa_feed_slots
+
+    musk_items = [n for n in fresh_pool if n.category == "musk"]
+    usa_items = [n for n in fresh_pool if n.category == "usa"]
+    other_items = [n for n in fresh_pool if n.category not in ("musk", "usa")]
+
+    if boost:
+        musk_items = sort_by_alignment(musk_items)
+        usa_items = sort_by_alignment(usa_items)
+        other_items = sort_by_alignment(other_items)
+    else:
+        musk_items.sort(key=lambda n: n.published_at, reverse=True)
+        usa_items.sort(key=lambda n: n.published_at, reverse=True)
+        other_items.sort(key=lambda n: n.published_at, reverse=True)
+
     musk_part = musk_items[:musk_slots]
-    remaining = max(0, limit - len(musk_part))
+    usa_part = usa_items[:usa_slots]
+    reserved = len(musk_part) + len(usa_part)
+    remaining = max(0, limit - reserved)
     diverse_rest = _diversify_by_source(other_items, remaining)
-    combined = musk_part + diverse_rest
-    combined.sort(key=lambda n: n.published_at, reverse=True)
+    combined = musk_part + usa_part + diverse_rest
+    if boost:
+        combined = sort_by_alignment(combined)
+    else:
+        combined.sort(key=lambda n: n.published_at, reverse=True)
     return combined[:limit]
+
+
+async def _fresh_display(
+    pool: list[MacroNewsItem],
+    category: MacroNewsCategory | None,
+    limit: int,
+    now: datetime,
+) -> list[MacroNewsItem]:
+    """Build tab feed, unwrap Google links, drop resurfaced old URL dates, top up."""
+    rejected: set[str] = set()
+    picked: list[MacroNewsItem] = []
+    # Over-fetch then filter — Google often re-dates old March/April pieces as "now"
+    batch_limit = max(limit * 3, limit + 40)
+
+    while len(picked) < limit:
+        remaining_pool = [n for n in pool if n.id not in rejected]
+        if not remaining_pool:
+            break
+        batch = _build_category_view(remaining_pool, category, batch_limit)
+        if not batch:
+            break
+        batch = await resolve_item_urls(batch)
+        added = 0
+        for item in batch:
+            if item.id in rejected or any(p.id == item.id for p in picked):
+                continue
+            if not item.is_curated and _is_stale_article(item.published_at, item.url, now):
+                rejected.add(item.id)
+                continue
+            picked.append(item)
+            added += 1
+            if len(picked) >= limit:
+                break
+        if added == 0:
+            break
+        # Shrink next batch target
+        batch_limit = max(limit - len(picked) + 10, 20)
+
+    if settings.news_ideology_boost:
+        picked = sort_by_alignment(picked)
+    else:
+        picked.sort(key=lambda n: n.published_at, reverse=True)
+    return picked[:limit]
 
 
 async def refresh_macro_news() -> tuple[MacroNewsFeed, list[MacroNewsItem]]:
@@ -454,6 +609,8 @@ async def refresh_macro_news() -> tuple[MacroNewsFeed, list[MacroNewsItem]]:
         seen_keys.add(dedupe_key)
 
         published = row["published_at"]
+        if published is None or _is_stale_article(published, link or None, now):
+            continue
         if now - published > max_age:
             continue
 
@@ -463,6 +620,7 @@ async def refresh_macro_news() -> tuple[MacroNewsFeed, list[MacroNewsItem]]:
 
         impact = _impact_level(row["title"], row.get("summary"))
         age_mins = int((now - published).total_seconds() / 60)
+        # Musk sources: even stricter — only within display window
         if age_mins > settings.news_display_max_hours * 60 and row["source"] in _MUSK_SOURCE_LABELS:
             continue
 
@@ -482,17 +640,28 @@ async def refresh_macro_news() -> tuple[MacroNewsFeed, list[MacroNewsItem]]:
             )
         )
 
+    if settings.news_ideology_boost:
+        for brief in curated_desk_briefings(now):
+            if brief.id not in seen_keys:
+                seen_keys.add(brief.id)
+                news.append(brief)
+
     news.sort(key=lambda n: n.published_at, reverse=True)
     news = news[: settings.news_pool_limit]
     news = enrich_items(news)
 
     counts = _category_counts(news)
-    display_items = _build_category_view(news, None, settings.news_feed_limit)
+    # Resolve + drop resurfaced old URLs (Google often stamps old March pieces as "now")
+    display_items = await _fresh_display(news, None, settings.news_feed_limit, now)
+    by_id = {n.id: n for n in display_items}
+    news = [by_id.get(n.id, n) for n in news]
     fresh_1h = sum(1 for n in news if _age_minutes(n, now) <= 60)
 
+    # Feed strip: next dozen only (calendar month endpoint assesses the full month)
+    upcoming = await enrich_calendar_events(get_upcoming_calendar()[:12], locale="pl")
     feed = MacroNewsFeed(
         items=display_items,
-        calendar_events=get_upcoming_calendar(),
+        calendar_events=upcoming,
         fetched_at=now,
         counts=counts,
         sources_count=len(RSS_SOURCES),
@@ -527,12 +696,22 @@ async def get_macro_news(category: str | None = None, limit: int = 50, locale: s
     if category and category != "all":
         cat = category  # type: ignore[assignment]
 
-    items = _build_category_view(pool, cat, limit)
+    now = datetime.now(timezone.utc)
+    items = await _fresh_display(pool, cat, limit, now)
     counts = _category_counts(pool)
 
+    # Persist resolved urls back into the in-memory pool / cache
+    async with _cache_lock:
+        if _pool:
+            resolved = {n.id: n for n in items}
+            _pool = [resolved.get(n.id, n) for n in _pool]
+        if _cache is not None and not cat:
+            _cache = _cache.model_copy(update={"items": enrich_items(items)})
+
+    upcoming = await enrich_calendar_events(get_upcoming_calendar(locale=locale)[:12], locale=locale)
     return MacroNewsFeed(
         items=enrich_items(items),
-        calendar_events=get_upcoming_calendar(locale=locale),
+        calendar_events=upcoming,
         fetched_at=cached.fetched_at,
         counts=counts,
         sources_count=cached.sources_count,
@@ -560,7 +739,10 @@ async def get_macro_calendar_month(year: int, month: int, locale: str | None = "
         async with _cache_lock:
             pool = list(_pool)
 
-    events = get_calendar_month(year, month, locale=locale)
+    events = await enrich_calendar_events(
+        get_calendar_month(year, month, locale=locale),
+        locale=locale,
+    )
     start, end = _month_bounds(year, month)
     news = [
         item

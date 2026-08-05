@@ -49,12 +49,17 @@ CHANGE_BARS: dict[str, int] = {
 }
 
 MIN_WARMUP = 35
-ENTRY_PHASES = frozenset({CyclePhase.BEAR, CyclePhase.ACCUMULATION})
+# WEJ only in deep BEAR — ACCUMULATION (10–20% DD) is still "early" on multi-year charts.
+ENTRY_PHASES = frozenset({CyclePhase.BEAR})
 EXIT_PHASES = frozenset({CyclePhase.DISTRIBUTION})
-# ACCUMULATION starts at ~10% drawdown — that still looks like "the top" on MAX charts.
-# Require a deeper pullback + BUY consensus so WEJ is not painted on local peaks.
-ENTRY_MIN_DRAWDOWN_PCT = 18.0
-ENTRY_CONFIRM_BARS = 2
+# Confirmed bottom only: deep DD + near lookback low + bounce lock-in.
+ENTRY_MIN_DRAWDOWN_PCT = 25.0
+# Mid-decline info (SHORT) only once the move is already deep — not on every 10% chop.
+SHORT_ONGOING_MIN_DRAWDOWN_PCT = 25.0
+ENTRY_NEAR_LOW_PCT = 3.0
+ENTRY_BOUNCE_PCT = 2.5
+ENTRY_CONFIRM_BARS = 3
+SWING_LOW_LOOKBACK = 12
 
 
 def _candle_date(ts: int) -> date:
@@ -229,24 +234,53 @@ def _assess_at_bar(
     )
 
 
-def _is_entry_moment(assess: BarAssessment, *, entry_phase_streak: int) -> bool:
-    """WEJ = confirmed transition into a deep drawdown buy-zone — not a market order.
+def _swing_low(candles: list[ChartCandle], idx: int, lookback: int = SWING_LOW_LOOKBACK) -> float:
+    start = max(0, idx - lookback + 1)
+    return min(c.low for c in candles[start : idx + 1])
 
-    Markers are educational phase tags. Without filters they fire as soon as the
-    rolling drawdown crosses ~10% (ACCUMULATION), which often still looks like
-    the local peak on multi-year charts.
-    """
-    if assess.price_phase not in ENTRY_PHASES:
+
+def _is_confirmed_bottom(
+    candles: list[ChartCandle],
+    idx: int,
+    *,
+    trough_idx: int,
+    trough_price: float,
+    trough_drawdown_pct: float,
+    assess: BarAssessment,
+) -> bool:
+    """WEJ only after the absolute swing low is locked in with a bounce — never mid-decline."""
+    if trough_idx < 0 or trough_price <= 0:
         return False
-    if entry_phase_streak < ENTRY_CONFIRM_BARS:
+    if idx - trough_idx < ENTRY_CONFIRM_BARS:
         return False
-    if assess.drawdown_pct < ENTRY_MIN_DRAWDOWN_PCT:
+    if trough_drawdown_pct < ENTRY_MIN_DRAWDOWN_PCT:
+        return False
+    candle = candles[idx]
+    if candle.close < trough_price * (1.0 + ENTRY_BOUNCE_PCT / 100.0):
+        return False
+    # Trough must still be the lowest print in the recent swing window.
+    if trough_price > _swing_low(candles, idx) * (1.0 + 1e-9):
         return False
     if assess.macro_signal == SignalAction.SELL:
         return False
     if assess.final_signal == SignalAction.SELL:
         return False
+    # Bottom geometry is the gate; consensus must not fight the entry.
     return True
+
+
+def _trough_near_period_low(
+    candles: list[ChartCandle],
+    trough_idx: int,
+    trough_price: float,
+    *,
+    preset: str,
+) -> bool:
+    lookback = LOOKBACK_BARS.get(preset, 126)
+    _, period_low = _rolling_extremes(candles, trough_idx, lookback)
+    if period_low <= 0:
+        return False
+    return trough_price <= period_low * (1.0 + ENTRY_NEAR_LOW_PCT / 100.0)
 
 
 def _is_exit_moment(assess: BarAssessment, prev_phase: CyclePhase | None, in_position: bool) -> bool:
@@ -259,6 +293,17 @@ def _is_exit_moment(assess: BarAssessment, prev_phase: CyclePhase | None, in_pos
     if assess.phase_changed and prev_phase in (CyclePhase.BULL, CyclePhase.ACCUMULATION) and assess.final_signal == SignalAction.SELL:
         return True
     return False
+
+
+def _dedupe_markers(markers: list[CycleMarker]) -> list[CycleMarker]:
+    """Prefer WEJ over short-ongoing info when both land on the same bar."""
+    by_time: dict[int, CycleMarker] = {}
+    rank = {SignalAction.BUY: 3, SignalAction.SELL: 2, SignalAction.WATCH: 1, SignalAction.HOLD: 0}
+    for m in markers:
+        prev = by_time.get(m.time)
+        if prev is None or rank.get(m.action, 0) >= rank.get(prev.action, 0):
+            by_time[m.time] = m
+    return sorted(by_time.values(), key=lambda m: m.time)
 
 
 def compute_cycle_markers(
@@ -285,7 +330,15 @@ def compute_cycle_markers(
     in_position = False
     prev_price_phase: CyclePhase | None = None
     prev_macro_phase: str | None = None
-    entry_phase_streak = 0
+
+    # Deferred entry: track trough during decline; WEJ only at confirmed bottom.
+    trough_idx: int | None = None
+    trough_price: float | None = None
+    trough_drawdown_pct = 0.0
+    trough_phase: CyclePhase | None = None
+    episode_short_time: int | None = None
+    episode_short_price: float | None = None
+    episode_short_rationale: str | None = None
 
     for idx in range(MIN_WARMUP, len(candles)):
         assess = _assess_at_bar(
@@ -299,23 +352,92 @@ def compute_cycle_markers(
             prev_macro_phase=prev_macro_phase,
         )
         candle = candles[idx]
+        # Track trough across ACCUMULATION+BEAR so we catch the true low, but never WEJ there early.
+        in_drawdown = (
+            assess.price_phase in (CyclePhase.BEAR, CyclePhase.ACCUMULATION)
+            and assess.drawdown_pct >= 10.0
+        )
+        in_deep_short = (
+            assess.price_phase in ENTRY_PHASES
+            and assess.drawdown_pct >= SHORT_ONGOING_MIN_DRAWDOWN_PCT
+        )
 
-        if assess.price_phase in ENTRY_PHASES:
-            entry_phase_streak += 1
-        else:
-            entry_phase_streak = 0
+        if not in_position:
+            if in_drawdown:
+                if trough_idx is None or candle.low < (trough_price or float("inf")):
+                    trough_idx = idx
+                    trough_price = candle.low
+                    trough_drawdown_pct = assess.drawdown_pct
+                    trough_phase = assess.price_phase
 
-        if not in_position and _is_entry_moment(assess, entry_phase_streak=entry_phase_streak):
-            markers.append(
-                CycleMarker(
-                    time=candle.time,
-                    action=SignalAction.BUY,
-                    confidence=round(assess.confidence, 1),
-                    price=round(candle.close, 6),
-                    rationale=assess.rationale,
+                # Remember first deep-BEAR touch — paint as SHORT only if WEJ later confirms.
+                if in_deep_short and episode_short_time is None:
+                    episode_short_time = candle.time
+                    episode_short_price = candle.close
+                    episode_short_rationale = assess.rationale
+
+            confirmed = False
+            trough_is_entry_phase = trough_phase is not None and trough_phase in ENTRY_PHASES
+            if (
+                trough_idx is not None
+                and trough_price is not None
+                and trough_is_entry_phase
+                and trough_drawdown_pct >= ENTRY_MIN_DRAWDOWN_PCT
+                and _trough_near_period_low(candles, trough_idx, trough_price, preset=preset)
+                and _is_confirmed_bottom(
+                    candles,
+                    idx,
+                    trough_idx=trough_idx,
+                    trough_price=trough_price,
+                    trough_drawdown_pct=trough_drawdown_pct,
+                    assess=assess,
                 )
-            )
-            in_position = True
+            ):
+                if episode_short_time is not None and episode_short_time != candles[trough_idx].time:
+                    markers.append(
+                        CycleMarker(
+                            time=episode_short_time,
+                            action=SignalAction.WATCH,
+                            confidence=45.0,
+                            price=round(episode_short_price or 0.0, 6),
+                            rationale=(
+                                f"{episode_short_rationale or ''} · short ongoing "
+                                f"(info — WEJ dopiero na potwierdzonym dołku)"
+                            ).strip(),
+                        )
+                    )
+                bottom = candles[trough_idx]
+                markers.append(
+                    CycleMarker(
+                        time=bottom.time,
+                        action=SignalAction.BUY,
+                        confidence=round(max(assess.confidence, 75.0), 1),
+                        price=round(bottom.low, 6),
+                        rationale=(
+                            f"{_format_date(bottom.time)} · potwierdzony dołek "
+                            f"(DD {trough_drawdown_pct:.1f}% · bounce) · {assess.rationale}"
+                        ),
+                    )
+                )
+                in_position = True
+                confirmed = True
+                trough_idx = None
+                trough_price = None
+                trough_drawdown_pct = 0.0
+                trough_phase = None
+                episode_short_time = None
+                episode_short_price = None
+                episode_short_rationale = None
+
+            if not confirmed and not in_drawdown:
+                # Abort without painting orphan SHORT markers.
+                trough_idx = None
+                trough_price = None
+                trough_drawdown_pct = 0.0
+                trough_phase = None
+                episode_short_time = None
+                episode_short_price = None
+                episode_short_rationale = None
         elif in_position and _is_exit_moment(assess, prev_price_phase, in_position):
             markers.append(
                 CycleMarker(
@@ -327,8 +449,15 @@ def compute_cycle_markers(
                 )
             )
             in_position = False
+            trough_idx = None
+            trough_price = None
+            trough_drawdown_pct = 0.0
+            trough_phase = None
+            episode_short_time = None
+            episode_short_price = None
+            episode_short_rationale = None
 
         prev_price_phase = assess.price_phase
         prev_macro_phase = assess.macro_phase
 
-    return markers
+    return _dedupe_markers(markers)

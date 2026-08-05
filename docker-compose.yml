@@ -3,16 +3,44 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: cyclical-trader-kar-digital:latest
+    container_name: cyclical-trader-www
     ports:
-      - "8080:8080"
+      - "${PORT:-8080}:8080"
     environment:
-      - CYCLICAL_SCAN_INTERVAL_MINUTES=5
-      - CYCLICAL_PRICE_POLL_INTERVAL_SECONDS=30
-      # Ustaw w .env — nie commituj prawdziwego numeru
-      - CYCLICAL_ALERT_PHONE_NUMBER=${CYCLICAL_ALERT_PHONE_NUMBER:-}
+      PORT: "8080"
+      CYCLICAL_DATABASE_PATH: /app/data/trader.db
+      CYCLICAL_PORTFOLIO_DATABASE_PATH: /app/data/baza_portfela/portfolio.db
+      CYCLICAL_PORTFOLIO_RESTORE_BACKUP: "false"
+      CYCLICAL_SCAN_INTERVAL_MINUTES: "${CYCLICAL_SCAN_INTERVAL_MINUTES:-5}"
+      CYCLICAL_PRICE_POLL_INTERVAL_SECONDS: "${CYCLICAL_PRICE_POLL_INTERVAL_SECONDS:-30}"
+      CYCLICAL_ALERT_PHONE_NUMBER: "${CYCLICAL_ALERT_PHONE_NUMBER:-}"
+      CYCLICAL_AI_ENABLED: "${CYCLICAL_AI_ENABLED:-true}"
+      CYCLICAL_AI_PROVIDER: "${CYCLICAL_AI_PROVIDER:-auto}"
+      CYCLICAL_SOCIAL_ENABLED: "${CYCLICAL_SOCIAL_ENABLED:-true}"
+      CYCLICAL_SOCIAL_DRY_RUN: "${CYCLICAL_SOCIAL_DRY_RUN:-true}"
+      CYCLICAL_SOCIAL_AUTO_POST: "${CYCLICAL_SOCIAL_AUTO_POST:-false}"
+      CYCLICAL_PUBLIC_BASE_URL: "${CYCLICAL_PUBLIC_BASE_URL:-}"
+      CYCLICAL_X_API_KEY: "${CYCLICAL_X_API_KEY:-}"
+      CYCLICAL_X_API_SECRET: "${CYCLICAL_X_API_SECRET:-}"
+      CYCLICAL_X_ACCESS_TOKEN: "${CYCLICAL_X_ACCESS_TOKEN:-}"
+      CYCLICAL_X_ACCESS_TOKEN_SECRET: "${CYCLICAL_X_ACCESS_TOKEN_SECRET:-}"
+      CYCLICAL_LINKEDIN_ACCESS_TOKEN: "${CYCLICAL_LINKEDIN_ACCESS_TOKEN:-}"
+      CYCLICAL_LINKEDIN_AUTHOR_URN: "${CYCLICAL_LINKEDIN_AUTHOR_URN:-}"
+      CYCLICAL_TELEGRAM_PREDATOR_ENABLED: "${CYCLICAL_TELEGRAM_PREDATOR_ENABLED:-true}"
+      CYCLICAL_TELEGRAM_BOT_TOKEN: "${CYCLICAL_TELEGRAM_BOT_TOKEN:-}"
+      CYCLICAL_TELEGRAM_PREDATOR_CHAT_ID: "${CYCLICAL_TELEGRAM_PREDATOR_CHAT_ID:-}"
+      CYCLICAL_TELEGRAM_PREDATOR_NOTIFY: "${CYCLICAL_TELEGRAM_PREDATOR_NOTIFY:-true}"
+      CYCLICAL_TELEGRAM_PREDATOR_INTERVAL_SECONDS: "${CYCLICAL_TELEGRAM_PREDATOR_INTERVAL_SECONDS:-60}"
     volumes:
       - trader-data:/app/data
       - portfolio-data:/app/data/baza_portfela
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/health', timeout=5)"]
+      interval: 30s
+      timeout: 8s
+      retries: 5
+      start_period: 40s
     restart: unless-stopped
 
 volumes:

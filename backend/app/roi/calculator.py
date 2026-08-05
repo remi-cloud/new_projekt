@@ -95,7 +95,7 @@ def _phase_for_bar(
     high_52, low_52 = _rolling_52w(candles, idx)
     phase, signal, _conf, _rationale = analyze_price_cycle(c.close, high_52, low_52)
 
-    if region == "us" and asset_class in ("stock", "etf", "index"):
+    if region == "us" and asset_class in ("stock", "etf", "index", "tokenized"):
         pres = analyze_presidential_cycle(as_of)
         if phase in (CyclePhase.BEAR, CyclePhase.ACCUMULATION) or pres.signal == SignalAction.BUY:
             if phase == CyclePhase.DISTRIBUTION:
@@ -407,3 +407,77 @@ def list_roi_assets() -> list[dict]:
             }
         )
     return out
+
+
+_PROGRAM_CACHE: dict[str, tuple[float, dict]] = {}
+_PROGRAM_CACHE_TTL = 3600 * 24
+
+
+async def calculate_program_us_backtest(
+    amount: float = 1000.0,
+    start: date | None = None,
+    symbol: str = "^GSPC",
+) -> dict:
+    """Program US cycle strategy vs buy&hold from 1995 (default), $1000."""
+    import time
+    from pathlib import Path
+
+    start = start or date(1995, 1, 1)
+    cache_key = f"{symbol}:{amount}:{start.isoformat()}"
+    hit = _PROGRAM_CACHE.get(cache_key)
+    if hit and time.time() - hit[0] < _PROGRAM_CACHE_TTL:
+        return hit[1]
+
+    cache_path = Path(__file__).resolve().parents[2] / "data" / "program_us_1995_cache.json"
+    if cache_path.exists():
+        try:
+            import json
+
+            raw = json.loads(cache_path.read_text(encoding="utf-8"))
+            if (
+                raw.get("cache_key") == cache_key
+                and time.time() - float(raw.get("cached_at", 0)) < _PROGRAM_CACHE_TTL
+            ):
+                _PROGRAM_CACHE[cache_key] = (time.time(), raw["result"])
+                return raw["result"]
+        except Exception:
+            pass
+
+    result = await calculate_roi(
+        symbol=symbol,
+        amount=amount,
+        strategy="cycle",
+        start=start,
+        end=None,
+        compare_buy_hold=True,
+    )
+    bh = result.get("buy_hold") or {}
+    agent_final = float(result.get("final_value") or 0)
+    bh_final = float(bh.get("final_value") or 0)
+    result["program"] = {
+        "label": "US presidential+price cycle vs S&P buy&hold",
+        "start_capital": amount,
+        "start_date": start.isoformat(),
+        "agent_final": agent_final,
+        "buy_hold_final": bh_final,
+        "ratio_agent_vs_bh": round(agent_final / bh_final, 3) if bh_final > 0 else None,
+        "trades_count": len(result.get("trades") or []),
+        "disclaimer": (
+            "Price-return Yahoo (no dividends/total-return), no transaction costs. "
+            "Educational simulation — not investment advice."
+        ),
+    }
+    result["disclaimer"] = result["program"]["disclaimer"]
+
+    _PROGRAM_CACHE[cache_key] = (time.time(), result)
+    try:
+        import json
+
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.write_text(
+            json.dumps({"cache_key": cache_key, "cached_at": time.time(), "result": result}),
+            encoding="utf-8",
+        )
+    except Exception:
+        pass
+    return result

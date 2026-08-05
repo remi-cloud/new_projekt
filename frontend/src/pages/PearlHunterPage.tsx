@@ -2,7 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { fetchPearlFinds, fetchPearlStatus, runPearlHunt } from '../api'
 import { BrokerPurchaseHint } from '../components/BrokerPurchaseHint'
+import { AskAgentButton } from '../components/AskAgentButton'
+import { CommunityActions } from '../components/CommunityActions'
 import { InstrumentShareMenu } from '../components/InstrumentShareMenu'
+import { QuickTradeButtons } from '../components/QuickTradeButtons'
 import { ErrorState, Loading } from '../components/Loading'
 import { useLocale } from '../context/LocaleContext'
 import { useDomainLabels } from '../i18n/useDomainLabels'
@@ -146,6 +149,8 @@ export function PearlHunterPage() {
                   <div className="pearl-symbol">{find.symbol}</div>
                 </div>
                 <div className="pearl-card-head-actions" onClick={(e) => e.stopPropagation()}>
+                  <AskAgentButton mode="instrument" symbol={find.symbol} name={find.name} compact />
+                  <CommunityActions symbol={find.symbol} name={find.name} compact />
                   <InstrumentShareMenu
                     symbol={find.symbol}
                     name={find.name}
@@ -179,6 +184,9 @@ export function PearlHunterPage() {
                 <span>{new Date(find.found_at).toLocaleString(dateLocale)}</span>
               </div>
               <BrokerPurchaseHint info={find.broker_info} compact />
+              <div onClick={(e) => e.stopPropagation()}>
+                <QuickTradeButtons symbol={find.symbol} compact />
+              </div>
               <button
                 type="button"
                 className="btn btn-secondary tap-target pearl-open-chart"

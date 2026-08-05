@@ -5,7 +5,7 @@ from urllib.parse import quote as url_quote
 
 import httpx
 
-from app.data.assets import MONITORED_ASSETS
+from app.data.assets import MONITORED_ASSETS, resolve_yahoo_symbol
 from app.data.investing_com import INVESTING_CHART_PRESETS, fetch_investing_chart, uses_investing
 from app.models.schemas import ChartCandle, ChartResponse
 
@@ -43,7 +43,33 @@ PRESET_RANGE_FALLBACKS: dict[str, list[str]] = {
     "30m": ["1mo", "3mo"],
     "1H": ["1mo", "3mo", "6mo"],
     "4H": ["3mo", "6mo", "1y"],
+    "1D": ["1mo", "3mo", "6mo", "1y", "2y", "5y"],
+    "1W": ["3mo", "6mo", "1y", "5y"],
+    "1M": ["6mo", "1y", "2y", "5y"],
+    "3M": ["1y", "2y", "5y"],
+    "1Y": ["2y", "5y", "10y"],
 }
+
+# Last-resort coarser grids when range retries still return no timestamps
+# (illiquid / micro-cap crypto on Yahoo often only has sparse weekly history).
+COARSE_GRID_FALLBACKS: list[tuple[str, str]] = [
+    ("5y", "1wk"),
+    ("max", "1d"),
+    ("10y", "1wk"),
+    ("2y", "1d"),
+]
+
+
+def _price_round(value: float) -> float:
+    """Keep precision for micro-priced assets (sub-cent quotes)."""
+    ax = abs(value)
+    if ax == 0:
+        return 0.0
+    if ax < 1e-4:
+        return round(value, 12)
+    if ax < 1e-2:
+        return round(value, 8)
+    return round(value, 6)
 
 INTRADAY_PRESETS = frozenset({"1m", "5m", "15m", "30m", "1H", "4H"})
 
@@ -85,10 +111,10 @@ def _parse_yahoo_candles(result: dict) -> tuple[list[ChartCandle], dict]:
         candles.append(
             ChartCandle(
                 time=int(ts),
-                open=round(float(o), 6),
-                high=round(float(h), 6),
-                low=round(float(l), 6),
-                close=round(float(c), 6),
+                open=_price_round(float(o)),
+                high=_price_round(float(h)),
+                low=_price_round(float(l)),
+                close=_price_round(float(c)),
                 volume=float(vol) if vol else None,
             )
         )
@@ -101,11 +127,14 @@ async def _fetch_yahoo_candles(
     yahoo_range: str,
     interval: str,
 ) -> tuple[list[ChartCandle], dict | None]:
-    encoded = url_quote(symbol, safe="")
+    encoded = url_quote(resolve_yahoo_symbol(symbol), safe="")
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{encoded}"
     params = {"range": yahoo_range, "interval": interval}
 
     resp = await client.get(url, params=params)
+    # Yahoo returns 422 for invalid range/interval combos (common on micro-cap crypto).
+    if resp.status_code in (400, 404, 422):
+        return [], None
     resp.raise_for_status()
     payload = resp.json()
     result = payload.get("chart", {}).get("result")
@@ -149,11 +178,13 @@ async def fetch_chart(symbol: str, preset: str = "3M") -> ChartResponse | None:
             candles: list[ChartCandle] = []
             ymeta: dict | None = None
             used_range = yahoo_range
+            used_interval = interval
 
             for yr in ranges_to_try:
                 candles, ymeta = await _fetch_yahoo_candles(client, symbol, yr, interval)
                 if candles:
                     used_range = yr
+                    used_interval = interval
                     break
                 logger.info(
                     "Yahoo empty for %s preset=%s range=%s interval=%s — trying fallback",
@@ -162,6 +193,25 @@ async def fetch_chart(symbol: str, preset: str = "3M") -> ChartResponse | None:
                     yr,
                     interval,
                 )
+                # Micro-cap crypto often has no intraday/daily grid — jump to weekly sooner.
+                if symbol.endswith("-USD") and yr == ranges_to_try[0]:
+                    break
+
+            if not candles:
+                for yr, iv in COARSE_GRID_FALLBACKS:
+                    candles, ymeta = await _fetch_yahoo_candles(client, symbol, yr, iv)
+                    if candles:
+                        used_range = yr
+                        used_interval = iv
+                        logger.info(
+                            "Yahoo coarse fallback hit for %s preset=%s → %s/%s (%d candles)",
+                            symbol,
+                            preset,
+                            yr,
+                            iv,
+                            len(candles),
+                        )
+                        break
 
             if not candles or ymeta is None:
                 return None
@@ -173,7 +223,7 @@ async def fetch_chart(symbol: str, preset: str = "3M") -> ChartResponse | None:
             if not candles:
                 return None
 
-            display_interval = preset.lower() if preset in INTRADAY_PRESETS else interval
+            display_interval = preset.lower() if preset in INTRADAY_PRESETS else used_interval
 
             current = float(ymeta.get("regularMarketPrice") or candles[-1].close)
             prev = float(
@@ -181,7 +231,7 @@ async def fetch_chart(symbol: str, preset: str = "3M") -> ChartResponse | None:
                 or ymeta.get("previousClose")
                 or (candles[-2].close if len(candles) >= 2 else current)
             )
-            change = round(current - prev, 6)
+            change = _price_round(current - prev)
             change_pct = round((change / prev) * 100, 2) if prev else 0.0
 
             return ChartResponse(
@@ -191,16 +241,16 @@ async def fetch_chart(symbol: str, preset: str = "3M") -> ChartResponse | None:
                 range=preset,
                 currency=ymeta.get("currency", "USD"),
                 candles=candles,
-                current_price=round(current, 6),
+                current_price=_price_round(current),
                 change=change,
                 change_pct=change_pct,
-                day_high=float(ymeta["regularMarketDayHigh"])
+                day_high=_price_round(float(ymeta["regularMarketDayHigh"]))
                 if ymeta.get("regularMarketDayHigh")
                 else None,
-                day_low=float(ymeta["regularMarketDayLow"])
+                day_low=_price_round(float(ymeta["regularMarketDayLow"]))
                 if ymeta.get("regularMarketDayLow")
                 else None,
-                prev_close=round(prev, 6),
+                prev_close=_price_round(prev),
             )
     except Exception as exc:
         logger.warning("Chart fetch failed for %s preset=%s: %s", symbol, preset, exc)

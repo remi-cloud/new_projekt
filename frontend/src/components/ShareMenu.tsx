@@ -15,6 +15,8 @@ type ShareMenuProps = {
   url?: string | null
   source?: string
   compact?: boolean
+  /** Always show the platform link panel (news cards). */
+  inline?: boolean
   className?: string
 }
 
@@ -92,7 +94,14 @@ function ShareIcon({ platform }: { platform: SharePlatform }) {
   }
 }
 
-export function ShareMenu({ title, url, source, compact = false, className = '' }: ShareMenuProps) {
+export function ShareMenu({
+  title,
+  url,
+  source,
+  compact = false,
+  inline = false,
+  className = '',
+}: ShareMenuProps) {
   const { t } = useLocale()
   const [open, setOpen] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -101,11 +110,12 @@ export function ShareMenu({ title, url, source, compact = false, className = '' 
   const text = shareText(title, source)
   const shareUrl = url ?? ''
   const showNative = canNativeShare()
+  const menuOpen = inline || open
 
   const label = (platform: SharePlatform) => t(`macro.share.platforms.${platform}`)
 
   useEffect(() => {
-    if (!open) return
+    if (!open || inline) return
     const onPointer = (e: MouseEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
         setOpen(false)
@@ -120,7 +130,7 @@ export function ShareMenu({ title, url, source, compact = false, className = '' 
       document.removeEventListener('mousedown', onPointer)
       document.removeEventListener('keydown', onKey)
     }
-  }, [open])
+  }, [open, inline])
 
   useEffect(() => {
     if (!copied) return
@@ -166,29 +176,42 @@ export function ShareMenu({ title, url, source, compact = false, className = '' 
   return (
     <div
       ref={rootRef}
-      className={`news-share ${compact ? 'news-share-compact' : ''} ${className}`.trim()}
+      className={[
+        'news-share',
+        compact ? 'news-share-compact' : '',
+        inline ? 'news-share-inline' : '',
+        className,
+      ]
+        .filter(Boolean)
+        .join(' ')}
       onClick={(e) => e.stopPropagation()}
     >
-      <button
-        type="button"
-        className="news-share-trigger tap-target"
-        aria-expanded={open}
-        aria-haspopup="menu"
-        aria-controls={menuId}
-        title={t('macro.share.button')}
-        onClick={(e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          setOpen((v) => !v)
-        }}
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-          <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7a3.27 3.27 0 0 0 0-1.39l7.05-4.11A2.99 2.99 0 1 0 14.5 6.5l-7.05 4.11a3 3 0 1 0 0 4.78l7.05 4.11a3 3 0 1 0 1.5-1.42z" />
-        </svg>
-        {!compact && <span>{t('macro.share.button')}</span>}
-      </button>
+      {!inline && (
+        <button
+          type="button"
+          className="news-share-trigger tap-target"
+          aria-expanded={open}
+          aria-haspopup="menu"
+          aria-controls={menuId}
+          title={t('macro.share.button')}
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            setOpen((v) => !v)
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+            <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7a3.27 3.27 0 0 0 0-1.39l7.05-4.11A2.99 2.99 0 1 0 14.5 6.5l-7.05 4.11a3 3 0 1 0 0 4.78l7.05 4.11a3 3 0 1 0 1.5-1.42z" />
+          </svg>
+          {!compact && <span>{t('macro.share.button')}</span>}
+        </button>
+      )}
 
-      {open && (
+      {inline && (
+        <div className="news-share-inline-label">{t('macro.share.button')}</div>
+      )}
+
+      {menuOpen && (
         <div id={menuId} className="news-share-menu" role="menu">
           {visiblePlatforms.map((platform) => {
             const needsUrl = platform === 'facebook' || platform === 'linkedin'

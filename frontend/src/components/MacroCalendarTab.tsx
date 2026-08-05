@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { fetchMacroCalendar } from '../api'
 import { ErrorState } from '../components/Loading'
-import { NewsShareMenu } from './NewsShareMenu'
+import { AskAgentButton } from './AskAgentButton'
+import { ShareMenu } from './ShareMenu'
 import { useLocale } from '../context/LocaleContext'
 import { useLiveFeed } from '../hooks/useLiveFeed'
+import type { TranslationPath } from '../i18n'
 import { MacroCalendarEvent, MacroCalendarMonth, MacroNewsItem } from '../types'
 
 const CATEGORY_DOT: Record<string, string> = {
@@ -11,6 +13,43 @@ const CATEGORY_DOT: Record<string, string> = {
   usa: 'usa',
   macro: 'macro',
   global: 'global',
+  musk: 'musk',
+}
+
+const CAT_PRIORITY = ['fed', 'usa', 'musk', 'macro', 'global'] as const
+
+function sortCategories(cats: string[]): string[] {
+  return [...cats].sort((a, b) => {
+    const ia = CAT_PRIORITY.indexOf(a as (typeof CAT_PRIORITY)[number])
+    const ib = CAT_PRIORITY.indexOf(b as (typeof CAT_PRIORITY)[number])
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib)
+  })
+}
+
+function sortNewsForDay(items: MacroNewsItem[]): MacroNewsItem[] {
+  return [...items].sort((a, b) => {
+    const ia = CAT_PRIORITY.indexOf(a.category as (typeof CAT_PRIORITY)[number])
+    const ib = CAT_PRIORITY.indexOf(b.category as (typeof CAT_PRIORITY)[number])
+    const ca = ia === -1 ? 99 : ia
+    const cb = ib === -1 ? 99 : ib
+    if (ca !== cb) return ca - cb
+    return new Date(b.published_at).getTime() - new Date(a.published_at).getTime()
+  })
+}
+
+function biasLabel(
+  bias: string,
+  t: (p: TranslationPath, v?: Record<string, string | number>) => string,
+): string {
+  const map: Record<string, TranslationPath> = {
+    hawkish: 'macro.cal.bias.hawkish',
+    dovish: 'macro.cal.bias.dovish',
+    neutral: 'macro.cal.bias.neutral',
+    risk_on: 'macro.cal.bias.risk_on',
+    risk_off: 'macro.cal.bias.risk_off',
+  }
+  const key = map[bias]
+  return key ? t(key) : bias
 }
 
 function toDateKey(d: Date): string {
@@ -90,13 +129,58 @@ function DayDetail({
                   <li key={ev.id} className="macro-cal-day-event">
                     <div className="macro-cal-day-event-head">
                       <span className={`macro-news-cat macro-news-cat-${ev.category}`}>
-                        {t(`macro.category.${ev.category as 'fed' | 'usa' | 'macro' | 'global'}`)}
+                        {t(`macro.category.${ev.category as 'fed' | 'usa' | 'macro' | 'global' | 'musk'}`)}
                       </span>
                       <span className="macro-calendar-region">{ev.region}</span>
                       <span className="macro-cal-event-time">{ev.time_utc} UTC</span>
+                      {ev.ai_bias && (
+                        <span className={`macro-cal-bias macro-cal-bias-${ev.ai_bias}`}>
+                          {biasLabel(ev.ai_bias, t)}
+                        </span>
+                      )}
                     </div>
                     <p className="macro-cal-event-title">{ev.title}</p>
                     {ev.impact === 'high' && <span className="macro-news-impact">{t('macro.highImpact')}</span>}
+                    {(ev.current_state || ev.expectations) && (
+                      <div className="macro-cal-ai-box">
+                        {ev.current_state && (
+                          <div className="macro-cal-ai-block">
+                            <span className="macro-cal-ai-label">{t('macro.cal.currentState')}</span>
+                            <p>{ev.current_state}</p>
+                          </div>
+                        )}
+                        {ev.expectations && (
+                          <div className="macro-cal-ai-block">
+                            <span className="macro-cal-ai-label">{t('macro.cal.expectations')}</span>
+                            <p>{ev.expectations}</p>
+                          </div>
+                        )}
+                        <div className="macro-cal-ai-meta">
+                          {ev.ai_confidence != null && (
+                            <span>{t('macro.cal.aiConfidence', { n: ev.ai_confidence })}</span>
+                          )}
+                          {ev.ai_source && (
+                            <span>
+                              {ev.ai_source === 'heuristic'
+                                ? t('macro.cal.aiSourceHeuristic')
+                                : t('macro.cal.aiSourceOpenAI')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    <div className="macro-news-agent-row">
+                      <AskAgentButton
+                        mode="news"
+                        item={{
+                          title: ev.title,
+                          summary: [ev.current_state, ev.expectations].filter(Boolean).join(' | '),
+                          category: ev.category,
+                          source: 'calendar',
+                        }}
+                        compact
+                      />
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -120,7 +204,6 @@ function DayDetail({
                       ) : (
                         <span className="macro-cal-news-link">{item.title}</span>
                       )}
-                      <NewsShareMenu title={item.title} url={item.url} source={item.source} compact />
                     </div>
                     {item.image_url && (
                       <img
@@ -131,6 +214,10 @@ function DayDetail({
                         decoding="async"
                       />
                     )}
+                    <div className="macro-news-agent-row">
+                      <AskAgentButton mode="news" item={item} compact />
+                    </div>
+                    <ShareMenu title={item.title} url={item.url} source={item.source} inline />
                   </li>
                 ))}
               </ul>
@@ -180,66 +267,6 @@ export function MacroCalendarTab() {
     const id = window.setInterval(() => void load(year, month, true), pollMs)
     return () => window.clearInterval(id)
   }, [load, year, month, data?.poll_interval_seconds])
-
-  // #region agent log
-  useEffect(() => {
-    if (!data) return
-    const grid = document.querySelector('.macro-cal-grid') as HTMLElement | null
-    const wrap = document.querySelector('.macro-cal-grid-wrap') as HTMLElement | null
-    const cells = document.querySelectorAll('.macro-cal-cell:not(.macro-cal-cell-empty)')
-    const weekdays = document.querySelectorAll('.macro-cal-weekday')
-    const dayCard = document.querySelector('.macro-cal-day-card') as HTMLElement | null
-    const gStyle = grid ? getComputedStyle(grid) : null
-    const c0 = cells[0] as HTMLElement | undefined
-    const cStyle = c0 ? getComputedStyle(c0) : null
-    const sheets = [...document.styleSheets]
-    let cssHasGridRule = false
-    let cssRuleCount = 0
-    try {
-      for (const sheet of sheets) {
-        const rules = sheet.cssRules
-        if (!rules) continue
-        for (const rule of rules) {
-          const text = rule.cssText || ''
-          if (text.includes('.macro-cal-grid')) {
-            cssHasGridRule = true
-            cssRuleCount += 1
-          }
-        }
-      }
-    } catch {
-      /* cross-origin sheets */
-    }
-    fetch('http://127.0.0.1:7575/ingest/c916b008-4eaa-4854-8387-506d24f3ea58', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'f64a8a' },
-      body: JSON.stringify({
-        sessionId: 'f64a8a',
-        runId: 'pre-fix',
-        hypothesisId: 'A,B,C,D,E',
-        location: 'MacroCalendarTab.tsx:layoutProbe',
-        message: 'macro calendar computed layout probe',
-        data: {
-          hasGridEl: !!grid,
-          hasDayCard: !!dayCard,
-          cellCount: cells.length,
-          weekdayCount: weekdays.length,
-          gridDisplay: gStyle?.display ?? null,
-          gridTemplateColumns: gStyle?.gridTemplateColumns ?? null,
-          gridWidth: grid?.getBoundingClientRect().width ?? null,
-          wrapWidth: wrap?.getBoundingClientRect().width ?? null,
-          cellDisplay: cStyle?.display ?? null,
-          cellWidth: c0?.getBoundingClientRect().width ?? null,
-          cellHeight: c0?.getBoundingClientRect().height ?? null,
-          cssHasGridRule,
-          cssRuleCount,
-          href: window.location.href,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {})
-  }, [data, year, month, selectedDay])
-  // #endregion
 
   const eventsByDate = useMemo(() => {
     const map: Record<string, MacroCalendarEvent[]> = {}
@@ -295,7 +322,7 @@ export function MacroCalendarTab() {
   if (error && !data) return <ErrorState message={error} onRetry={() => load(year, month)} />
 
   const selectedEvents = selectedDay ? eventsByDate[selectedDay] ?? [] : []
-  const selectedNews = selectedDay ? newsByDate[selectedDay] ?? [] : []
+  const selectedNews = selectedDay ? sortNewsForDay(newsByDate[selectedDay] ?? []) : []
 
   return (
     <div className="macro-cal-view macro-cal-enter">
@@ -355,27 +382,33 @@ export function MacroCalendarTab() {
               const dayNews = newsByDate[key] ?? []
               const isToday = key === todayKey
               const isSelected = key === selectedDay
-              const cats = [...new Set(dayEvents.map((e) => e.category))]
+              const cats = sortCategories([
+                ...new Set([
+                  ...dayEvents.map((e) => e.category),
+                  ...dayNews.map((n) => n.category),
+                ]),
+              ])
+              const totalMarks = dayEvents.length + dayNews.length
 
               return (
                 <button
                   key={key}
                   type="button"
-                  className={`macro-cal-cell tap-target macro-cal-cell-anim ${isToday ? 'macro-cal-cell-today' : ''} ${isSelected ? 'macro-cal-cell-selected' : ''} ${dayEvents.length ? 'macro-cal-cell-has-events' : ''}`}
+                  className={`macro-cal-cell tap-target macro-cal-cell-anim ${isToday ? 'macro-cal-cell-today' : ''} ${isSelected ? 'macro-cal-cell-selected' : ''} ${totalMarks ? 'macro-cal-cell-has-events' : ''}`}
                   style={{ animationDelay: `${(idx % 7) * 0.03}s` }}
                   onClick={() => setSelectedDay(key)}
                 >
                   <span className="macro-cal-day-num">{day.getDate()}</span>
-                  {(dayEvents.length > 0 || dayNews.length > 0) && (
+                  {totalMarks > 0 && (
                     <div className="macro-cal-dots">
-                      {cats.slice(0, 3).map((cat) => (
+                      {cats.slice(0, 4).map((cat) => (
                         <span key={cat} className={`macro-cal-dot macro-cal-dot-${CATEGORY_DOT[cat] ?? 'macro'}`} />
                       ))}
-                      {dayEvents.length > 3 && <span className="macro-cal-more">+{dayEvents.length - 3}</span>}
+                      {totalMarks > 4 && <span className="macro-cal-more">+{totalMarks - 4}</span>}
                     </div>
                   )}
-                  {dayEvents.length > 0 && (
-                    <span className="macro-cal-cell-count">{dayEvents.length}</span>
+                  {totalMarks > 0 && (
+                    <span className="macro-cal-cell-count">{totalMarks}</span>
                   )}
                 </button>
               )
@@ -385,6 +418,7 @@ export function MacroCalendarTab() {
           <div className="macro-cal-legend">
             <span><i className="macro-cal-dot macro-cal-dot-fed" /> {t('macro.cal.legendFed')}</span>
             <span><i className="macro-cal-dot macro-cal-dot-usa" /> {t('macro.cal.legendUsa')}</span>
+            <span><i className="macro-cal-dot macro-cal-dot-musk" /> {t('macro.cal.legendMusk')}</span>
             <span><i className="macro-cal-dot macro-cal-dot-macro" /> {t('macro.cal.legendMacro')}</span>
             <span><i className="macro-cal-dot macro-cal-dot-global" /> {t('macro.cal.legendGlobal')}</span>
           </div>

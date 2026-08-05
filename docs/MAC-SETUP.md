@@ -97,6 +97,17 @@ Otwórz: **http://localhost:8080**
 
 Stop: `Ctrl+C` albo `./scripts/mac-stop.sh`
 
+### Telefon / publiczny link (internet)
+
+```bash
+cd ~/Projects/new_projekt   # albo ten workspace: Cykliczny Trader Kar Digital
+chmod +x scripts/*.sh
+./scripts/start-public.sh
+```
+
+Skrypt zbuduje WWW, odpali `:8080` i da URL `https://….trycloudflare.com` (zapis w `PUBLIC_URL.txt`).  
+Opcjonalnie: `brew install cloudflared` — inaczej binary trafi do `.tools/`.
+
 ---
 
 ## Struktura na dysku
@@ -107,7 +118,10 @@ Stop: `Ctrl+C` albo `./scripts/mac-stop.sh`
     ├── scripts/
     │   ├── mac-bootstrap.sh     ← pełna instalacja
     │   ├── mac-start.sh         ← codzienny start
-    │   └── mac-stop.sh
+    │   ├── mac-stop.sh
+    │   ├── start-public.sh      ← publiczny URL (telefon)
+    │   ├── dev-up.sh            ← install + build + uvicorn
+    │   └── audit.sh             ← smoke test API/WWW
     ├── backend/
     │   ├── .venv/               ← Python (nie w git)
     │   ├── data/baza_portfela/  ← portfel (nie w git, lokalny)

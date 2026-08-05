@@ -17,6 +17,10 @@ if [[ -x .venv/bin/python ]]; then
 else
   PY=python3
 fi
+# Dev deps (pytest-asyncio) — needed for async unit tests
+if [[ -f requirements-dev.txt ]]; then
+  "$PY" -m pip install -q -r requirements-dev.txt
+fi
 $PY -m pytest tests/ -q --tb=line
 
 echo "==> Build static"

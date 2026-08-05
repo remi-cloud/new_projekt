@@ -1,6 +1,7 @@
 """Global markets universe — symbols tradeable via Yahoo Finance / CoinGecko."""
 
 from app.data.regional_universe import REGIONAL_UNIVERSE
+from app.data.tokenized_universe import CRYPTO_ETF_UNIVERSE, TOKENIZED_UNIVERSE
 
 
 def _dedupe_assets(assets: list[dict]) -> list[dict]:
@@ -9,9 +10,21 @@ def _dedupe_assets(assets: list[dict]) -> list[dict]:
     for item in assets:
         sym = item["symbol"]
         if sym in seen:
+            for existing in out:
+                if existing["symbol"] == sym:
+                    for k, v in item.items():
+                        if k == "symbol":
+                            continue
+                        if k not in existing or existing.get(k) in (None, "", [], {}):
+                            existing[k] = v
+                        elif k == "tags":
+                            existing[k] = list(dict.fromkeys(list(existing.get("tags") or []) + list(v or [])))
+                        elif k == "related":
+                            existing[k] = list(dict.fromkeys(list(existing.get("related") or []) + list(v or [])))
+                    break
             continue
         seen.add(sym)
-        out.append(item)
+        out.append(dict(item))
     return out
 
 
@@ -134,6 +147,21 @@ _BASE_ASSETS = [
     {"symbol": "EMB", "name": "Emerging Markets Bonds", "asset_class": "bond", "region": "em"},
     {"symbol": "TIP", "name": "US TIPS (inflacja)", "asset_class": "bond", "region": "us"},
     {"symbol": "VGIT", "name": "US Treasury Mid", "asset_class": "bond", "region": "us"},
+    # ── SECTOR / UTILITY / COMMODITY ETFs (calendar seasonality coverage) ──
+    {"symbol": "XLU", "name": "Utilities Select Sector", "asset_class": "etf", "region": "us"},
+    {"symbol": "XLE", "name": "Energy Select Sector", "asset_class": "etf", "region": "us"},
+    {"symbol": "XLF", "name": "Financial Select Sector", "asset_class": "etf", "region": "us"},
+    {"symbol": "XLB", "name": "Materials Select Sector", "asset_class": "etf", "region": "us"},
+    {"symbol": "XLI", "name": "Industrial Select Sector", "asset_class": "etf", "region": "us"},
+    {"symbol": "XLP", "name": "Consumer Staples Select Sector", "asset_class": "etf", "region": "us"},
+    {"symbol": "XLV", "name": "Health Care Select Sector", "asset_class": "etf", "region": "us"},
+    {"symbol": "XLY", "name": "Consumer Discretionary Select Sector", "asset_class": "etf", "region": "us"},
+    {"symbol": "XLRE", "name": "Real Estate Select Sector", "asset_class": "etf", "region": "us"},
+    {"symbol": "GLD", "name": "SPDR Gold Shares", "asset_class": "etf", "region": "global"},
+    {"symbol": "SLV", "name": "iShares Silver Trust", "asset_class": "etf", "region": "global"},
+    {"symbol": "USO", "name": "United States Oil Fund", "asset_class": "etf", "region": "global"},
+    {"symbol": "UNG", "name": "United States Natural Gas", "asset_class": "etf", "region": "global"},
+    {"symbol": "DBA", "name": "Invesco DB Agriculture", "asset_class": "etf", "region": "global"},
     # ── COMMODITIES ──
     {"symbol": "GC=F", "name": "Złoto", "asset_class": "commodity", "region": "global"},
     {"symbol": "SI=F", "name": "Srebro", "asset_class": "commodity", "region": "global"},
@@ -160,7 +188,40 @@ _BASE_ASSETS = [
     {"symbol": "DX-Y.NYB", "name": "US Dollar Index", "asset_class": "forex", "region": "global"},
 ]
 
-MONITORED_ASSETS = _dedupe_assets(_BASE_ASSETS + REGIONAL_UNIVERSE)
+MONITORED_ASSETS = _dedupe_assets(
+    _BASE_ASSETS + REGIONAL_UNIVERSE + TOKENIZED_UNIVERSE + CRYPTO_ETF_UNIVERSE
+)
+DEFAULT_ASSETS = MONITORED_ASSETS
+
+US_INDEX_SYMBOLS = {
+    "^GSPC",
+    "^DJI",
+    "^IXIC",
+    "^RUT",
+    "^NDX",
+    "^VIX",
+    "^NYA",
+    "^W5000",
+    "SPY",
+    "QQQ",
+    "IWM",
+    "DIA",
+}
+
+CATALOG_BY_SYMBOL = {a["symbol"].upper(): a for a in MONITORED_ASSETS}
+
+
+def lookup_asset(symbol: str) -> dict | None:
+    return CATALOG_BY_SYMBOL.get(symbol.strip().upper())
+
+
+def resolve_yahoo_symbol(symbol: str) -> str:
+    """Map app symbols to Yahoo tickers when they collide (e.g. MEW-USD → MEW30126-USD)."""
+    meta = lookup_asset(symbol)
+    if meta and meta.get("yahoo_symbol"):
+        return str(meta["yahoo_symbol"])
+    return symbol
+
 
 REGIONS = {
     "global": "Globalny",

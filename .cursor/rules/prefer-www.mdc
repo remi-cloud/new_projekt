@@ -1,0 +1,11 @@
+---
+description: User prefers WWW UI over paths/API jargon in replies
+alwaysApply: true
+---
+
+# Prefer WWW, not paths
+
+- The user wants **WWW** as the primary surface: `http://127.0.0.1:8080` (build/restart with `./scripts/build-www.sh`, `www-down` / `www-up` when FE/BE changes matter).
+- In replies: do **not** dump file paths, LAN URLs, or API route lists unless the user asks or a code change requires a specific citation.
+- After changes, point them to refresh the **WWW** in the browser — not to open files or curl endpoints as the main next step.
+- Keep answers short and product-oriented (what they see in the app), not filesystem-oriented.

@@ -30,16 +30,16 @@ export function TagTip({
 
   useEffect(() => {
     if (!open) return
-    const onDoc = (e: MouseEvent) => {
+    const onDoc = (e: PointerEvent) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) onOpen(null)
     }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onOpen(null)
     }
-    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('pointerdown', onDoc)
     document.addEventListener('keydown', onKey)
     return () => {
-      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('pointerdown', onDoc)
       document.removeEventListener('keydown', onKey)
     }
   }, [open, onOpen])
@@ -48,7 +48,7 @@ export function TagTip({
     <span className={`tag-tip-wrap${open ? ' is-open' : ''}`} ref={wrapRef}>
       <button
         type="button"
-        className={`tag tag-tip-trigger ${className}`.trim()}
+        className={`tag tag-tip-trigger tap-target ${className}`.trim()}
         aria-expanded={open}
         aria-controls={panelId}
         onClick={(e) => {

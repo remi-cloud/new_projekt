@@ -1,6 +1,8 @@
 import { CycleCardBitcoin } from '../components/CycleCardBitcoin'
 import { CycleCardPresidential } from '../components/CycleCardPresidential'
 import { CycleCardRegional } from '../components/CycleCardRegional'
+import { CycleOrderBook } from '../components/CycleOrderBook'
+import { InstrumentSeasonalitySearch } from '../components/InstrumentSeasonalitySearch'
 import { ErrorState, Loading } from '../components/Loading'
 import { useDashboardContext } from '../context/DashboardContext'
 import { useLocale } from '../context/LocaleContext'
@@ -25,6 +27,8 @@ export function CyclesPage() {
         <p>{t('cycles.infoBody')}</p>
       </div>
 
+      <InstrumentSeasonalitySearch />
+
       <div className="cycles-grid">
         <CycleCardBitcoin cycle={data.bitcoin_cycle} />
         <CycleCardPresidential cycle={data.presidential_cycle} />
@@ -40,6 +44,8 @@ export function CyclesPage() {
           </div>
         </>
       )}
+
+      <CycleOrderBook />
 
       <div className="methodology-grid">
         <article className="method-card">

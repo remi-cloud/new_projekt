@@ -1,4 +1,4 @@
-import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useState } from 'react'
 import { AutoRefreshToggle } from './AutoRefreshToggle'
 import { KarDigitalLogo } from './KarDigitalLogo'
@@ -22,6 +22,7 @@ const NAV_KEYS: Record<string, TranslationPath> = {
   '/dashboard': 'nav.panel',
   '/rynki': 'nav.markets',
   '/okazje': 'nav.opportunities',
+  '/superokazje': 'nav.super',
   '/cykle': 'nav.cycles',
   '/kalkulator': 'nav.calculator',
   '/live': 'nav.live',
@@ -30,6 +31,9 @@ const NAV_KEYS: Record<string, TranslationPath> = {
   '/embed': 'nav.embed',
   '/news': 'nav.news',
   '/agent': 'nav.agent',
+  '/narzedzia': 'nav.tools',
+  '/narzedzia/singularity': 'nav.singularity',
+  '/narzedzia/astra': 'nav.astra',
   '/execution': 'nav.execution',
   '/powiadomienia': 'nav.alerts',
   '/o-nas': 'nav.about',
@@ -38,7 +42,6 @@ const NAV_KEYS: Record<string, TranslationPath> = {
 
 export function Layout({ scannerRunning, scanInProgress, liveMode, liveConnected, onScan, scanning }: LayoutProps) {
   const location = useLocation()
-  const navigate = useNavigate()
   const { t } = useLocale()
   const [toast, setToast] = useState<string | null>(null)
   const activePath = navActivePath(location.pathname)
@@ -77,10 +80,10 @@ export function Layout({ scannerRunning, scanInProgress, liveMode, liveConnected
       {toast && <div className="toast">{toast}</div>}
 
       <aside className="desktop-sidebar">
-        <button type="button" className="sidebar-brand tap-target" onClick={() => navigate('/')}>
+        <Link to="/" className="sidebar-brand tap-target card-nav-link">
           <KarDigitalLogo size={64} />
           <span className="sidebar-product">{t('layout.brand')}</span>
-        </button>
+        </Link>
 
         <div className="sidebar-lang">
           <LanguageSwitcher />
@@ -122,13 +125,13 @@ export function Layout({ scannerRunning, scanInProgress, liveMode, liveConnected
 
       <div className="app-main">
         <header className={`app-header ${isHome ? 'home-header-hidden' : ''}`}>
-          <button type="button" className="mobile-header-left tap-target" onClick={() => navigate('/')}>
+          <Link to="/" className="mobile-header-left tap-target card-nav-link">
             <KarDigitalLogo size={36} compact />
             <div>
               <div className="mobile-title">{pageTitle}</div>
               <div className="mobile-subtitle">{statusLabel}</div>
             </div>
-          </button>
+          </Link>
           <div className="mobile-header-actions">
             <LanguageSwitcher compact />
             {onScan && (

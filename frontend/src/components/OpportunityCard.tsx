@@ -1,34 +1,43 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { formatPrice } from '../utils/format'
 import { Opportunity } from '../types'
 import { useLocale } from '../context/LocaleContext'
 import { useDomainLabels } from '../i18n/useDomainLabels'
+import { AskAgentButton } from './AskAgentButton'
+import { CommunityActions } from './CommunityActions'
 import { InstrumentShareMenu } from './InstrumentShareMenu'
+import { QuickTradeButtons } from './QuickTradeButtons'
 import { TagTip } from './TagTip'
 import type { TranslationPath } from '../i18n'
 
 export function OpportunityCard({ opp }: { opp: Opportunity }) {
-  const navigate = useNavigate()
   const { t } = useLocale()
   const { asset, signal } = useDomainLabels()
   const [openTip, setOpenTip] = useState<string | null>(null)
-  const open = () => navigate(`/instrument/${encodeURIComponent(opp.symbol)}`)
+  const href = `/instrument/${encodeURIComponent(opp.symbol)}`
 
   return (
-    <div
-      className="opp-card tap-target"
-      role="button"
-      tabIndex={0}
-      onClick={open}
-      onKeyDown={(e) => e.key === 'Enter' && open()}
-    >
+    <div className="opp-card card-stretch-host">
+      <Link
+        to={href}
+        className="card-stretch-link"
+        aria-label={`${opp.name} ${opp.symbol}`}
+      />
+
       <div className="opp-header">
         <div>
           <div className="opp-name">{opp.name}</div>
           <div className="opp-symbol">{opp.symbol}</div>
         </div>
-        <div className="opp-header-actions" onClick={(e) => e.stopPropagation()}>
+        <div className="opp-header-actions card-stretch-above">
+          <AskAgentButton mode="instrument" symbol={opp.symbol} name={opp.name} compact />
+          <CommunityActions
+            symbol={opp.symbol}
+            name={opp.name}
+            community={opp.community}
+            compact
+          />
           <InstrumentShareMenu
             symbol={opp.symbol}
             name={opp.name}
@@ -52,7 +61,8 @@ export function OpportunityCard({ opp }: { opp: Opportunity }) {
         </div>
         <span className="confidence-pct">{opp.confidence}%</span>
       </div>
-      <div className="opp-meta market-tags" onClick={(e) => e.stopPropagation()}>
+
+      <div className="opp-meta market-tags card-stretch-above">
         <TagTip
           tipId="asset"
           openId={openTip}
@@ -114,6 +124,9 @@ export function OpportunityCard({ opp }: { opp: Opportunity }) {
         />
       </div>
       <p className="opp-rationale">{opp.rationale}</p>
+      <div className="card-stretch-above">
+        <QuickTradeButtons symbol={opp.symbol} compact />
+      </div>
       <span className="tap-hint">{t('opportunities.seeChart')}</span>
     </div>
   )

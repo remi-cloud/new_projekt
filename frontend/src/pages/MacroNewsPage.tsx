@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { SocialDeskPanel } from '../components/SocialDeskPanel'
 import { fetchMacroNews, refreshMacroNews } from '../api'
 import { MacroCalendarTab } from '../components/MacroCalendarTab'
 import { GrowthFunnelStrip } from '../components/GrowthFunnelStrip'
 import { ErrorState } from '../components/Loading'
-import { NewsShareMenu } from '../components/NewsShareMenu'
+import { AskAgentButton } from '../components/AskAgentButton'
+import { ShareMenu } from '../components/ShareMenu'
 import { useLocale } from '../context/LocaleContext'
 import { useLiveFeed } from '../hooks/useLiveFeed'
 import type { TranslationPath } from '../i18n'
@@ -90,8 +92,11 @@ function NewsCard({
           <span>{item.source}</span>
           <span>{formatTime(item, t, dateLocale)}</span>
         </div>
-        <NewsShareMenu title={item.title} url={item.url} source={item.source} />
       </div>
+      <div className="macro-news-agent-row">
+        <AskAgentButton mode="news" item={item} />
+      </div>
+      <ShareMenu title={item.title} url={item.url} source={item.source} inline />
     </article>
   )
 }
@@ -103,6 +108,7 @@ export function MacroNewsPage() {
   const [feed, setFeed] = useState<MacroNewsFeed | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [socialRefreshKey, setSocialRefreshKey] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const tabRef = useRef(tab)
   const viewRef = useRef(view)
@@ -147,6 +153,7 @@ export function MacroNewsPage() {
       const data = await refreshMacroNews(locale)
       setFeed(data)
       await load(tab, true)
+      setSocialRefreshKey((k) => k + 1)
     } catch {
       alert(t('macro.errors.refresh'))
     } finally {
@@ -258,6 +265,8 @@ export function MacroNewsPage() {
                 })}
               </p>
             )}
+
+            <SocialDeskPanel refreshKey={socialRefreshKey} />
 
             {!feed?.items.length ? (
               <p className="empty-state">{t('macro.noNews')}</p>

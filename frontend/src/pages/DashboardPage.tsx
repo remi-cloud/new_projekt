@@ -1,8 +1,12 @@
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
+import { AskAgentButton } from '../components/AskAgentButton'
+import { CommunityActions } from '../components/CommunityActions'
 import { InstrumentShareMenu } from '../components/InstrumentShareMenu'
+import { AgentTelemetryStrip } from '../components/AgentTelemetryStrip'
 import { CycleCardBitcoin } from '../components/CycleCardBitcoin'
 import { CycleCardPresidential } from '../components/CycleCardPresidential'
 import { MarketSummaryBanner } from '../components/MarketAssessmentCard'
+import { ProgramUsBacktestPanel } from '../components/ProgramUsBacktestPanel'
 import { OpportunityCard } from '../components/OpportunityCard'
 import { ErrorState, Loading } from '../components/Loading'
 import { useDashboardContext } from '../context/DashboardContext'
@@ -11,7 +15,6 @@ import { useDomainLabels } from '../i18n/useDomainLabels'
 
 export function DashboardPage() {
   const { data, error, reload, loading } = useDashboardContext()
-  const navigate = useNavigate()
   const { t } = useLocale()
   const { signal } = useDomainLabels()
 
@@ -29,6 +32,9 @@ export function DashboardPage() {
         </section>
       )}
 
+      <AgentTelemetryStrip />
+      <ProgramUsBacktestPanel />
+
       <section className="dashboard-section">
         <div className="section-header">
           <h2 className="section-title">{t('dashboard.marketCycles')}</h2>
@@ -39,6 +45,26 @@ export function DashboardPage() {
         </div>
       </section>
 
+      <section className="dashboard-section desk-teaser">
+        <div className="section-header">
+          <h2 className="section-title">Biurko skanera · Kar Digital</h2>
+          <Link to="/superokazje" className="link-btn tap-target card-nav-link">
+            Superokazje →
+          </Link>
+        </div>
+        <p className="page-lead">
+          Heatmapa likwidacji 3D, poziomy IN/SL/TP, whale flows i Singularity — obok cykli AI i paper tradingu.
+        </p>
+        <div className="desk-teaser-actions">
+          <Link to="/superokazje" className="btn btn-primary tap-target card-nav-link">
+            Otwórz Superokazje
+          </Link>
+          <Link to="/narzedzia/singularity" className="btn tap-target card-nav-link">
+            Singularity
+          </Link>
+        </div>
+      </section>
+
       <div className="dashboard-columns">
         <section className="dashboard-section dashboard-section-main">
           <div className="section-header">
@@ -46,9 +72,9 @@ export function DashboardPage() {
               {t('dashboard.tradingOpportunities')}
               <span className="count">{data.opportunities.length}</span>
             </h2>
-            <button type="button" className="link-btn tap-target" onClick={() => navigate('/okazje')}>
+            <Link to="/okazje" className="link-btn tap-target card-nav-link">
               {t('dashboard.seeAll')}
-            </button>
+            </Link>
           </div>
           {data.opportunities.length === 0 ? (
             <p className="empty-state">{t('dashboard.emptySignals')}</p>
@@ -69,10 +95,9 @@ export function DashboardPage() {
               <div className="momentum-list">
                 {momentumPicks.slice(0, 5).map((opp) => (
                   <div key={`mom-${opp.symbol}`} className="momentum-item-wrap">
-                    <button
-                      type="button"
-                      className="momentum-item tap-target"
-                      onClick={() => navigate(`/instrument/${encodeURIComponent(opp.symbol)}`)}
+                    <Link
+                      to={`/instrument/${encodeURIComponent(opp.symbol)}`}
+                      className="momentum-item tap-target card-nav-link"
                     >
                       <div className="momentum-item-top">
                         <span className="momentum-item-name">{opp.name}</span>
@@ -86,15 +111,23 @@ export function DashboardPage() {
                         )}
                         <span>{t('dashboard.confidencePct', { n: opp.confidence })}</span>
                       </div>
-                    </button>
-                    <InstrumentShareMenu
-                      symbol={opp.symbol}
-                      name={opp.name}
-                      kind="instrument"
-                      signal={signal[opp.action]}
-                      compact
-                      className="momentum-item-share"
-                    />
+                    </Link>
+                    <div className="momentum-item-share dash-agent-actions">
+                      <AskAgentButton mode="instrument" symbol={opp.symbol} name={opp.name} compact />
+                      <CommunityActions
+                        symbol={opp.symbol}
+                        name={opp.name}
+                        community={opp.community}
+                        compact
+                      />
+                      <InstrumentShareMenu
+                        symbol={opp.symbol}
+                        name={opp.name}
+                        kind="instrument"
+                        signal={signal[opp.action]}
+                        compact
+                      />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -106,10 +139,9 @@ export function DashboardPage() {
             <div className="markets-list markets-list-compact">
               {(data.market_assessments ?? []).slice(0, 5).map((item) => (
                 <div key={item.symbol} className="market-card-wrap">
-                  <button
-                    type="button"
-                    className="market-card market-card-clickable tap-target"
-                    onClick={() => navigate(`/instrument/${encodeURIComponent(item.symbol)}`)}
+                  <Link
+                    to={`/instrument/${encodeURIComponent(item.symbol)}`}
+                    className="market-card market-card-clickable tap-target card-nav-link"
                   >
                     <div className="market-card-top">
                       <div>
@@ -123,15 +155,23 @@ export function DashboardPage() {
                         {t('dashboard.momentum', { n: item.momentum_score.toFixed(0) })}
                       </div>
                     )}
-                  </button>
-                  <InstrumentShareMenu
-                    symbol={item.symbol}
-                    name={item.name}
-                    kind="instrument"
-                    signal={signal[item.signal]}
-                    compact
-                    className="market-card-share"
-                  />
+                  </Link>
+                  <div className="market-card-share dash-agent-actions">
+                    <AskAgentButton mode="instrument" symbol={item.symbol} name={item.name} compact />
+                    <CommunityActions
+                      symbol={item.symbol}
+                      name={item.name}
+                      community={item.community}
+                      compact
+                    />
+                    <InstrumentShareMenu
+                      symbol={item.symbol}
+                      name={item.name}
+                      kind="instrument"
+                      signal={signal[item.signal]}
+                      compact
+                    />
+                  </div>
                 </div>
               ))}
             </div>

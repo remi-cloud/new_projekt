@@ -6,10 +6,10 @@ import { RoiEquityChart } from '../components/RoiEquityChart'
 import { RoiShareCard } from '../components/RoiShareCard'
 import { GrowthFunnelStrip } from '../components/GrowthFunnelStrip'
 import { useLocale } from '../context/LocaleContext'
+import { seedAgentChat } from '../lib/agentSeed'
 import type { RoiAssetInfo, RoiCalculateResult, RoiMode, RoiStrategy } from '../types'
 
 const STRATEGIES: RoiStrategy[] = ['buy_hold', 'cycle', 'dca', 'cycle_dca']
-const ROI_AGENT_SEED_KEY = 'cyclical_agent_roi_seed'
 
 function fmtMoney(n: number, locale: string): string {
   return n.toLocaleString(locale, { maximumFractionDigits: 0 })
@@ -190,7 +190,7 @@ export function RoiCalculatorPage() {
       locale === 'pl'
         ? `Wyjaśnij wynik backtestu ROI: ${res.name} (${res.symbol}), strategia ${res.strategy}, kwota ${res.amount} USD, wartość końcowa ${res.final_value} USD, zysk ${res.profit} USD, ROI ${res.roi_pct.toFixed(1)}%, CAGR ${res.cagr_pct.toFixed(1)}%.${bh} Co oznaczają fazy cyklu w tym wyniku?`
         : `Explain this ROI backtest: ${res.name} (${res.symbol}), strategy ${res.strategy}, amount ${res.amount} USD, final ${res.final_value} USD, profit ${res.profit} USD, ROI ${res.roi_pct.toFixed(1)}%, CAGR ${res.cagr_pct.toFixed(1)}%.${bh} What do the cycle phases mean here?`
-    sessionStorage.setItem(ROI_AGENT_SEED_KEY, JSON.stringify({ message: seed, symbol: res.symbol }))
+    seedAgentChat({ message: seed, symbol: res.symbol })
     navigate('/agent')
   }
 

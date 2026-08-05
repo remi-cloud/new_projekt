@@ -14,7 +14,10 @@ export const LOCALES: Locale[] = ['pl', 'de', 'en', 'fil', 'es', 'fr', 'it']
 
 export const translations: Record<Locale, Translations> = { pl, de, en, fil, es, fr, it }
 
-type MacroScalarKey = keyof Omit<Translations['macro'], 'tabs' | 'tabDesc' | 'category' | 'cal' | 'errors' | 'share'>
+type MacroScalarKey = keyof Omit<
+  Translations['macro'],
+  'tabs' | 'tabDesc' | 'category' | 'cal' | 'errors' | 'share' | 'social'
+>
 
 export type TranslationPath =
   | `lang.${Locale}`
@@ -32,8 +35,10 @@ export type TranslationPath =
   | `macro.category.${keyof Translations['macro']['category']}`
   | `macro.share.${keyof Translations['macro']['share']}`
   | `macro.share.platforms.${keyof Translations['macro']['share']['platforms']}`
-  | `macro.cal.${keyof Translations['macro']['cal']}`
+  | `macro.cal.${keyof Omit<Translations['macro']['cal'], 'bias'>}`
+  | `macro.cal.bias.${keyof Translations['macro']['cal']['bias']}`
   | `macro.errors.${keyof Translations['macro']['errors']}`
+  | `macro.social.${keyof Translations['macro']['social']}`
   | `home.${keyof Translations['home']}`
   | `investmentShowcase.${keyof Translations['investmentShowcase']}`
   | `dashboard.${keyof Translations['dashboard']}`
@@ -43,6 +48,8 @@ export type TranslationPath =
   | `instrument.${keyof Translations['instrument']}`
   | `portfolio.${keyof Translations['portfolio']}`
   | `alerts.${keyof Translations['alerts']}`
+  | `predator.${string}`
+  | `community.${string}`
   | `about.${keyof Omit<Translations['about'], 'methodSteps' | 'chips' | 'pillars' | 'notUs'>}`
   | `banner.${keyof Translations['banner']}`
   | `paper.${keyof Translations['paper']}`
@@ -58,6 +65,20 @@ export type TranslationPath =
   | `pearl.${keyof Translations['pearl']}`
   | `execution.${keyof Translations['execution']}`
   | `agent.${keyof Translations['agent']}`
+  | `tools.${keyof Omit<Translations['tools'], 'groups' | 'tags' | 'items'>}`
+  | `tools.groups.${keyof Translations['tools']['groups']}`
+  | `tools.tags.${keyof Translations['tools']['tags']}`
+  | `tools.items.${keyof Translations['tools']['items']}.name`
+  | `tools.items.${keyof Translations['tools']['items']}.blurb`
+  | `astraMath.${Exclude<keyof Translations['astraMath'], 'fields' | 'items' | 'glossary'>}`
+  | `astraMath.fields.${keyof Translations['astraMath']['fields']}`
+  | `astraMath.items.${keyof Translations['astraMath']['items']}.title`
+  | `astraMath.items.${keyof Translations['astraMath']['items']}.summary`
+  | `astraMath.items.${keyof Translations['astraMath']['items']}.finance`
+  | `astraMath.items.${keyof Translations['astraMath']['items']}.market`
+  | `astraMath.glossary.${keyof Translations['astraMath']['glossary']}.math`
+  | `astraMath.glossary.${keyof Translations['astraMath']['glossary']}.finance`
+  | `astraMath.glossary.${keyof Translations['astraMath']['glossary']}.market`
   | `roi.${keyof Omit<Translations['roi'], 'strategies' | 'strategyDesc' | 'errors' | 'sentiment'>}`
   | `roi.strategies.${keyof Translations['roi']['strategies']}`
   | `roi.strategyDesc.${keyof Translations['roi']['strategyDesc']}`
@@ -76,6 +97,10 @@ export type TranslationPath =
   | `tagTips.layerMomentum.hint`
   | `tagTips.layerOther.body`
   | `tagTips.layerOther.hint`
+  | `tagTips.chain.body`
+  | `tagTips.chain.hint`
+  | `tagTips.related.body`
+  | `tagTips.related.hint`
   | `tagTips.momScore.body`
   | `tagTips.momScore.hint`
   | `tagTips.momPick.body`

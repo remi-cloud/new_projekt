@@ -26,6 +26,8 @@ interface DashboardContextValue {
 
 const DashboardContext = createContext<DashboardContextValue | null>(null)
 
+export { DashboardContext }
+
 export function DashboardProvider({ children }: { children: ReactNode }) {
   const { pathname } = useLocation()
   const dashboardActive = needsDashboardFeed(pathname)

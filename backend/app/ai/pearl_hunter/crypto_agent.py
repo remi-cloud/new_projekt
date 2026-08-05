@@ -18,6 +18,26 @@ logger = logging.getLogger(__name__)
 AGENT_ID = "pearl_crypto"
 YAHOO_HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; CyclicalPearl/1.0)"}
 
+# Skip meme / shitcoin name patterns — not part of the product surface.
+_MEME_NAME_SKIP = (
+    "pepe",
+    "shib",
+    "bonk",
+    "wif",
+    "meme",
+    "doge",
+    "floki",
+    "brett",
+    "mog",
+    "popcat",
+    "neiro",
+    "pnut",
+    "fartcoin",
+    "mew",
+    "turbo",
+    "spx6900",
+)
+
 
 async def run_crypto_agent() -> list[dict]:
     if not getattr(settings, "pearl_hunter_enabled", True):
@@ -51,14 +71,17 @@ async def run_crypto_agent() -> list[dict]:
             if is_monitored(yahoo_sym) or symbol_base in ("BTC", "ETH", "USDT", "USDC", "DAI"):
                 continue
 
+            name = coin.get("name") or symbol_base
+            blob = f"{name} {symbol_base}".lower()
+            if any(k in blob for k in _MEME_NAME_SKIP):
+                continue
+
             chg = coin.get("price_change_percentage_24h")
             if chg is None:
                 chg = coin.get("price_change_percentage_24h_in_currency")
             rank = coin.get("market_cap_rank")
             vol = coin.get("total_volume")
             price = float(coin.get("current_price") or 0)
-            name = coin.get("name") or symbol_base
-
             score, confidence, action, rationale = score_crypto_mover(
                 change_pct_24h=float(chg) if chg is not None else None,
                 market_cap_rank=int(rank) if rank else None,
@@ -82,6 +105,9 @@ async def run_crypto_agent() -> list[dict]:
                 "source": "coingecko_markets",
                 "found_at": datetime.now(timezone.utc).isoformat(),
                 "broker_info": resolve_broker_info(yahoo_sym, "crypto", "global"),
+                "tags": [],
+                "chain": None,
+                "related": [],
             }
             await upsert_find(find)
             finds.append(find)

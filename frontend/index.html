@@ -16,10 +16,41 @@
     <title>Cykliczny Trader · Kar Digital</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+      html, body { margin: 0; min-height: 100%; background: #050505; color: #e8e8e8; }
+      #root { min-height: 100vh; }
+      #boot-shell {
+        font-family: Manrope, system-ui, sans-serif;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        min-height: 100vh; gap: 12px; letter-spacing: 0.04em;
+      }
+      #boot-shell strong { font-size: 1.15rem; font-weight: 700; }
+      #boot-shell span { opacity: 0.65; font-size: 0.85rem; }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="boot-shell" aria-live="polite">
+        <strong>Cykliczny Trader</strong>
+        <span>Ładowanie…</span>
+      </div>
+    </div>
+    <script>
+      window.addEventListener('error', function () {
+        var shell = document.getElementById('boot-shell');
+        if (shell) {
+          shell.innerHTML = '<strong>Cykliczny Trader</strong><span>Błąd ładowania — odśwież (Cmd+Shift+R)</span>';
+        }
+      });
+      setTimeout(function () {
+        var root = document.getElementById('root');
+        var shell = document.getElementById('boot-shell');
+        if (root && shell && root.contains(shell) && root.children.length === 1) {
+          shell.innerHTML = '<strong>Cykliczny Trader</strong><span>Aplikacja nie wystartowała — twarde odświeżenie (Cmd+Shift+R)</span>';
+        }
+      }, 8000);
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -8,6 +8,7 @@ import re
 from typing import Any
 
 from app.ai import db as ai_db
+from app.ai.pattern_chart_svg import render_pattern_svg
 from app.ai.pattern_detector import detect_patterns
 from app.ai.trend_analyzer import analyze_trend
 from app.data.chart_data import fetch_chart
@@ -48,7 +49,19 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "detect_patterns",
-            "description": "Detect chart patterns, support and resistance for a symbol",
+            "description": "Detect chart patterns with drawable geometry (points/lines), support and resistance",
+            "parameters": {
+                "type": "object",
+                "properties": {"symbol": {"type": "string"}, "range": {"type": "string", "default": "3M"}},
+                "required": ["symbol"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "render_pattern_chart",
+            "description": "Draw SVG chart of recent candles with detected pattern overlays (lines, S/R, markers)",
             "parameters": {
                 "type": "object",
                 "properties": {"symbol": {"type": "string"}, "range": {"type": "string", "default": "3M"}},
@@ -101,6 +114,86 @@ TOOL_DEFINITIONS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_super_opportunity",
+            "description": "Superokazja: bid/ask, IN/SL/TP, heatmap summary, AI trade verdict for a symbol",
+            "parameters": {
+                "type": "object",
+                "properties": {"symbol": {"type": "string"}},
+                "required": ["symbol"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_whale_bias",
+            "description": "Whale / large-player CEX + on-chain flow bias for crypto (BTC/ETH/SOL)",
+            "parameters": {
+                "type": "object",
+                "properties": {"symbol": {"type": "string"}},
+                "required": ["symbol"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_singularity_book",
+            "description": "Singularity war-room summary: scout counts, merged LONG/SHORT book",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_paper_portfolio",
+            "description": "Live paper trading desk from portfolio.db (cash, equity, open positions, recent trades). Use after restart / when user asks about portfel.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_macro_cycles",
+            "description": (
+                "Bitcoin ATH cycle (364/1064) with BTC monthly seasonality + vs-SPX verdict/regime, "
+                "and US presidential cycle with year×month seasonality (Best Six Nov–Apr). "
+                "Use for crypto timing and US equities/ETFs/indexes when discussing when to expect strength or weakness."
+            ),
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "analyze_multi_timeframe",
+            "description": "Multi-timeframe trend confluence (1M / 3M / 1Y) for a symbol",
+            "parameters": {
+                "type": "object",
+                "properties": {"symbol": {"type": "string"}},
+                "required": ["symbol"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "risk_snapshot",
+            "description": "ATR-based stop distance, suggested position size vs paper equity, optional R:R vs Superokazja levels",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "symbol": {"type": "string"},
+                    "account_equity": {"type": "number"},
+                    "risk_pct": {"type": "number", "default": 1.0},
+                },
+                "required": ["symbol"],
+            },
+        },
+    },
 ]
 
 
@@ -134,6 +227,129 @@ def extract_symbol_from_text(text: str) -> str | None:
     return None
 
 
+def resolve_focus_symbol(message: str, explicit_symbol: str | None = None) -> str | None:
+    """Canonical symbol for a chat turn: API symbol wins, then text extraction."""
+    if explicit_symbol:
+        norm = normalize_symbol(explicit_symbol)
+        if norm:
+            return norm
+    return extract_symbol_from_text(message or "")
+
+
+async def load_pattern_desk(symbol: str, range_: str = "3M") -> dict[str, Any]:
+    """Single OHLC fetch shared by detect_patterns + render_pattern_chart."""
+    chart = await fetch_chart(symbol, range_)
+    if not chart or not chart.candles:
+        return {"symbol": symbol, "range": range_, "candles": [], "analysis": None, "error": "No candles"}
+    pa = detect_patterns(symbol, chart.candles)
+    return {
+        "symbol": symbol,
+        "range": range_,
+        "candles": chart.candles,
+        "analysis": pa,
+        "error": None,
+    }
+
+
+def _pattern_payload(symbol: str, pa) -> dict[str, Any]:
+    return {
+        "symbol": symbol,
+        "patterns": [
+            {
+                "name": p.name,
+                "kind": p.kind,
+                "confidence": p.confidence,
+                "description": p.description,
+                "levels": p.levels,
+            }
+            for p in pa.patterns
+            if p.kind != "level" or p.name.startswith("near_")
+        ],
+        "support": pa.support_levels,
+        "resistance": pa.resistance_levels,
+        "summary": pa.summary,
+        "geometry": pa.to_geometry(),
+    }
+
+
+def _atr(candles: list, period: int = 14) -> float | None:
+    if len(candles) < period + 1:
+        return None
+    trs: list[float] = []
+    for i in range(-period, 0):
+        c = candles[i]
+        prev = candles[i - 1]
+        tr = max(c.high - c.low, abs(c.high - prev.close), abs(c.low - prev.close))
+        trs.append(tr)
+    return sum(trs) / len(trs) if trs else None
+
+
+async def build_desk_tool_bundle(symbol: str, range_: str = "3M") -> list[dict[str, Any]]:
+    """Fresh desk tools for focus symbol (trend, patterns, SVG, context, MTF, risk, cycles)."""
+    results: list[dict[str, Any]] = []
+    desk = await load_pattern_desk(symbol, range_)
+    candles = desk.get("candles") or []
+    pa = desk.get("analysis")
+
+    if candles:
+        trend = analyze_trend(symbol, candles)
+        results.append(
+            {
+                "tool": "analyze_trend",
+                "result": {
+                    "symbol": symbol,
+                    "trend": trend.direction,
+                    "strength": trend.strength,
+                    "rsi14": trend.rsi14,
+                    "structure": trend.structure,
+                    "change_7d_pct": trend.change_7d_pct,
+                    "change_30d_pct": trend.change_30d_pct,
+                    "summary": trend.summary,
+                },
+            }
+        )
+    else:
+        results.append(
+            {
+                "tool": "analyze_trend",
+                "result": {"error": desk.get("error") or "No candles", "symbol": symbol},
+            }
+        )
+
+    if pa is not None:
+        results.append({"tool": "detect_patterns", "result": _pattern_payload(symbol, pa)})
+        svg = render_pattern_svg(symbol, candles, pa)
+        results.append(
+            {
+                "tool": "render_pattern_chart",
+                "result": {
+                    "symbol": symbol,
+                    "mime": "image/svg+xml",
+                    "svg": svg,
+                    "patterns_summary": pa.summary,
+                    "pattern_count": len(
+                        [p for p in pa.patterns if p.kind != "level" or p.name.startswith("near_")]
+                    ),
+                },
+            }
+        )
+    else:
+        results.append(
+            {
+                "tool": "detect_patterns",
+                "result": {"symbol": symbol, "error": desk.get("error") or "No patterns"},
+            }
+        )
+
+    results.append({"tool": "get_market_context", "result": await run_tool("get_market_context", {"symbol": symbol})})
+    results.append(
+        {"tool": "analyze_multi_timeframe", "result": await run_tool("analyze_multi_timeframe", {"symbol": symbol})}
+    )
+    results.append({"tool": "risk_snapshot", "result": await run_tool("risk_snapshot", {"symbol": symbol})})
+    results.append({"tool": "get_macro_cycles", "result": await run_tool("get_macro_cycles", {})})
+    return results
+
+
 async def run_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     try:
         if name == "analyze_trend":
@@ -141,6 +357,8 @@ async def run_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
             if not symbol:
                 return {"error": "Unknown symbol"}
             chart = await fetch_chart(symbol, arguments.get("range", "3M"))
+            if not chart or not chart.candles:
+                return {"error": f"No candles for {symbol}", "symbol": symbol}
             trend = analyze_trend(symbol, chart.candles)
             return {
                 "symbol": symbol,
@@ -156,14 +374,132 @@ async def run_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
             symbol = normalize_symbol(arguments.get("symbol", ""))
             if not symbol:
                 return {"error": "Unknown symbol"}
-            chart = await fetch_chart(symbol, arguments.get("range", "3M"))
-            pa = detect_patterns(symbol, chart.candles)
+            desk = await load_pattern_desk(symbol, arguments.get("range", "3M"))
+            if desk.get("error") or desk.get("analysis") is None:
+                return {"error": desk.get("error") or "No candles", "symbol": symbol}
+            return _pattern_payload(symbol, desk["analysis"])
+        if name == "render_pattern_chart":
+            symbol = normalize_symbol(arguments.get("symbol", ""))
+            if not symbol:
+                return {"error": "Unknown symbol"}
+            desk = await load_pattern_desk(symbol, arguments.get("range", "3M"))
+            if desk.get("error") or desk.get("analysis") is None:
+                return {"error": desk.get("error") or "No candles", "symbol": symbol}
+            pa = desk["analysis"]
+            svg = render_pattern_svg(symbol, desk["candles"], pa)
             return {
                 "symbol": symbol,
-                "patterns": [{"name": p.name, "confidence": p.confidence, "description": p.description} for p in pa.patterns],
-                "support": pa.support_levels,
-                "resistance": pa.resistance_levels,
-                "summary": pa.summary,
+                "mime": "image/svg+xml",
+                "svg": svg,
+                "patterns_summary": pa.summary,
+                "pattern_count": len(
+                    [p for p in pa.patterns if p.kind != "level" or p.name.startswith("near_")]
+                ),
+            }
+        if name == "analyze_multi_timeframe":
+            symbol = normalize_symbol(arguments.get("symbol", ""))
+            if not symbol:
+                return {"error": "Unknown symbol"}
+            frames: list[dict[str, Any]] = []
+            score_map = {"uptrend": 1, "downtrend": -1, "sideways": 0, "unknown": 0}
+            votes = 0
+            for preset in ("1M", "3M", "1Y"):
+                chart = await fetch_chart(symbol, preset)
+                if not chart or not chart.candles:
+                    frames.append({"range": preset, "error": "no_data"})
+                    continue
+                trend = analyze_trend(symbol, chart.candles)
+                votes += score_map.get(trend.direction, 0)
+                frames.append(
+                    {
+                        "range": preset,
+                        "trend": trend.direction,
+                        "strength": trend.strength,
+                        "structure": trend.structure,
+                        "rsi14": trend.rsi14,
+                    }
+                )
+            n = max(1, sum(1 for f in frames if "trend" in f))
+            conf = abs(votes) / n
+            if votes > 0:
+                bias = "bullish"
+            elif votes < 0:
+                bias = "bearish"
+            else:
+                bias = "neutral"
+            return {
+                "symbol": symbol,
+                "frames": frames,
+                "bias": bias,
+                "confluence_score": round(conf * 100, 1),
+                "summary": f"{symbol} MTF bias {bias} (confluence {conf * 100:.0f}%)",
+            }
+        if name == "risk_snapshot":
+            symbol = normalize_symbol(arguments.get("symbol", ""))
+            if not symbol:
+                return {"error": "Unknown symbol"}
+            chart = await fetch_chart(symbol, arguments.get("range", "3M"))
+            if not chart or not chart.candles:
+                return {"error": f"No candles for {symbol}", "symbol": symbol}
+            candles = chart.candles
+            price = float(candles[-1].close)
+            atr = _atr(candles, 14)
+            stop_dist = float(atr) * 1.5 if atr else price * 0.02
+            risk_pct = float(arguments.get("risk_pct") or 1.0)
+            risk_pct = max(0.25, min(2.0, risk_pct))
+            equity = arguments.get("account_equity")
+            if equity is None:
+                try:
+                    from app.paper.portfolio_memory import get_agent_portfolio_context
+
+                    paper = await get_agent_portfolio_context()
+                    summary = (paper or {}).get("summary") or paper or {}
+                    equity = summary.get("total_equity_pln") or summary.get("equity")
+                except Exception:
+                    equity = None
+            try:
+                equity_f = float(equity) if equity is not None else 100_000.0
+            except (TypeError, ValueError):
+                equity_f = 100_000.0
+            risk_budget = equity_f * (risk_pct / 100.0)
+            size_units = risk_budget / stop_dist if stop_dist > 0 else None
+            notional = (size_units * price) if size_units is not None else None
+            stop_price = price - stop_dist
+            levels = None
+            rr = None
+            try:
+                super_res = await run_tool("get_super_opportunity", {"symbol": symbol})
+                if not super_res.get("error"):
+                    levels = super_res.get("levels")
+                    if isinstance(levels, dict):
+                        tp = levels.get("tp") or levels.get("take_profit") or levels.get("tp1")
+                        sl = levels.get("sl") or levels.get("stop_loss")
+                        entry = levels.get("entry") or levels.get("in") or price
+                        if tp is not None and sl is not None and entry is not None:
+                            risk = abs(float(entry) - float(sl))
+                            reward = abs(float(tp) - float(entry))
+                            if risk > 0:
+                                rr = round(reward / risk, 2)
+            except Exception:
+                pass
+            return {
+                "symbol": symbol,
+                "price": round(price, 6),
+                "atr14": round(atr, 6) if atr else None,
+                "suggested_stop_distance": round(stop_dist, 6),
+                "suggested_stop_price": round(stop_price, 6),
+                "account_equity": round(equity_f, 2),
+                "risk_pct": risk_pct,
+                "risk_budget": round(risk_budget, 2),
+                "suggested_size_units": round(size_units, 6) if size_units is not None else None,
+                "suggested_notional": round(notional, 2) if notional is not None else None,
+                "super_levels": levels,
+                "reward_risk": rr,
+                "summary": (
+                    f"{symbol} risk: ATR stop ~{stop_dist:.4g}, "
+                    f"size≈{size_units:.4g} u ({risk_pct}% of equity)"
+                    + (f", R:R {rr}" if rr is not None else "")
+                ),
             }
         if name == "get_market_context":
             symbol = normalize_symbol(arguments.get("symbol", ""))
@@ -189,21 +525,198 @@ async def run_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
             notes = await ai_db.get_learning_notes(limit=3)
             return {"knowledge": hits, "lessons_learned": notes}
         if name == "get_macro_cycles":
+            from app.cycles.bitcoin_seasonality import btc_seasonality_desk_brief
+            from app.cycles.presidential_cycle import analyze_presidential_cycle
+            from app.cycles.presidential_seasonality import seasonality_desk_brief
+
             if not scanner.bitcoin_cycle:
                 await scanner.scan()
             btc = scanner.bitcoin_cycle
-            pres = scanner.presidential_cycle
+            # Fresh presidential snapshot so seasonality fields are always current
+            pres = analyze_presidential_cycle()
+            scanner.presidential_cycle = pres
+            season = seasonality_desk_brief(pres.current_year)
+            month_strip = [
+                {
+                    "month": m.month,
+                    "avg_pct": m.avg_return_pct,
+                    "bias": m.bias,
+                    "is_current": m.is_current,
+                }
+                for m in (pres.month_returns or [])
+            ]
+            month_matrices = [
+                {
+                    "year": row.year.value,
+                    "year_number": row.year_number,
+                    "label": row.label,
+                    "calendar_year": row.calendar_year,
+                    "is_current": row.is_current,
+                    "months": [
+                        {
+                            "month": m.month,
+                            "avg_pct": m.avg_return_pct,
+                            "bias": m.bias,
+                            "is_current": m.is_current,
+                        }
+                        for m in row.months
+                    ],
+                }
+                for row in (pres.month_matrices or [])
+            ]
+            next_term = None
+            if pres.next_term_outlook:
+                nt = pres.next_term_outlook
+                next_term = {
+                    "term_start": nt.term_start.isoformat(),
+                    "term_end": nt.term_end.isoformat(),
+                    "label": nt.label,
+                    "note": nt.note,
+                    "year_rows": [
+                        {
+                            "year": row.year.value,
+                            "year_number": row.year_number,
+                            "label": row.label,
+                            "calendar_year": row.calendar_year,
+                            "months": [
+                                {
+                                    "month": m.month,
+                                    "avg_pct": m.avg_return_pct,
+                                    "bias": m.bias,
+                                }
+                                for m in row.months
+                            ],
+                        }
+                        for row in nt.year_rows
+                    ],
+                }
+            btc_payload: dict = {
+                "phase": btc.phase.value if btc else None,
+                "signal": btc.signal.value if btc else None,
+                "rationale": btc.rationale if btc else None,
+            }
+            if btc:
+                btc_season = btc_seasonality_desk_brief(
+                    btc.phase,
+                    btc.days_since_ath,
+                    bear_end=btc.bear_phase_end_day,
+                    bull_days=max(1, btc.bull_phase_end_day - btc.bear_phase_end_day),
+                )
+                btc_month_strip = [
+                    {
+                        "month": m.month,
+                        "avg_pct": m.avg_return_pct,
+                        "bias": m.bias,
+                        "is_current": m.is_current,
+                        "n": m.n,
+                    }
+                    for m in (btc.month_returns or [])
+                ]
+                spx = btc.spx_comparison
+                btc_payload.update(
+                    {
+                        "days_since_ath": btc.days_since_ath,
+                        "phase_progress_pct": btc.phase_progress_pct,
+                        "calendar_season": btc.calendar_season,
+                        "current_month_avg_pct": btc.current_month_avg_return_pct,
+                        "current_month_bias": btc.current_month_bias,
+                        "phase_month_bias": btc.phase_month_bias,
+                        "seasonality_sample_count": btc.seasonality_sample_count,
+                        "month_returns": btc_month_strip,
+                        "seasonality": btc_season,
+                        "spx_comparison": (
+                            {
+                                "corr_full": spx.corr_full,
+                                "corr_rolling_24m_latest": spx.corr_rolling_24m_latest,
+                                "best_six_delta_pct": spx.best_six_delta_pct,
+                                "month_sign_agreement": spx.month_sign_agreement,
+                                "verdict": spx.verdict,
+                                "regime": spx.regime,
+                            }
+                            if spx
+                            else None
+                        ),
+                        "how_to_use": (
+                            "For crypto: cite ATH phase (364/1064) PLUS current month bias from "
+                            "seasonality. spx_comparison.verdict/regime tell whether BTC is "
+                            "tracking equity seasonality (do not copy US Best Six blindly). "
+                            "Never invent monthly stats — use this payload only."
+                        ),
+                    }
+                )
+            from app.cycles.calendar_seasonality import current_month_pumps_brief
+            from app.cycles.global_cycle_book import get_global_cycle_book
+            from app.cycles.seasonality_monitor import get_health
+            from app.telemetry.agent_vs_spx import get_telemetry_series
+
+            season_health = get_health()
+            try:
+                tele = await get_telemetry_series("30d")
+                tele_last = tele.get("last")
+            except Exception:
+                tele_last = None
+            gbook = get_global_cycle_book("all")
+            adopted_brief = [
+                {
+                    "id": e["id"],
+                    "horizon": e["horizon"],
+                    "slot_label": e["slot_label"],
+                    "side": e["side"],
+                    "avg_return_pct": e["avg_return_pct"],
+                    "markets": e["markets"],
+                    "reproduction_score": e["reproduction_score"],
+                }
+                for e in (gbook.get("adopted") or [])[:12]
+            ]
             return {
-                "bitcoin": {
-                    "phase": btc.phase.value if btc else None,
-                    "signal": btc.signal.value if btc else None,
-                    "rationale": btc.rationale if btc else None,
-                },
+                "bitcoin": btc_payload,
                 "presidential": {
-                    "president": pres.president if pres else None,
-                    "year": pres.current_year.value if pres else None,
-                    "signal": pres.signal.value if pres else None,
-                    "rationale": pres.rationale if pres else None,
+                    "president": pres.president,
+                    "year": pres.current_year.value,
+                    "year_number": pres.year_number,
+                    "signal": pres.signal.value,
+                    "buy_weight": pres.buy_weight,
+                    "rationale": pres.rationale,
+                    "calendar_season": pres.calendar_season,
+                    "current_month_avg_pct": pres.current_month_avg_return_pct,
+                    "current_month_bias": pres.current_month_bias,
+                    "seasonality_universe_size": pres.seasonality_universe_size,
+                    "month_returns": month_strip,
+                    "month_matrices": month_matrices,
+                    "next_term_outlook": next_term,
+                    "seasonality": season,
+                    "seasonality_health": season_health,
+                    "how_to_use": (
+                        "For region=us instruments: cite year_of_term + current month bias + "
+                        "best_six/worst_six. month_matrices has all years 1–4 (not only current). "
+                        "next_term_outlook projects the same historical pattern onto 2029–2033 "
+                        "after Trump II — not a prediction of who wins 2028. "
+                        "If seasonality_health.drift_alert, overlay is softened — mention uncertainty. "
+                        "Do not invent monthly stats — use this payload only."
+                    ),
+                },
+                "global_cycle_book": {
+                    "meta": gbook.get("meta"),
+                    "adopted": adopted_brief,
+                    "mean_month_corr": (gbook.get("meta") or {}).get("mean_month_corr"),
+                    "mean_week_corr": (gbook.get("meta") or {}).get("mean_week_corr"),
+                    "how_to_use": (
+                        "Field scouts: same month/week/Best-Six rules on us/eu/asia/em/pl/crypto. "
+                        "Cite adopted slots (bid↑/ask↓) + markets + reproduction_score. "
+                        "For non-US assets prefer global_cycle_book over US presidential months."
+                    ),
+                },
+                "calendar_pumps": {
+                    **current_month_pumps_brief(top_n=5),
+                    "how_to_use": (
+                        "Current calendar month: which catalog assets were historically pumped/drained "
+                        "(avg monthly return). Includes commodities, sector/utility ETFs (XLU…), bonds, crypto. "
+                        "Cite symbol + avg_pct; do not invent rankings."
+                    ),
+                },
+                "telemetry": {
+                    "last": tele_last,
+                    "note": "Live agent EW BUY basket NAV vs SPX (normalized 100).",
                 },
             }
         if name == "run_roi_backtest":
@@ -241,26 +754,198 @@ async def run_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
                 "data_start": result.get("data_start"),
                 "data_end": result.get("data_end"),
             }
+        if name == "get_super_opportunity":
+            from app.scanners.super_opportunities import (
+                build_super_opportunity,
+                resolve_opportunity_for_symbol,
+            )
+
+            symbol = normalize_symbol(arguments.get("symbol", ""))
+            if not symbol:
+                return {"error": "Unknown symbol"}
+            opp = await resolve_opportunity_for_symbol(symbol)
+            if not opp:
+                return {"error": f"No opportunity for {symbol}"}
+            data = await build_super_opportunity(opp, include_heatmap_3d=False)
+            heat = data.get("heatmap") or {}
+            bins = heat.get("bins") or []
+            top = sorted(bins, key=lambda b: b.get("intensity", 0), reverse=True)[:5]
+            return {
+                "symbol": data["symbol"],
+                "super_score": data["super_score"],
+                "is_super": data["is_super"],
+                "action": data["action"],
+                "bid": data.get("bid"),
+                "ask": data.get("ask"),
+                "levels": data.get("levels"),
+                "ai_signal": data.get("ai_signal"),
+                "prediction_summary": (data.get("prediction") or {}).get("summary"),
+                "whale": data.get("whale"),
+                "heatmap_top_bins": top,
+                "reasons": (data.get("reasons") or [])[:6],
+            }
+        if name == "get_whale_bias":
+            from app.data.whale_flows import fetch_whale_for_symbol
+
+            symbol = normalize_symbol(arguments.get("symbol", "")) or "BTC-USD"
+            whale = await fetch_whale_for_symbol(symbol)
+            if not whale:
+                return {"error": f"Whale data only for BTC/ETH/SOL — got {symbol}"}
+            return {
+                "symbol": whale.get("symbol"),
+                "bias": whale.get("bias"),
+                "strength": whale.get("strength"),
+                "summary": whale.get("summary"),
+                "factors": (whale.get("factors") or [])[:5],
+            }
+        if name == "get_singularity_book":
+            from app.agents.orchestrator import orchestrator
+
+            if not orchestrator.last_result:
+                await orchestrator.run_pipeline()
+            report = orchestrator.agent_report()
+            return {
+                "ready": report.get("ready"),
+                "pipeline": report.get("pipeline"),
+                "opportunities": report.get("opportunities"),
+                "counts": report.get("counts"),
+                "last_scan_at": report.get("last_scan_at"),
+                "long_sample": (report.get("long_verdicts") or [])[:5],
+                "short_sample": (report.get("short_verdicts") or [])[:5],
+            }
+        if name == "get_paper_portfolio":
+            from app.paper.portfolio_memory import get_agent_portfolio_context
+
+            return await get_agent_portfolio_context()
         return {"error": f"Unknown tool {name}"}
     except Exception as exc:
         logger.exception("Tool %s failed: %s", name, exc)
         return {"error": str(exc)}
 
 
-async def auto_tools_for_question(question: str) -> list[dict[str, Any]]:
+async def auto_tools_for_question(
+    question: str,
+    explicit_symbol: str | None = None,
+    *,
+    with_desk_bundle: bool = False,
+) -> list[dict[str, Any]]:
     """Run relevant tools without LLM (fallback / enrichment)."""
     results: list[dict] = []
-    sym = extract_symbol_from_text(question)
+    sym = resolve_focus_symbol(question, explicit_symbol)
     low = question.lower()
 
-    if sym:
+    want_desk = with_desk_bundle or (
+        sym
+        and any(
+            k in low
+            for k in (
+                "wzor",
+                "pattern",
+                "formac",
+                "support",
+                "opór",
+                "opor",
+                "resist",
+                "rysuj",
+                "wykres",
+                "chart",
+                "double",
+                "triangle",
+                "engulf",
+                "doji",
+                "analiz",
+                "analyz",
+                "trend",
+                "setup",
+                "ryzyk",
+                "risk",
+            )
+        )
+    )
+    if sym and want_desk:
+        results.extend(await build_desk_tool_bundle(sym))
+    elif sym:
         results.append({"tool": "analyze_trend", "result": await run_tool("analyze_trend", {"symbol": sym})})
-        if any(k in low for k in ("wzor", "pattern", "formac", "support", "opór", "resist")):
-            results.append({"tool": "detect_patterns", "result": await run_tool("detect_patterns", {"symbol": sym})})
-        results.append({"tool": "get_market_context", "result": await run_tool("get_market_context", {"symbol": sym})})
+        results.append(
+            {"tool": "get_market_context", "result": await run_tool("get_market_context", {"symbol": sym})}
+        )
 
-    if any(k in low for k in ("cykl", "cycle", "bitcoin", "btc", "prezyden", "president", "fed", "makro")):
+    if sym and any(k in low for k in ("super", "heatmap", "liq", "likwid", "sl", "tp", "wejś", "entry")):
+        if not any(t.get("tool") == "get_super_opportunity" for t in results):
+            results.append(
+                {"tool": "get_super_opportunity", "result": await run_tool("get_super_opportunity", {"symbol": sym})}
+            )
+    if sym and any(k in low for k in ("whale", "wielk", "on-chain", "onchain", "mempool")):
+        results.append({"tool": "get_whale_bias", "result": await run_tool("get_whale_bias", {"symbol": sym})})
+
+    if not any(t.get("tool") == "get_macro_cycles" for t in results) and any(
+        k in low
+        for k in (
+            "cykl",
+            "cycle",
+            "bitcoin",
+            "btc",
+            "prezyden",
+            "president",
+            "fed",
+            "makro",
+            "sezon",
+            "season",
+            "best six",
+            "midterm",
+            "kadenc",
+            "miesiąc",
+            "miesiac",
+            "november",
+            "listopad",
+        )
+    ):
         results.append({"tool": "get_macro_cycles", "result": await run_tool("get_macro_cycles", {})})
+
+    if any(
+        k in low
+        for k in (
+            "sezon",
+            "season",
+            "best six",
+            "prezyden",
+            "president",
+            "kadenc",
+            "midterm",
+            "bitcoin",
+            "btc",
+        )
+    ):
+        if not any(t.get("tool") == "search_knowledge" for t in results):
+            q = (
+                "sezonowość BTC vs S&P cykl 364/1064"
+                if any(k in low for k in ("bitcoin", "btc"))
+                else "sezonowość prezydencka USA best six months"
+            )
+            results.append(
+                {
+                    "tool": "search_knowledge",
+                    "result": await run_tool("search_knowledge", {"query": q}),
+                }
+            )
+    if any(k in low for k in ("singularity", "scout", "war room", "orchestr")):
+        results.append({"tool": "get_singularity_book", "result": await run_tool("get_singularity_book", {})})
+
+    if any(
+        k in low
+        for k in (
+            "portfel",
+            "portfolio",
+            "paper",
+            "gotówk",
+            "gotowk",
+            "cash",
+            "pozycj",
+            "equity",
+            "konto paper",
+        )
+    ):
+        results.append({"tool": "get_paper_portfolio", "result": await run_tool("get_paper_portfolio", {})})
 
     if any(k in low for k in ("roi", "backtest", "rentown", "cagr", "zysk", "profit", "inwest", "invest")):
         sym_roi = sym or "BTC-USD"
@@ -286,4 +971,19 @@ async def auto_tools_for_question(question: str) -> list[dict[str, Any]]:
 
 
 def tools_context_string(tool_results: list[dict]) -> str:
-    return json.dumps(tool_results, ensure_ascii=False, indent=2)[:8000]
+    slim: list[dict] = []
+    for block in tool_results:
+        res = block.get("result")
+        if isinstance(res, dict) and res.get("svg"):
+            slim.append(
+                {
+                    **block,
+                    "result": {
+                        **{k: v for k, v in res.items() if k != "svg"},
+                        "svg": "[svg omitted — shown in UI]",
+                    },
+                }
+            )
+        else:
+            slim.append(block)
+    return json.dumps(slim, ensure_ascii=False, indent=2)[:8000]

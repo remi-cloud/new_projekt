@@ -153,6 +153,7 @@ class OpportunityScanner:
             is_momentum_pick=a.is_momentum_pick,
             rationale=a.rationale,
             created_at=now,
+            community=a.community,
         )
 
 

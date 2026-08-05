@@ -12,6 +12,24 @@ logger = logging.getLogger(__name__)
 
 async def process_feedback(rating: int, question: str, answer: str, correction: str | None) -> None:
     if rating >= 4:
+        # Reinforce what worked — high-signal positive learning
+        if llm_configured() and answer and len(answer) > 40:
+            try:
+                lesson = await simple_complete(
+                    "Extract ONE reusable strength from this good finance answer as a short lesson "
+                    "(what pattern/approach to repeat). One sentence.",
+                    f"Q: {question[:500]}\nA: {answer[:900]}",
+                    temperature=0.15,
+                )
+                if lesson and len(lesson.strip()) > 15:
+                    await ai_db.add_learning_note(
+                        "positive_feedback",
+                        lesson.strip()[:500],
+                        source="user_feedback_pos",
+                        confidence=0.82,
+                    )
+            except Exception as exc:
+                logger.debug("Positive feedback learn failed: %s", exc)
         return
     if correction and len(correction.strip()) > 10:
         await ai_db.add_learning_note(

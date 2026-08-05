@@ -11,6 +11,7 @@ export function useDomainLabels() {
         crypto: t('labels.asset.crypto'),
         stock: t('labels.asset.stock'),
         etf: t('labels.asset.etf'),
+        tokenized: t('labels.asset.tokenized'),
         index: t('labels.asset.index'),
         bond: t('labels.asset.bond'),
         commodity: t('labels.asset.commodity'),

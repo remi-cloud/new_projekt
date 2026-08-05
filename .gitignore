@@ -24,6 +24,7 @@ __pycache__/
 # App data (runtime)
 backend/data/
 backend/static/
+backend/.run/
 *.db
 *.sqlite
 *.sqlite3
@@ -48,3 +49,9 @@ Thumbs.db
 # Debug / logs
 *.log
 .cursor/debug-*.log
+
+# Public tunnel (start-public.sh / tunnel-named.sh)
+PUBLIC_URL.txt
+.tunnel.log
+.tunnel-named.log
+.tools/

@@ -1,13 +1,21 @@
 import { useEffect, useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { PortfolioSummary, usePaperPortfolio } from '../components/PaperTrading'
 import { OpenOrdersPanel } from '../components/OpenOrdersPanel'
 import { PositionsSection } from '../components/PositionsSection'
+import { QuickTradeButtons } from '../components/QuickTradeButtons'
 import { ErrorState } from '../components/Loading'
 import { resetPaperPortfolio, purgeAgentPaperPositions, cancelPaperOrder, cancelAllPaperOrders } from '../api'
 import { formatPln } from '../utils/format'
 import { formatThrownError } from '../i18n/utils'
 import { useLocale } from '../context/LocaleContext'
+
+const QUICK_TRADE = [
+  { symbol: 'BTC-USD', label: 'Bitcoin' },
+  { symbol: 'AAPL', label: 'Apple' },
+  { symbol: 'NVDA', label: 'NVIDIA' },
+  { symbol: 'AAPLX-USD', label: 'Apple xStock' },
+] as const
 
 export function PortfolioPage() {
   const location = useLocation()
@@ -21,7 +29,8 @@ export function PortfolioPage() {
 
   const [resetting, setResetting] = useState(false)
   const [purging, setPurging] = useState(false)
-  const [purgeMsg, setPurgeMsg] = useState<string | null>(null)
+  const [statusMsg, setStatusMsg] = useState<string | null>(null)
+  const [statusErr, setStatusErr] = useState<string | null>(null)
   const [tradingSymbol, setTradingSymbol] = useState<string | null>(null)
   const [cancellingId, setCancellingId] = useState<number | null>(null)
   const [cancellingAll, setCancellingAll] = useState(false)
@@ -64,10 +73,14 @@ export function PortfolioPage() {
   const handleReset = async () => {
     if (!confirm(t('portfolio.confirmReset'))) return
     setResetting(true)
-    setPurgeMsg(null)
+    setStatusMsg(null)
+    setStatusErr(null)
     try {
       await resetPaperPortfolio()
       await reload()
+      setStatusMsg(t('portfolio.resetDone'))
+    } catch (e) {
+      setStatusErr(formatThrownError(e, t('portfolio.resetFailed')))
     } finally {
       setResetting(false)
     }
@@ -76,13 +89,14 @@ export function PortfolioPage() {
   const handlePurgeAgent = async () => {
     if (!confirm(t('portfolio.confirmPurgeAgent'))) return
     setPurging(true)
-    setPurgeMsg(null)
+    setStatusMsg(null)
+    setStatusErr(null)
     try {
       const data = (await purgeAgentPaperPositions()) as { purged?: string[] }
-      setPurgeMsg(t('execution.purgeAgentDone', { n: data.purged?.length ?? 0 }))
+      setStatusMsg(t('execution.purgeAgentDone', { n: data.purged?.length ?? 0 }))
       await reload()
     } catch (e) {
-      alert(formatThrownError(e, t('api.purgeAgentFailed')))
+      setStatusErr(formatThrownError(e, t('api.purgeAgentFailed')))
     } finally {
       setPurging(false)
     }
@@ -105,6 +119,34 @@ export function PortfolioPage() {
 
       <PortfolioSummary portfolio={portfolio} />
 
+      <section className="portfolio-paper-banner" aria-label={t('portfolio.paperBanner')}>
+        <div className="portfolio-paper-banner-main">
+          <strong>{t('portfolio.paperBanner')}</strong>
+          <span>
+            {t('portfolio.cashLine', { cash: formatPln(portfolio.cash_pln) })} ·{' '}
+            {t('portfolio.equityLine', { equity: formatPln(portfolio.total_equity_pln) })}
+          </span>
+        </div>
+        <p className="portfolio-paper-hint">{t('portfolio.quickTradeHint')}</p>
+        <div className="portfolio-quick-trade">
+          {QUICK_TRADE.map((item) => (
+            <div key={item.symbol} className="portfolio-quick-card">
+              <Link
+                to={`/instrument/${encodeURIComponent(item.symbol)}`}
+                className="portfolio-quick-link"
+              >
+                {item.label}
+                <em>{item.symbol}</em>
+              </Link>
+              <QuickTradeButtons symbol={item.symbol} compact onTrade={() => void reload()} />
+            </div>
+          ))}
+          <Link to="/rynki" className="btn btn-ghost tap-target portfolio-quick-btn">
+            {t('portfolio.browseMarkets')}
+          </Link>
+        </div>
+      </section>
+
       <section className="portfolio-section portfolio-actions-bar">
         <button
           type="button"
@@ -114,11 +156,21 @@ export function PortfolioPage() {
         >
           {purging ? t('execution.purgingAgent') : t('execution.purgeAgent')}
         </button>
-        <button type="button" className="btn-link tap-target" onClick={() => void handleReset()} disabled={resetting || purging}>
-          {t('portfolio.resetAccount')}
+        <button
+          type="button"
+          className="btn tap-target"
+          onClick={() => void handleReset()}
+          disabled={resetting || purging}
+        >
+          {resetting ? t('portfolio.resetting') : t('portfolio.resetAccount')}
         </button>
       </section>
-      {purgeMsg && <p className="portfolio-purge-msg">{purgeMsg}</p>}
+      {statusMsg && <p className="portfolio-purge-msg">{statusMsg}</p>}
+      {statusErr && <p className="portfolio-error-msg">{statusErr}</p>}
+
+      {portfolio.positions_count === 0 && (
+        <p className="empty-state portfolio-empty-cta">{t('portfolio.emptyPositionsCta')}</p>
+      )}
 
       <section className="portfolio-section">
         <div className="section-header">

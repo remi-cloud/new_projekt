@@ -2,8 +2,10 @@ import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { Layout } from './components/Layout'
 import { Loading } from './components/Loading'
+import { SeasonalityInfoWindow } from './components/SeasonalityInfoWindow'
 import { DashboardProvider, useDashboardContext } from './context/DashboardContext'
 import { LocaleProvider, useLocale } from './context/LocaleContext'
+import { SeasonalityInfoProvider } from './context/SeasonalityInfoContext'
 import { HomePage } from './pages/HomePage'
 import { ALIAS_REDIRECTS } from './routes'
 
@@ -36,6 +38,10 @@ const PearlHunterPage = lazy(() =>
 const ExecutionAgentPage = lazy(() =>
   import('./pages/ExecutionAgentPage').then((m) => ({ default: m.ExecutionAgentPage })),
 )
+const SuperOpportunitiesPage = lazy(() => import('./pages/SuperOpportunitiesPage'))
+const ToolsPage = lazy(() => import('./pages/ToolsPage'))
+const AstraMathPage = lazy(() => import('./pages/AstraMathPage'))
+const AgentsPage = lazy(() => import('./pages/AgentsPage'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })))
 
 function PageSuspense() {
@@ -51,14 +57,17 @@ function AppShell() {
   const { data, health, scanning, scan, liveConnected } = useDashboardContext()
 
   return (
-    <Layout
-      scannerRunning={data?.scanner_running ?? health?.scanner_running}
-      scanInProgress={data?.scan_in_progress}
-      liveMode={data?.live_mode ?? health?.live_mode}
-      liveConnected={liveConnected}
-      onScan={scan}
-      scanning={scanning}
-    />
+    <>
+      <Layout
+        scannerRunning={data?.scanner_running ?? health?.scanner_running}
+        scanInProgress={data?.scan_in_progress}
+        liveMode={data?.live_mode ?? health?.live_mode}
+        liveConnected={liveConnected}
+        onScan={scan}
+        scanning={scanning}
+      />
+      <SeasonalityInfoWindow />
+    </>
   )
 }
 
@@ -66,6 +75,7 @@ export default function App() {
   return (
     <LocaleProvider>
       <BrowserRouter>
+        <SeasonalityInfoProvider>
         <DashboardProvider>
           <Routes>
             <Route
@@ -89,6 +99,15 @@ export default function App() {
                 <Route path="news" element={<MacroNewsPage />} />
                 <Route path="agent" element={<FinanceAgentPage />} />
                 <Route path="okazje" element={<OpportunitiesPage />} />
+                <Route path="superokazje" element={<SuperOpportunitiesPage />} />
+                <Route path="superokazje/:symbol" element={<SuperOpportunitiesPage />} />
+                <Route path="pozycja/:symbol" element={<SuperOpportunitiesPage />} />
+                <Route path="narzedzia" element={<ToolsPage />} />
+                <Route path="narzedzia/singularity" element={<AgentsPage />} />
+                <Route path="narzedzia/astra" element={<AstraMathPage />} />
+                <Route path="singularity" element={<Navigate to="/narzedzia/singularity" replace />} />
+                <Route path="astra" element={<Navigate to="/narzedzia/astra" replace />} />
+                <Route path="agenci" element={<Navigate to="/narzedzia/singularity" replace />} />
                 <Route path="perly" element={<PearlHunterPage />} />
                 <Route path="execution" element={<ExecutionAgentPage />} />
                 <Route path="portfel" element={<PortfolioPage />} />
@@ -106,6 +125,7 @@ export default function App() {
             </Route>
           </Routes>
         </DashboardProvider>
+        </SeasonalityInfoProvider>
       </BrowserRouter>
     </LocaleProvider>
   )

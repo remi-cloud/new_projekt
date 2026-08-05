@@ -7,7 +7,14 @@ from app.api.deps import ASSET_MAP
 from app.cycles.signal_history import compute_cycle_markers
 from app.data.broker_map import resolve_broker_info
 from app.data.chart_data import CHART_PRESETS, fetch_chart
-from app.models.schemas import AssetClass, AssetCycleAssessment, ChartResponse, SignalAction
+from app.data.community_links import resolve_community_links
+from app.models.schemas import (
+    AssetClass,
+    AssetCycleAssessment,
+    ChartResponse,
+    InstrumentCommunity,
+    SignalAction,
+)
 from app.paper.pricing import PaperTradeError, get_live_price_async
 from app.scanners.opportunity_scanner import scanner
 
@@ -62,6 +69,7 @@ def _price_only_assessment(
         confidence=0,
         rationale=rationale,
         updated_at=datetime.now(timezone.utc),
+        community=InstrumentCommunity(**resolve_community_links(symbol, name)),
     )
 
 

@@ -1,18 +1,28 @@
 #!/usr/bin/env bash
 set -euo pipefail
-
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-echo "==> Budowanie frontendu WWW..."
+echo "→ Building frontend…"
 cd "$ROOT/frontend"
-npm install --silent
+npm install
 npm run build
 
-echo "==> Kopiowanie do backend/static..."
-rm -rf "$ROOT/backend/static"
-mkdir -p "$ROOT/backend/static"
-cp -r dist/* "$ROOT/backend/static/"
+echo "→ Copying dist → backend/static (keep prior hashed assets)…"
+# Never wipe previous /assets/*.js hashes: cached HTML still points at them → 404 → blank #root.
+mkdir -p "$ROOT/backend/static/assets"
+# Sync non-asset files with delete so removed public files disappear.
+if command -v rsync >/dev/null 2>&1; then
+  rsync -a --delete --exclude 'assets/' "$ROOT/frontend/dist/" "$ROOT/backend/static/"
+  # Merge new hashed assets; do NOT --delete orphans.
+  rsync -a "$ROOT/frontend/dist/assets/" "$ROOT/backend/static/assets/"
+else
+  # Fallback without rsync: copy over, keep existing asset orphans.
+  find "$ROOT/frontend/dist" -mindepth 1 -maxdepth 1 ! -name assets -exec cp -R {} "$ROOT/backend/static/" \;
+  cp -R "$ROOT/frontend/dist/assets/." "$ROOT/backend/static/assets/"
+fi
 
-echo "==> Gotowe! Uruchom backend:"
-echo "    cd backend && source .venv/bin/activate && uvicorn app.main:app --host 0.0.0.0 --port 8080"
-echo "    Otwórz: http://localhost:8080"
+echo "✓ WWW ready. Start with:"
+echo "  ./scripts/dev-up.sh"
+echo "  ./scripts/mac-start.sh"
+echo "  ./scripts/start-public.sh   # telefon / publiczny link"
+echo "  Open http://localhost:8080"

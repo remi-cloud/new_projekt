@@ -15,7 +15,11 @@ export function HomePage() {
 
   if (error && !data) return <ErrorState message={error} onRetry={reload} />
   if (loading && !data) return <Loading message={t('layout.loading')} />
-  if (!data) return null
+  if (!data) {
+    return (
+      <ErrorState message={t('layout.loading')} onRetry={reload} />
+    )
+  }
 
   const topOpps = data.opportunities.slice(0, 3)
   const totalAssets = data.market_summary?.total_assets ?? 0
