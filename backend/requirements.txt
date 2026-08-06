@@ -6,3 +6,8 @@ pydantic==2.10.4
 pydantic-settings==2.7.0
 python-dateutil==2.9.0.post0
 aiosqlite==0.20.0
+curl_cffi>=0.7.0
+pywebpush==1.14.1
+py-vapid==1.9.2
+Pillow>=10.4.0
+googlenewsdecoder>=0.1.7

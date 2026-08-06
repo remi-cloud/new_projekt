@@ -1,0 +1,172 @@
+"""Lightweight batch price fetch for real-time ticker (Yahoo v7 quote API)."""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from datetime import datetime, timezone
+from urllib.parse import quote as url_quote
+
+import httpx
+
+from app.data.assets import MONITORED_ASSETS, resolve_yahoo_symbol
+from app.data.investing_com import fetch_investing_quote, uses_investing
+from app.data.market_data import _quote_price_round
+from app.models.schemas import AssetClass, AssetQuote
+logger = logging.getLogger(__name__)
+
+YAHOO_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+}
+BATCH_SIZE = 45
+# Cap in-flight Yahoo calls; process in chunks so we never enqueue hundreds of
+# waiters on one shared semaphore (that starved /api/paper/portfolio).
+YAHOO_CONCURRENCY = 8
+INVESTING_SEMAPHORE = asyncio.Semaphore(2)
+
+ASSET_BY_SYMBOL = {a["symbol"]: a for a in MONITORED_ASSETS}
+
+
+async def fetch_fast_quotes(
+    symbols: list[str] | None = None,
+) -> dict[str, AssetQuote]:
+    """Return latest prices for symbols (default: all monitored)."""
+    now = datetime.now(timezone.utc)
+    target = symbols or [a["symbol"] for a in MONITORED_ASSETS]
+
+    yahoo_symbols: list[str] = []
+    investing_symbols: list[str] = []
+
+    for sym in target:
+        meta = ASSET_BY_SYMBOL.get(sym)
+        if not meta:
+            continue
+        if uses_investing(sym, meta.get("region")):
+            investing_symbols.append(sym)
+        else:
+            yahoo_symbols.append(sym)
+
+    quotes: dict[str, AssetQuote] = {}
+
+    async with httpx.AsyncClient(timeout=12, headers=YAHOO_HEADERS) as client:
+        # Yahoo v7 batch quote often returns 401 — use v8 chart spot directly.
+        # Chunk so other API handlers (paper portfolio) are not stuck behind a
+        # 200+ deep semaphore queue during full price ticks.
+        for chunk in _chunks(yahoo_symbols, YAHOO_CONCURRENCY):
+            v8_results = await asyncio.gather(
+                *[_fetch_yahoo_v8_spot(client, sym, now) for sym in chunk],
+                return_exceptions=True,
+            )
+            for sym, result in zip(chunk, v8_results):
+                if isinstance(result, AssetQuote):
+                    quotes[sym] = result
+
+        for chunk in _chunks(investing_symbols, 2):
+            inv_results = await asyncio.gather(
+                *[_fetch_investing_fast(sym, now) for sym in chunk],
+                return_exceptions=True,
+            )
+            for sym, result in zip(chunk, inv_results):
+                if isinstance(result, AssetQuote):
+                    quotes[sym] = result
+
+    return quotes
+
+
+def _chunks(items: list[str], size: int) -> list[list[str]]:
+    return [items[i : i + size] for i in range(0, len(items), size)]
+
+
+async def _fetch_yahoo_batch(
+    client: httpx.AsyncClient,
+    symbols: list[str],
+    now: datetime,
+) -> dict[str, AssetQuote]:
+    if not symbols:
+        return {}
+
+    encoded = ",".join(url_quote(resolve_yahoo_symbol(s), safe="") for s in symbols)
+    url = f"https://query1.finance.yahoo.com/v7/finance/quote?symbols={encoded}"
+    try:
+        resp = await client.get(url)
+        resp.raise_for_status()
+        results = resp.json().get("quoteResponse", {}).get("result", [])
+    except Exception as exc:
+        logger.warning("Yahoo batch quote failed: %s", exc)
+        return {}
+
+    # Map Yahoo ticker back to app symbol
+    yahoo_to_app = {resolve_yahoo_symbol(s): s for s in symbols}
+    out: dict[str, AssetQuote] = {}
+    for item in results:
+        yahoo_sym = item.get("symbol")
+        sym = yahoo_to_app.get(yahoo_sym) or yahoo_sym
+        meta = ASSET_BY_SYMBOL.get(sym)
+        if not meta:
+            continue
+        price = item.get("regularMarketPrice")
+        if price is None:
+            continue
+        change_pct = item.get("regularMarketChangePercent")
+        out[sym] = AssetQuote(
+            symbol=sym,
+            name=meta["name"],
+            asset_class=AssetClass(meta["asset_class"]),
+            price=_quote_price_round(float(price)),
+            change_pct_24h=round(float(change_pct), 2) if change_pct is not None else None,
+            updated_at=now,
+        )
+    return out
+
+
+async def _fetch_yahoo_v8_spot(
+    client: httpx.AsyncClient,
+    symbol: str,
+    now: datetime,
+) -> AssetQuote | None:
+    """Spot price via Yahoo v8 chart API (works when v7 quote returns 401)."""
+    meta = ASSET_BY_SYMBOL.get(symbol)
+    if not meta:
+        return None
+
+    encoded = url_quote(resolve_yahoo_symbol(symbol), safe="")
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{encoded}"
+    try:
+        resp = await client.get(url, params={"range": "1d", "interval": "1m"})
+        resp.raise_for_status()
+        result = resp.json().get("chart", {}).get("result")
+        if not result:
+            return None
+        r = result[0]
+        ymeta = r.get("meta") or {}
+        price = ymeta.get("regularMarketPrice")
+        if price is None:
+            q = (r.get("indicators") or {}).get("quote", [{}])[0]
+            closes = [c for c in (q.get("close") or []) if c is not None]
+            if not closes:
+                return None
+            price = closes[-1]
+        prev = ymeta.get("chartPreviousClose") or ymeta.get("previousClose") or price
+        change_pct = None
+        if prev and float(prev) != 0:
+            change_pct = round((float(price) - float(prev)) / float(prev) * 100, 2)
+        return AssetQuote(
+            symbol=symbol,
+            name=meta["name"],
+            asset_class=AssetClass(meta["asset_class"]),
+            price=_quote_price_round(float(price)),
+            change_pct_24h=change_pct,
+            updated_at=now,
+        )
+    except Exception as exc:
+        logger.debug("Yahoo v8 spot failed for %s: %s", symbol, exc)
+        return None
+
+
+async def _fetch_investing_fast(symbol: str, now: datetime) -> AssetQuote | None:
+    meta = ASSET_BY_SYMBOL.get(symbol)
+    if not meta:
+        return None
+    async with INVESTING_SEMAPHORE:
+        quote, _ = await fetch_investing_quote(meta, now)
+        return quote

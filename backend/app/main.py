@@ -1,12 +1,20 @@
+"""FastAPI entrypoint — lifespan + router registration."""
+
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.db.database import get_recent_opportunities, init_db
-from app.models.schemas import DashboardResponse
-from app.scheduler.jobs import is_running, scheduled_scan, start_scheduler, stop_scheduler
+from app.api import register_routers
+from app.api.news import initial_news
+from app.db.database import init_db
+from app.notifications.alert_engine import alert_engine
+from app.notifications.vapid_setup import ensure_vapid_keys
+from app.paper.paper_db import init_paper_db
+from app.paper.portfolio_agent import sync_on_startup
+from app.scheduler.jobs import scheduled_full_scan, start_scheduler, stop_scheduler
 from app.scanners.opportunity_scanner import scanner
 
 logging.basicConfig(level=logging.INFO)
@@ -16,75 +24,76 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
-    start_scheduler()
+    from app.growth import init_growth_db
+
+    await init_growth_db()
+    await init_paper_db()
+    from app.ai.pearl_hunter.db import init_pearl_db
+
+    await init_pearl_db()
+    from app.execution.db import init_execution_db
+
+    await init_execution_db()
+    from app.telegram.predator_db import init_predator_db
+
+    await init_predator_db()
+    ensure_vapid_keys()
     try:
-        await scheduled_scan()
+        from app.cycles.seasonality_monitor import run_seasonality_monitor
+
+        run_seasonality_monitor(persist=True)
     except Exception as exc:
-        logger.warning("Initial scan failed (will retry on schedule): %s", exc)
+        logger.warning("Seasonality monitor bootstrap failed: %s", exc)
+    start_scheduler()
+
+    # Block until paper book + ledger are reconciled and agent memory seeded,
+    # so the first HTTP requests never see an empty/stale portfolio race.
+    try:
+        await sync_on_startup()
+    except Exception as exc:
+        logger.warning("Portfolio sync on startup failed (will retry on schedule): %s", exc)
+
+    async def _initial_scan() -> None:
+        try:
+            await scheduled_full_scan()
+            if scanner.market_assessments:
+                alert_engine.reset(scanner.market_assessments)
+        except Exception as exc:
+            logger.warning("Initial scan failed (will retry on schedule): %s", exc)
+
+    async def _initial_pearl() -> None:
+        try:
+            from app.ai.pearl_hunter import run_crypto_agent, run_equity_agent
+            from app.config import settings as cfg
+
+            if not cfg.pearl_hunter_enabled:
+                return
+            await run_equity_agent()
+            await run_crypto_agent()
+        except Exception as exc:
+            logger.warning("Initial pearl hunt failed (will retry on schedule): %s", exc)
+
+    asyncio.create_task(_initial_scan())
+    asyncio.create_task(initial_news())
+    asyncio.create_task(_initial_pearl())
     yield
     stop_scheduler()
 
 
 app = FastAPI(
-    title="Cyclical Trader",
-    description="Aplikacja tradingowa oparta na cyklu Bitcoin (364/1064 dni) i cyklu prezydenckim USA",
-    version="1.0.0",
+    title="Cykliczny Trader Kar Digital",
+    description="Cykliczny Trader · Kar Digital — cykle rynkowe, śledzenie live, powiadomienia push/SMS",
+    version="1.3.0",
     lifespan=lifespan,
 )
 
 app.add_middleware(
     CORSMiddleware,
+    # Same-origin SPA + Vite proxy; credentials+wildcard is rejected by browsers.
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-
-@app.get("/api/health")
-async def health():
-    return {"status": "ok", "scanner_running": is_running()}
-
-
-@app.get("/api/dashboard", response_model=DashboardResponse)
-async def dashboard():
-    if not scanner.bitcoin_cycle or not scanner.presidential_cycle or not scanner.quotes:
-        await scanner.scan()
-    if not scanner.bitcoin_cycle or not scanner.presidential_cycle:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=503, detail="Nie udało się pobrać danych cykli")
-    return DashboardResponse(
-        bitcoin_cycle=scanner.bitcoin_cycle,
-        presidential_cycle=scanner.presidential_cycle,
-        opportunities=scanner.opportunities,
-        monitored_assets=scanner.quotes,
-        last_scan_at=scanner.last_scan_at,
-        scanner_running=is_running(),
-    )
-
-
-@app.post("/api/scan")
-async def trigger_scan():
-    opportunities = await scanner.scan()
-    from app.db.database import save_opportunities
-    await save_opportunities(opportunities)
-    return {"scanned": True, "opportunities_count": len(opportunities)}
-
-
-@app.get("/api/opportunities/history")
-async def opportunity_history(limit: int = 50):
-    return await get_recent_opportunities(limit)
-
-
-@app.get("/api/cycles/bitcoin")
-async def bitcoin_cycle():
-    if not scanner.bitcoin_cycle:
-        await scanner.scan()
-    return scanner.bitcoin_cycle
-
-
-@app.get("/api/cycles/presidential")
-async def presidential_cycle():
-    if not scanner.presidential_cycle:
-        await scanner.scan()
-    return scanner.presidential_cycle
+register_routers(app)

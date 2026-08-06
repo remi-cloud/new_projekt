@@ -1,0 +1,8 @@
+export { aboutDetailPl } from './pl'
+export { aboutDetailEn } from './en'
+export { aboutDetailDe } from './de'
+export { aboutDetailEs } from './es'
+export { aboutDetailFr } from './fr'
+export { aboutDetailIt } from './it'
+export { aboutDetailFil } from './fil'
+export type { AboutDetailBundle, AboutDetailTopic, AboutDetailSection } from './types'

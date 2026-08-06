@@ -1,0 +1,159 @@
+/* HD / retina polish — sharper type, edges, and surfaces (Kar Digital) */
+
+:root {
+  --font-sans: 'Manrope', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
+  --radius: 4px;
+  --hd-hairline: rgba(255, 255, 255, 0.1);
+  --hd-surface: linear-gradient(165deg, rgba(255, 255, 255, 0.04) 0%, transparent 42%),
+    var(--bg-card);
+  --hd-glow: 0 0 0 1px var(--hd-hairline), 0 20px 60px rgba(0, 0, 0, 0.55);
+}
+
+html {
+  color-scheme: dark;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-synthesis: none;
+}
+
+body {
+  background-image:
+    radial-gradient(ellipse 110% 70% at 50% -28%, rgba(184, 151, 90, 0.07), transparent 52%),
+    radial-gradient(ellipse 50% 40% at 100% 0%, rgba(255, 255, 255, 0.03), transparent 50%),
+    linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 48px 48px, 48px 48px;
+  background-attachment: fixed, fixed, scroll, scroll;
+}
+
+/* Crisper cards */
+.cycle-card,
+.opp-card,
+.hero-stat,
+.side-panel,
+.instrument-panel,
+.market-card,
+.stat,
+.super-card,
+.desk-card {
+  background: var(--hd-surface);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  border-color: var(--hd-hairline);
+  backdrop-filter: saturate(1.15) blur(8px);
+  -webkit-backdrop-filter: saturate(1.15) blur(8px);
+}
+
+@media (max-width: 720px) {
+  .cycle-card,
+  .opp-card,
+  .instrument-panel,
+  .market-card,
+  .side-panel {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+.desktop-sidebar,
+.app-header,
+.bottom-nav,
+.desktop-header {
+  border-color: var(--hd-hairline);
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+}
+
+.sidebar-nav-item,
+.bottom-nav-item {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.sidebar-nav-item.active,
+.bottom-nav-item.active {
+  box-shadow: inset 0 0 0 1px rgba(184, 151, 90, 0.35);
+}
+
+.mobile-title,
+.desktop-page-title,
+.section-title,
+.hero h1 {
+  letter-spacing: -0.03em;
+  font-weight: 700;
+}
+
+.price-live,
+.price-ticker,
+.market-price,
+.opp-symbol,
+.market-symbol {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1, 'ss01' 1;
+}
+
+.signal-tag,
+.tag,
+button.tag-tip-trigger {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.btn-primary,
+.sidebar-scan-btn {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12), 0 8px 28px rgba(0, 0, 0, 0.35);
+}
+
+.kar-logo,
+.sidebar-brand img,
+.mobile-header-left img {
+  image-rendering: auto;
+  filter: drop-shadow(0 2px 8px rgba(184, 151, 90, 0.25));
+}
+
+/* Retina hairlines on 2x+ displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .cycle-card,
+  .opp-card,
+  .instrument-panel,
+  .market-card,
+  .side-panel,
+  .stat {
+    box-shadow:
+      inset 0 0.5px 0 rgba(255, 255, 255, 0.08),
+      0 12px 40px rgba(0, 0, 0, 0.4);
+  }
+}
+
+/* Page enter — snappier, less “soft” */
+.page-transition {
+  animation: hd-page-enter 0.35s var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) both;
+}
+
+.page-transition > * {
+  animation: hd-content-rise 0.4s var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) both;
+}
+
+@keyframes hd-page-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes hd-content-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-transition,
+  .page-transition > * {
+    animation: none !important;
+  }
+}

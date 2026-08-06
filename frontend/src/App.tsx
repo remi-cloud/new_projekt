@@ -1,303 +1,132 @@
-import { useCallback, useEffect, useState } from 'react'
-import { fetchDashboard, triggerScan } from './api'
-import {
-  AssetClass,
-  AssetQuote,
-  BitcoinCycleStatus,
-  DashboardResponse,
-  Opportunity,
-  PresidentialCycleStatus,
-  SignalAction,
-} from './types'
+import { lazy, Suspense } from 'react'
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom'
+import { Layout } from './components/Layout'
+import { Loading } from './components/Loading'
+import { SeasonalityInfoWindow } from './components/SeasonalityInfoWindow'
+import { DashboardProvider, useDashboardContext } from './context/DashboardContext'
+import { LocaleProvider, useLocale } from './context/LocaleContext'
+import { SeasonalityInfoProvider } from './context/SeasonalityInfoContext'
+import { HomePage } from './pages/HomePage'
+import { ALIAS_REDIRECTS } from './routes'
 
-const ASSET_LABELS: Record<AssetClass, string> = {
-  crypto: 'Krypto',
-  stock: 'Akcje',
-  index: 'Indeksy',
-  bond: 'Obligacje',
-  commodity: 'Surowce',
-  forex: 'Forex',
-}
+const DashboardPage = lazy(() => import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })))
+const CyclesPage = lazy(() => import('./pages/CyclesPage').then((m) => ({ default: m.CyclesPage })))
+const MarketsPage = lazy(() => import('./pages/MarketsPage').then((m) => ({ default: m.MarketsPage })))
+const OpportunitiesPage = lazy(() =>
+  import('./pages/OpportunitiesPage').then((m) => ({ default: m.OpportunitiesPage })),
+)
+const PortfolioPage = lazy(() => import('./pages/PortfolioPage').then((m) => ({ default: m.PortfolioPage })))
+const InstrumentDetailPage = lazy(() =>
+  import('./pages/InstrumentDetailPage').then((m) => ({ default: m.InstrumentDetailPage })),
+)
+const MacroNewsPage = lazy(() => import('./pages/MacroNewsPage').then((m) => ({ default: m.MacroNewsPage })))
+const FinanceAgentPage = lazy(() => import('./pages/FinanceAgentPage').then((m) => ({ default: m.FinanceAgentPage })))
+const RoiCalculatorPage = lazy(() =>
+  import('./pages/RoiCalculatorPage').then((m) => ({ default: m.RoiCalculatorPage })),
+)
+const LivePage = lazy(() => import('./pages/LivePage').then((m) => ({ default: m.LivePage })))
+const BusinessPage = lazy(() => import('./pages/BusinessPage').then((m) => ({ default: m.BusinessPage })))
+const PartnersPage = lazy(() => import('./pages/PartnersPage').then((m) => ({ default: m.PartnersPage })))
+const EmbedPage = lazy(() => import('./pages/EmbedPage').then((m) => ({ default: m.EmbedPage })))
+const AboutPage = lazy(() => import('./pages/AboutPage').then((m) => ({ default: m.AboutPage })))
+const AboutDetailPage = lazy(() => import('./pages/AboutDetailPage').then((m) => ({ default: m.AboutDetailPage })))
+const AlertsPage = lazy(() => import('./pages/AlertsPage').then((m) => ({ default: m.AlertsPage })))
+const EmbedWidgetPage = lazy(() => import('./pages/EmbedWidgetPage').then((m) => ({ default: m.EmbedWidgetPage })))
+const PearlHunterPage = lazy(() =>
+  import('./pages/PearlHunterPage').then((m) => ({ default: m.PearlHunterPage })),
+)
+const ExecutionAgentPage = lazy(() =>
+  import('./pages/ExecutionAgentPage').then((m) => ({ default: m.ExecutionAgentPage })),
+)
+const SuperOpportunitiesPage = lazy(() => import('./pages/SuperOpportunitiesPage'))
+const ToolsPage = lazy(() => import('./pages/ToolsPage'))
+const AstraMathPage = lazy(() => import('./pages/AstraMathPage'))
+const AgentsPage = lazy(() => import('./pages/AgentsPage'))
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })))
 
-const SIGNAL_LABELS: Record<SignalAction, string> = {
-  buy: 'Kupuj',
-  sell: 'Sprzedaj',
-  hold: 'Trzymaj',
-  watch: 'Obserwuj',
-}
-
-const PHASE_LABELS: Record<string, string> = {
-  bear: 'Spadkowa',
-  accumulation: 'Akumulacja',
-  bull: 'Wzrostowa',
-  distribution: 'Dystrybucja',
-  neutral: 'Neutralna',
-  year_1: 'Rok 1',
-  year_2: 'Rok 2',
-  year_3: 'Rok 3',
-  year_4: 'Rok 4',
-}
-
-function formatPrice(price: number, assetClass: AssetClass): string {
-  if (assetClass === 'forex') return price.toFixed(4)
-  if (price >= 1000) return price.toLocaleString('en-US', { maximumFractionDigits: 0 })
-  if (price >= 1) return price.toFixed(2)
-  return price.toFixed(4)
-}
-
-function ChangeCell({ value }: { value: number | null }) {
-  if (value === null) return <span className="change-neutral">—</span>
-  const cls = value > 0 ? 'change-positive' : value < 0 ? 'change-negative' : 'change-neutral'
-  return <span className={cls}>{value > 0 ? '+' : ''}{value.toFixed(2)}%</span>
-}
-
-function CycleCardBitcoin({ cycle }: { cycle: BitcoinCycleStatus }) {
-  const progressClass = cycle.phase === 'bear' ? 'bear' : cycle.phase === 'bull' ? 'bull' : 'neutral'
+function PageSuspense() {
+  const { t } = useLocale()
   return (
-    <div className="cycle-card bitcoin">
-      <div className="cycle-card-header">
-        <h2>Cykl Bitcoin (364 / 1064 dni)</h2>
-        <span className={`signal-tag signal-${cycle.signal}`}>{SIGNAL_LABELS[cycle.signal]}</span>
-      </div>
-      <div className="cycle-stats">
-        <div className="stat">
-          <div className="stat-label">Ostatnie ATH</div>
-          <div className="stat-value">${cycle.last_ath_price.toLocaleString()}</div>
-        </div>
-        <div className="stat">
-          <div className="stat-label">Cena bieżąca</div>
-          <div className="stat-value">${cycle.current_price.toLocaleString()}</div>
-        </div>
-        <div className="stat">
-          <div className="stat-label">Dni od ATH</div>
-          <div className="stat-value">{cycle.days_since_ath}</div>
-        </div>
-        <div className="stat">
-          <div className="stat-label">Faza</div>
-          <div className="stat-value">{PHASE_LABELS[cycle.phase] ?? cycle.phase}</div>
-        </div>
-      </div>
-      <div className="progress-bar">
-        <div
-          className={`progress-fill ${progressClass}`}
-          style={{ width: `${cycle.phase_progress_pct}%` }}
-        />
-      </div>
-      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 8 }}>
-        Postęp fazy: {cycle.phase_progress_pct}% · Pozostało {cycle.days_remaining_in_phase} dni
-      </div>
-      <p className="cycle-rationale">{cycle.rationale}</p>
-    </div>
+    <Suspense fallback={<Loading message={t('layout.loading')} />}>
+      <Outlet />
+    </Suspense>
   )
 }
 
-function CycleCardPresidential({ cycle }: { cycle: PresidentialCycleStatus }) {
-  return (
-    <div className="cycle-card presidential">
-      <div className="cycle-card-header">
-        <h2>Cykl prezydencki USA</h2>
-        <span className={`signal-tag signal-${cycle.signal}`}>{SIGNAL_LABELS[cycle.signal]}</span>
-      </div>
-      <div className="cycle-stats">
-        <div className="stat">
-          <div className="stat-label">Prezydent</div>
-          <div className="stat-value">{cycle.president}</div>
-        </div>
-        <div className="stat">
-          <div className="stat-label">Rok kadencji</div>
-          <div className="stat-value">{PHASE_LABELS[cycle.current_year] ?? cycle.current_year}</div>
-        </div>
-        <div className="stat">
-          <div className="stat-label">Dzień roku</div>
-          <div className="stat-value">{cycle.days_into_year}</div>
-        </div>
-        <div className="stat">
-          <div className="stat-label">Historyczny bias</div>
-          <div className="stat-value" style={{ fontSize: '0.85rem' }}>{cycle.historical_bias.split('—')[0]}</div>
-        </div>
-      </div>
-      <div className="progress-bar">
-        <div
-          className="progress-fill neutral"
-          style={{ width: `${cycle.year_progress_pct}%` }}
-        />
-      </div>
-      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 8 }}>
-        Postęp roku: {cycle.year_progress_pct}% · Pozostało {cycle.days_remaining_in_year} dni
-      </div>
-      <p className="cycle-rationale">{cycle.rationale}</p>
-    </div>
-  )
-}
+function AppShell() {
+  const { data, health, scanning, scan, liveConnected } = useDashboardContext()
 
-function OpportunityCard({ opp }: { opp: Opportunity }) {
   return (
-    <div className="opp-card">
-      <div className="opp-header">
-        <div>
-          <div className="opp-name">{opp.name}</div>
-          <div className="opp-symbol">{opp.symbol}</div>
-        </div>
-        <span className={`signal-tag signal-${opp.action}`}>{SIGNAL_LABELS[opp.action]}</span>
-      </div>
-      <div className="confidence-bar">
-        <div className="confidence-track">
-          <div className="confidence-fill" style={{ width: `${opp.confidence}%` }} />
-        </div>
-        <span className="confidence-pct">{opp.confidence}%</span>
-      </div>
-      <div className="opp-meta">
-        <span className={`tag ${opp.asset_class}`}>{ASSET_LABELS[opp.asset_class]}</span>
-        <span className="tag">{opp.cycle_source === 'bitcoin_cycle' ? 'Cykl BTC' : 'Cykl prez.'}</span>
-        <span className="tag">${formatPrice(opp.price, opp.asset_class)}</span>
-      </div>
-      <p className="opp-rationale">{opp.rationale}</p>
-    </div>
-  )
-}
-
-function AssetsTable({ assets }: { assets: AssetQuote[] }) {
-  return (
-    <div className="assets-table-wrap">
-      <table className="assets-table">
-        <thead>
-          <tr>
-            <th>Instrument</th>
-            <th>Klasa</th>
-            <th>Cena</th>
-            <th>24h</th>
-            <th>7d</th>
-          </tr>
-        </thead>
-        <tbody>
-          {assets.map((a) => (
-            <tr key={a.symbol}>
-              <td>
-                <strong>{a.name}</strong>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  {a.symbol}
-                </div>
-              </td>
-              <td><span className={`tag ${a.asset_class}`}>{ASSET_LABELS[a.asset_class]}</span></td>
-              <td className="price-cell">${formatPrice(a.price, a.asset_class)}</td>
-              <td><ChangeCell value={a.change_pct_24h} /></td>
-              <td><ChangeCell value={a.change_pct_7d} /></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <>
+      <Layout
+        scannerRunning={data?.scanner_running ?? health?.scanner_running}
+        scanInProgress={data?.scan_in_progress}
+        liveMode={data?.live_mode ?? health?.live_mode}
+        liveConnected={liveConnected}
+        onScan={scan}
+        scanning={scanning}
+      />
+      <SeasonalityInfoWindow />
+    </>
   )
 }
 
 export default function App() {
-  const [data, setData] = useState<DashboardResponse | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [scanning, setScanning] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const load = useCallback(async () => {
-    try {
-      const dashboard = await fetchDashboard()
-      setData(dashboard)
-      setError(null)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Błąd połączenia z API')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    load()
-    const interval = setInterval(load, 60_000)
-    return () => clearInterval(interval)
-  }, [load])
-
-  const handleScan = async () => {
-    setScanning(true)
-    try {
-      await triggerScan()
-      await load()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Skanowanie nie powiodło się')
-    } finally {
-      setScanning(false)
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="loading">
-        <div className="spinner" />
-        <p>Ładowanie danych rynkowych...</p>
-      </div>
-    )
-  }
-
-  if (error && !data) {
-    return (
-      <div className="error">
-        <p>{error}</p>
-        <button className="btn btn-primary" onClick={load}>Ponów</button>
-      </div>
-    )
-  }
-
-  if (!data) return null
-
   return (
-    <div className="app">
-      <header className="header">
-        <h1><span>Cyclical</span> Trader</h1>
-        <div className="header-meta">
-          <div className="status-badge">
-            <span className={`status-dot ${data.scanner_running ? '' : 'offline'}`} />
-            Skaner {data.scanner_running ? 'aktywny 24/7' : 'offline'}
-          </div>
-          {data.last_scan_at && (
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-              Ostatni skan: {new Date(data.last_scan_at).toLocaleString('pl-PL')}
-            </span>
-          )}
-          <button className="btn btn-primary" onClick={handleScan} disabled={scanning}>
-            {scanning ? 'Skanowanie...' : 'Skanuj teraz'}
-          </button>
-        </div>
-      </header>
-
-      <div className="cycles-grid">
-        <CycleCardBitcoin cycle={data.bitcoin_cycle} />
-        <CycleCardPresidential cycle={data.presidential_cycle} />
-      </div>
-
-      <h2 className="section-title">
-        Okazje tradingowe
-        <span className="count">{data.opportunities.length}</span>
-      </h2>
-      {data.opportunities.length === 0 ? (
-        <p style={{ color: 'var(--text-muted)', marginBottom: 32 }}>
-          Brak aktywnych sygnałów — cykle nie wskazują na wyraźne okazje.
-        </p>
-      ) : (
-        <div className="opportunities-grid">
-          {data.opportunities.map((opp) => (
-            <OpportunityCard key={`${opp.symbol}-${opp.created_at}`} opp={opp} />
-          ))}
-        </div>
-      )}
-
-      <h2 className="section-title">
-        Monitorowane instrumenty
-        <span className="count">{data.monitored_assets.length}</span>
-      </h2>
-      <AssetsTable assets={data.monitored_assets} />
-
-      <footer className="footer">
-        Cyclical Trader · Krypto: cykl 364d spadków + 1064d wzrostu od ATH ·
-        Tradycyjne: cykl prezydencki USA (lata 1–4 kadencji) ·
-        Nie jest to porada inwestycyjna
-      </footer>
-    </div>
+    <LocaleProvider>
+      <BrowserRouter>
+        <SeasonalityInfoProvider>
+        <DashboardProvider>
+          <Routes>
+            <Route
+              path="embed/widget"
+              element={
+                <Suspense fallback={<Loading message="…" />}>
+                  <EmbedWidgetPage />
+                </Suspense>
+              }
+            />
+            <Route element={<AppShell />}>
+              <Route element={<PageSuspense />}>
+                <Route index element={<HomePage />} />
+                <Route path="dashboard" element={<DashboardPage />} />
+                <Route path="cykle" element={<CyclesPage />} />
+                <Route path="kalkulator" element={<RoiCalculatorPage />} />
+                <Route path="live" element={<LivePage />} />
+                <Route path="biznes" element={<BusinessPage />} />
+                <Route path="partnerzy" element={<PartnersPage />} />
+                <Route path="embed" element={<EmbedPage />} />
+                <Route path="news" element={<MacroNewsPage />} />
+                <Route path="agent" element={<FinanceAgentPage />} />
+                <Route path="okazje" element={<OpportunitiesPage />} />
+                <Route path="superokazje" element={<SuperOpportunitiesPage />} />
+                <Route path="superokazje/:symbol" element={<SuperOpportunitiesPage />} />
+                <Route path="pozycja/:symbol" element={<SuperOpportunitiesPage />} />
+                <Route path="narzedzia" element={<ToolsPage />} />
+                <Route path="narzedzia/singularity" element={<AgentsPage />} />
+                <Route path="narzedzia/astra" element={<AstraMathPage />} />
+                <Route path="singularity" element={<Navigate to="/narzedzia/singularity" replace />} />
+                <Route path="astra" element={<Navigate to="/narzedzia/astra" replace />} />
+                <Route path="agenci" element={<Navigate to="/narzedzia/singularity" replace />} />
+                <Route path="perly" element={<PearlHunterPage />} />
+                <Route path="execution" element={<ExecutionAgentPage />} />
+                <Route path="portfel" element={<PortfolioPage />} />
+                <Route path="rynki" element={<MarketsPage />} />
+                <Route path="instrument/:symbol" element={<InstrumentDetailPage />} />
+                <Route path="o-nas" element={<AboutPage />} />
+                <Route path="o-nas/:slug" element={<AboutDetailPage />} />
+                <Route path="powiadomienia" element={<AlertsPage />} />
+              </Route>
+              <Route path="o-aplikacji" element={<Navigate to="/o-nas" replace />} />
+              {ALIAS_REDIRECTS.map(({ from, to }) => (
+                <Route key={from} path={from} element={<Navigate to={to} replace />} />
+              ))}
+              <Route path="*" element={<NotFoundPage />} />
+            </Route>
+          </Routes>
+        </DashboardProvider>
+        </SeasonalityInfoProvider>
+      </BrowserRouter>
+    </LocaleProvider>
   )
 }

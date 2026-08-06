@@ -1,0 +1,21 @@
+{
+  "name": "cyclical-trader-debut",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "install": "./scripts/install.sh",
+  "terminals": [
+    {
+      "name": "www",
+      "command": "./scripts/dev-up.sh",
+      "description": "Build React SPA into backend/static and serve WWW (API+UI) on :8080"
+    }
+  ],
+  "ports": [
+    {
+      "name": "www",
+      "port": 8080
+    }
+  ]
+}

@@ -1,107 +1,154 @@
-# Cyclical Trader
+# Cykliczny Trader · Kar Digital
 
-Aplikacja do tradingu oparta na **cyklach rynkowych** — nie skalping, nie HFT. Monitoruje rynki 24/7 i wyszukuje okazje kupna/sprzedaży na podstawie dwóch fundamentalnych cykli.
+Aplikacja webowa (**Cyclical Academy**) do **edukacji rynków przez cykle** — tłumaczy fazy rynku i schematy na podstawie cykli. Nie skalping, nie HFT, nie broker.
 
 ## Filozofia
 
 | Klasa aktywów | Cykl odniesienia | Logika |
 |---|---|---|
 | **Krypto** | Cykl Bitcoin | 364 dni spadków od ATH → 1064 dni fali wzrostowej |
-| **Akcje, indeksy, obligacje, surowce, forex** | Cykl prezydencki USA | Zachowanie w latach 1–4 kadencji prezydenckiej |
+| **Akcje, indeksy, obligacje, surowce, forex** | Cykl prezydencki USA + makro regionalne | Lata 1–4 kadencji + bias regionu |
 
-## Cykl Bitcoin (krypto)
+## Szybki start
 
+### Mac (Terminal) — zalecane lokalnie
+
+Od folderów do działającej apki: **[`docs/MAC-SETUP.md`](docs/MAC-SETUP.md)**
+
+```bash
+./scripts/mac-bootstrap.sh     # raz
+./scripts/mac-start.sh         # http://localhost:8080
 ```
-ATH ──► [364 dni BEAR/spadki] ──► [1064 dni BULL/wzrost] ──► [dystrybucja] ──► nowe ATH
+
+Szczegóły: [`docs/MAC.md`](docs/MAC.md) · Deploy: [`docs/DEPLOY-AWS.md`](docs/DEPLOY-AWS.md)
+
+### Jedna komenda (dev / Cursor)
+
+```bash
+./scripts/dev-up.sh
 ```
 
-- **Dni 0–364** od ostatniego ATH: faza spadkowa — akumulacja, sygnały KUPUJ/OBSERWUJ
-- **Dni 364–1428**: fala wzrostowa — KUPUJ (początek), TRZYMAJ (środek), SPRZEDAJ (koniec)
-- **Po 1428 dniach**: dystrybucja — ostrożność do nowego ATH
+Instaluje zależności, buduje SPA i odpala WWW na **http://localhost:8080**.
 
-## Cykl prezydencki (tradycyjne rynki)
+### Telefon / publiczny link
 
-| Rok kadencji | Historyczny bias | Sygnał |
-|---|---|---|
-| Rok 1 (po wyborach) | Słabszy — adaptacja polityki | OBSERWUJ |
-| Rok 2 (midterms) | Najsłabszy — lata wyborów do Kongresu | KUPUJ (dystrybucja) |
-| Rok 3 (pre-election) | **Najsilniejszy** historycznie | KUPUJ |
-| Rok 4 (wybory) | Umiarkowanie pozytywny | TRZYMAJ |
+```bash
+chmod +x scripts/*.sh
+./scripts/start-public.sh
+```
 
-Obligacje i surowce mają dodatkowe modyfikatory w ramach cyklu.
+Opcjonalnie: `brew install cloudflared` (skrypt też pobierze binary do `.tools/`).  
+`localhost` na telefonie = telefon — użyj linku `https://….trycloudflare.com` (zapis w `PUBLIC_URL.txt`).
 
-## Monitorowane instrumenty
+Smoke po starcie: `./scripts/audit.sh`
 
-- **Krypto**: BTC, ETH, SOL
-- **Indeksy USA**: S&P 500, Dow Jones, NASDAQ, Russell 2000
-- **Akcje**: AAPL, MSFT, NVDA, JPM
-- **Obligacje** (ETF): TLT, IEF, LQD, HYG
-- **Surowce**: Złoto, Srebro, Ropa, Gaz
-- **Forex**: EUR/USD, GBP/USD, USD/JPY, DXY
-
-## Uruchomienie
-
-### Docker (zalecane)
+### Docker (jeden kontener WWW)
 
 ```bash
 docker compose up --build
 ```
 
-- Frontend: http://localhost:3000
-- API: http://localhost:8000
-- Dokumentacja API: http://localhost:8000/docs
+Otwórz: **http://localhost:8080**
 
-### Lokalnie (dev)
+### Lokalnie (dev ręcznie)
 
-**Backend:**
 ```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate
+./scripts/build-www.sh
+cd backend && python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8080
 ```
 
-**Frontend:**
-```bash
-cd frontend
-npm install
-npm run dev
+Frontend hot-reload: `cd frontend && npm install && npm run dev` → http://localhost:5173
+
+## Strony aplikacji WWW
+
+| Strona | URL | Opis |
+|--------|-----|------|
+| Start | `/` | Strona główna z hero i podsumowaniem cykli |
+| Dashboard | `/dashboard` | Cykle + okazje + notowania |
+| Cykle | `/cykle` | Szczegóły cykli BTC i prezydenckiego |
+| Okazje | `/okazje` | Sygnały z filtrami (klasa, akcja) |
+| Superokazje | `/superokazje` | Heatmapa 3D + IN/SL/TP + whale + Singularity |
+| Narzędzia | `/narzedzia` | Singularity war room + skróty desk |
+| Rynki | `/rynki` | Tabela instrumentów z filtrami |
+| Portfel | `/portfel` | Paper trading |
+| Powiadomienia | `/powiadomienia` | Alerty / ntfy / SMS |
+| O aplikacji | `/o-aplikacji` | Informacje i disclaimer |
+
+## Cykle rynkowe
+
+### Krypto — cykl Bitcoin (364 / 1064 dni)
+
+```
+ATH ──► [364 dni SPADKI] ──► [1064 dni WZROST] ──► [dystrybucja] ──► nowe ATH
 ```
 
-Frontend dev server: http://localhost:5173 (proxy do API na :8000)
+| Faza | Dni od ATH | Sygnał |
+|------|-----------|--------|
+| Spadkowa | 0–364 | KUPUJ / OBSERWUJ |
+| Wzrostowa | 364–1428 | KUPUJ → TRZYMAJ → SPRZEDAJ |
+| Dystrybucja | >1428 | SPRZEDAJ |
+
+### Tradycyjne rynki — cykl prezydencki USA
+
+| Rok kadencji | Bias | Sygnał |
+|---|---|---|
+| Rok 1 | Słabszy | OBSERWUJ |
+| Rok 2 (midterms) | Najsłabszy | KUPUJ |
+| Rok 3 (pre-election) | **Najsilniejszy** | KUPUJ |
+| Rok 4 (wybory) | Umiarkowany | TRZYMAJ |
+
+## Monitorowane instrumenty (246)
+
+Krypto · Indeksy globalne · **Top 10 akcji / ETF / obligacji** per rynek (USA, Europa, Azja, EM, Polska) · Mag7 · Ekosystem Muska
 
 ## API
 
 | Endpoint | Opis |
 |---|---|
-| `GET /api/dashboard` | Pełny dashboard: cykle, okazje, notowania |
-| `POST /api/scan` | Wymuś natychmiastowe skanowanie |
-| `GET /api/cycles/bitcoin` | Status cyklu Bitcoin |
-| `GET /api/cycles/presidential` | Status cyklu prezydenckiego |
-| `GET /api/opportunities/history` | Historia sygnałów (SQLite) |
-| `GET /api/health` | Health check + status skanera |
+| `GET /api/dashboard` | Pełne dane dashboardu |
+| `POST /api/scan` | Wymuś skanowanie |
+| `GET /api/cycles/bitcoin` | Cykl BTC |
+| `GET /api/cycles/presidential` | Cykl prezydencki |
+| `GET /api/health` | Status serwera + skanera |
 
-Skaner działa automatycznie co 15 minut (konfigurowalne przez `CYCLICAL_SCAN_INTERVAL_MINUTES`).
+Dokumentacja API: http://localhost:8080/docs
 
-## Konfiguracja
-
-Zmienne środowiskowe (prefix `CYCLICAL_`):
-
-| Zmienna | Domyślnie | Opis |
-|---|---|---|
-| `SCAN_INTERVAL_MINUTES` | 15 | Interwał skanowania |
-| `BTC_BEAR_PHASE_DAYS` | 364 | Dni fazy spadkowej od ATH |
-| `BTC_BULL_PHASE_DAYS` | 1064 | Dni fali wzrostowej |
-
-## Architektura
+## Architektura WWW
 
 ```
-backend/          FastAPI + APScheduler + SQLite + yfinance
-frontend/         React + TypeScript + Vite
-docker-compose    Backend + Frontend (nginx)
+frontend/     React SPA (React Router, TypeScript, Vite)
+  src/styles/   base.css + theme.css (jeden entry: styles/index.css)
+  src/types/    typy domenowe + chart
+backend/      FastAPI — API + serwowanie static SPA
+  app/api/      routery HTTP (markets, paper, news, ai, …)
+  app/main.py   lifespan + rejestracja routerów (~70 linii)
+scripts/      mac-bootstrap / build-www / start
+Dockerfile    Multi-stage: npm build → Python + static
+backups/      lokalne snapshoty (gitignore — nie commitować)
 ```
+
+Skaner działa w trybie **real-time**:
+- **Ceny** — odświeżanie co 30 s (`CYCLICAL_PRICE_POLL_INTERVAL_SECONDS`)
+- **Pełna analiza** — co 5 min (`CYCLICAL_SCAN_INTERVAL_MINUTES`)
+- **Powiadomienia** — push (przeglądarka) + SMS (Twilio) przy zmianie sygnału
+
+Konfiguracja: `.env.example` (VAPID, Twilio, progi alertów).
+
+### Backup / auto-save
+
+Pełny snapshot przed wyjściem:
+
+```bash
+./scripts/backup-now.sh
+```
+
+Zapis trafia do `backups/session_YYYYMMDD_HHMMSS/` (wskaźnik: `backups/LATEST_SESSION.txt`).
+
+Co **20 s** backend kopiuje postęp do `backups/progress/current/` (portfel, trader.db, static).  
+W UI: przełącznik **Auto-odświeżanie 20s** (sidebar) — dashboard odświeża dane co 20 s.
 
 ## Disclaimer
 
-Ta aplikacja służy wyłącznie celom edukacyjno-analitycznym. Nie stanowi porady inwestycyjnej. Trading wiąże się z ryzykiem utraty kapitału.
+Aplikacja edukacyjno-analityczna — nie stanowi porady inwestycyjnej. Trading wiąże się z ryzykiem utraty kapitału.
