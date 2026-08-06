@@ -145,12 +145,18 @@ check_json_field /api/paper/portfolio \
   'import sys,json;d=json.load(sys.stdin);print("ok" if "cash_pln" in d and ("total_equity_pln" in d or "equity" in d or "total_equity" in d) else "")' \
   "paper.cash_pln+equity"
 
+check /api/paper/ledger/status 200
+check_json_field /api/paper/ledger/status \
+  'import sys,json;d=json.load(sys.stdin);ok=d.get("ledger_dir") and d.get("ledger_trades") is not None and d.get("db_trades") is not None;print("ok" if ok else "")' \
+  "paper.ledger.status"
+
 PAPER_RAW=$(curl -sf --max-time 30 "$BASE/api/paper/portfolio" || true)
 if [[ -n "$PAPER_RAW" ]]; then
   CASH=$(printf '%s' "$PAPER_RAW" | python3 -c 'import sys,json;d=json.load(sys.stdin);print(d.get("cash_pln",""))' 2>/dev/null || true)
   EQUITY=$(printf '%s' "$PAPER_RAW" | python3 -c 'import sys,json;d=json.load(sys.stdin);print(d.get("total_equity_pln", d.get("equity","")))' 2>/dev/null || true)
+  POS=$(printf '%s' "$PAPER_RAW" | python3 -c 'import sys,json;d=json.load(sys.stdin);print(d.get("positions_count", len(d.get("positions") or [])))' 2>/dev/null || true)
   if [[ -n "$CASH" && -n "$EQUITY" ]]; then
-    echo "OK   paper portfolio cash_pln=$CASH equity=$EQUITY"
+    echo "OK   paper portfolio cash_pln=$CASH equity=$EQUITY positions=$POS"
   else
     echo "FAIL paper portfolio missing cash/equity fields"
     fail=1

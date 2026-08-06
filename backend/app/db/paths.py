@@ -37,6 +37,23 @@ def portfolio_snapshot_path() -> Path:
     return portfolio_dir() / "portfolio_snapshot.json"
 
 
+def portfolio_ledger_dir() -> Path:
+    """Append-only trade ledger folder (bible on disk)."""
+    return portfolio_dir() / "ledger"
+
+
+def portfolio_ledger_trades_path() -> Path:
+    return portfolio_ledger_dir() / "trades.jsonl"
+
+
+def portfolio_ledger_state_path() -> Path:
+    return portfolio_ledger_dir() / "state.json"
+
+
+def portfolio_ledger_archive_dir() -> Path:
+    return portfolio_ledger_dir() / "archive"
+
+
 def portfolio_repo_backup_path() -> Path:
     """Committed backup in repo — restored on first run when portfolio DB is empty."""
     return BACKEND_ROOT.parent / "backups" / "portfolio_latest.sqlite"

@@ -136,7 +136,7 @@ async def restore_repo_backup_if_needed() -> bool:
 
 
 async def sync_on_startup() -> dict:
-    """Run when the app starts: ensure folder, migrate legacy DB, refresh snapshot."""
+    """Run when the app starts: ensure folder, migrate legacy DB, ledger reconcile, snapshot."""
     folder = portfolio_dir()
     folder.mkdir(parents=True, exist_ok=True)
     logger.info("Portfolio agent: folder %s", folder)
@@ -148,6 +148,21 @@ async def sync_on_startup() -> dict:
         logger.info("Portfolio agent: restored data from legacy trader.db")
     elif restored:
         logger.info("Portfolio agent: restored data from backups/portfolio_latest.sqlite")
+
+    try:
+        from app.paper.ledger_agent import reconcile_on_startup
+
+        ledger_status = await reconcile_on_startup()
+        logger.info(
+            "Ledger agent: trades ledger=%s db=%s rebuilt=%s ok=%s → %s",
+            ledger_status.get("ledger_trades"),
+            ledger_status.get("db_trades"),
+            ledger_status.get("rebuilt"),
+            ledger_status.get("ok"),
+            ledger_status.get("ledger_dir"),
+        )
+    except Exception as exc:
+        logger.warning("Ledger reconcile on startup failed: %s", exc)
 
     positions = await paper_db.get_positions()
     account = await paper_db.get_account()
@@ -176,8 +191,15 @@ async def sync_on_startup() -> dict:
     return snapshot
 
 
-async def sync_after_trade() -> None:
-    """Lightweight post-trade update of the JSON snapshot + agent memory."""
+async def sync_after_trade(trade: dict | None = None) -> None:
+    """Append trade to disk ledger, then refresh JSON snapshot + agent memory."""
+    if trade is not None:
+        try:
+            from app.paper.ledger_agent import append_trade
+
+            await append_trade(trade)
+        except Exception as exc:
+            logger.warning("Ledger append after trade failed: %s", exc)
     try:
         snapshot = await refresh_snapshot()
         from app.paper.portfolio_memory import seed_agent_portfolio_memory
@@ -185,6 +207,23 @@ async def sync_after_trade() -> None:
         await seed_agent_portfolio_memory(snapshot.get("portfolio"))
     except Exception as exc:
         logger.warning("Portfolio snapshot update failed: %s", exc)
+    # Real portfolio vs SPX tick after every fill
+    try:
+        from app.scanners.opportunity_scanner import scanner
+        from app.telemetry.agent_vs_spx import record_telemetry_tick
+
+        spx = None
+        for a in scanner.market_assessments or []:
+            if getattr(a, "symbol", None) in ("^GSPC", "SPY"):
+                spx = getattr(a, "price", None)
+                break
+        await record_telemetry_tick(
+            scanner.market_assessments or [],
+            spx_price=float(spx) if spx else None,
+            scan_id="after_trade",
+        )
+    except Exception as exc:
+        logger.debug("Portfolio vs SPX tick after trade skipped: %s", exc)
 
 
 def backup_portfolio_db() -> str | None:

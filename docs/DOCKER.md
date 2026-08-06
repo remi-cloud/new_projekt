@@ -36,12 +36,12 @@ Smoke: `./scripts/audit.sh http://127.0.0.1:8080`
 
 ## Volume’y (pamięć)
 
-| Volume | Ścieżka w kontenerze | Co trzyma |
-|--------|----------------------|-----------|
+| Volume / mount | Ścieżka w kontenerze | Co trzyma |
+|----------------|----------------------|-----------|
 | `trader-data` | `/app/data` | `trader.db` (AI, alerty, news) |
-| `portfolio-data` | `/app/data/baza_portfela` | paper `portfolio.db` + snapshot |
+| bind-mount `./backend/data/baza_portfela` | `/app/data/baza_portfela` | paper `portfolio.db`, snapshot, **ledger/** |
 
-Po restarcie kontenera agent wczytuje zapisany portfel z volume (jak lokalnie).
+**Portfel = ten folder na Macu.** Lokalny uvicorn i Docker czytają tę samą ścieżkę `backend/data/baza_portfela/` (w tym `ledger/trades.jsonl` — biblia transakcji). Dzięki temu przełączenie lokal↔Docker nie wygląda jak „reset” portfela. Po restarcie agent ledger uzgadnia / odtwarza SQLite z pliku na dysku.
 
 ## Produkcja — domena .ph (zalecane na Mac + Docker)
 

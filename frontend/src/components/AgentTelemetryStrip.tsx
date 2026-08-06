@@ -32,6 +32,9 @@ export function AgentTelemetryStrip() {
   const agentCurve = (data?.points || []).map((p) => ({ time: p.time, equity: p.agent_nav }))
   const spxCurve = (data?.points || []).map((p) => ({ time: p.time, equity: p.spx_nav }))
   const last = data?.last
+  const delta = data?.vs_spx_nav ?? 0
+  const ahead = delta > 0.05
+  const behind = delta < -0.05
 
   return (
     <section className="dashboard-section agent-telemetry-strip">
@@ -40,14 +43,20 @@ export function AgentTelemetryStrip() {
         <div className="telemetry-chips">
           {last && (
             <>
-              <span className="pres-season-chip">
-                {t('dashboard.telemetryLongs', { n: last.n_long })}
-              </span>
-              <span className="pres-season-chip">
+              <span
+                className={`pres-season-chip ${ahead ? 'season-best_six' : behind ? 'season-worst_six' : ''}`}
+              >
                 {t('dashboard.telemetryVsSpx', {
-                  delta: (data?.vs_spx_nav ?? 0).toFixed(1),
+                  delta: delta.toFixed(1),
                 })}
               </span>
+              {data?.live?.portfolio_equity_pln != null && (
+                <span className="pres-season-chip">
+                  {t('dashboard.telemetryEquity', {
+                    n: Math.round(data.live.portfolio_equity_pln).toLocaleString(),
+                  })}
+                </span>
+              )}
               <span className={`pres-season-chip ${last.health_ok ? 'season-best_six' : 'season-worst_six'}`}>
                 {last.health_ok ? t('dashboard.telemetryOk') : t('dashboard.telemetryWarn')}
               </span>
@@ -56,6 +65,7 @@ export function AgentTelemetryStrip() {
         </div>
       </div>
       <p className="page-lead">{t('dashboard.telemetryLead')}</p>
+      {data?.disclaimer && <p className="pres-next-term-note">{data.disclaimer}</p>}
       {error && <p className="empty-state">{error}</p>}
       {!error && agentCurve.length < 2 && (
         <p className="empty-state">{t('dashboard.telemetryWarmup')}</p>

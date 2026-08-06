@@ -97,13 +97,24 @@ def _phase_for_bar(
 
     if region == "us" and asset_class in ("stock", "etf", "index", "tokenized"):
         pres = analyze_presidential_cycle(as_of)
-        if phase in (CyclePhase.BEAR, CyclePhase.ACCUMULATION) or pres.signal == SignalAction.BUY:
-            if phase == CyclePhase.DISTRIBUTION:
-                return CyclePhase.DISTRIBUTION, SignalAction.SELL, f"Price peak + {pres.current_year.value}"
-            return phase, SignalAction.BUY, f"Pres. {pres.current_year.value} · {phase.value}"
-        if phase == CyclePhase.DISTRIBUTION or pres.signal == SignalAction.SELL:
-            return CyclePhase.DISTRIBUTION, SignalAction.SELL, f"Exit · {pres.current_year.value}"
-        return phase, SignalAction.HOLD, f"Pres. {pres.current_year.value}"
+        dd_pct = ((high_52 - c.close) / high_52 * 100) if high_52 > 0 else 0.0
+        # Invested-first US book (real Yahoo prices): stay long through normal
+        # bull/near-high action. Deploy on dips (≥10% off 52w high). Do NOT
+        # park cash at ≤3% from highs — that cash drag is what lost to buy&hold.
+        if dd_pct >= 10 or phase in (CyclePhase.BEAR, CyclePhase.ACCUMULATION):
+            return (
+                CyclePhase.ACCUMULATION if dd_pct >= 10 else phase,
+                SignalAction.BUY,
+                f"Dip buy −{dd_pct:.0f}% · {pres.current_year.value}",
+            )
+        if pres.signal == SignalAction.BUY or phase in (CyclePhase.BULL, CyclePhase.DISTRIBUTION):
+            return (
+                CyclePhase.BULL,
+                SignalAction.BUY,
+                f"Stay invested · {pres.current_year.value}",
+            )
+        # Weak presidential year but not toppy exit: remain invested (HOLD keeps units)
+        return CyclePhase.BULL, SignalAction.HOLD, f"Hold invested · {pres.current_year.value}"
 
     return phase, signal, f"Price cycle · {phase.value}"
 
@@ -423,7 +434,8 @@ async def calculate_program_us_backtest(
     from pathlib import Path
 
     start = start or date(1995, 1, 1)
-    cache_key = f"{symbol}:{amount}:{start.isoformat()}"
+    # v4: US invested-first (no cash-park near highs) — real Yahoo price-return
+    cache_key = f"v4:{symbol}:{amount}:{start.isoformat()}"
     hit = _PROGRAM_CACHE.get(cache_key)
     if hit and time.time() - hit[0] < _PROGRAM_CACHE_TTL:
         return hit[1]
@@ -464,6 +476,7 @@ async def calculate_program_us_backtest(
         "trades_count": len(result.get("trades") or []),
         "disclaimer": (
             "Price-return Yahoo (no dividends/total-return), no transaction costs. "
+            "US invested-first cycle: stays long near highs; buys dips ≥10% off 52w high. "
             "Educational simulation — not investment advice."
         ),
     }

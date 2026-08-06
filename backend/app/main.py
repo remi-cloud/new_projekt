@@ -46,11 +46,12 @@ async def lifespan(app: FastAPI):
         logger.warning("Seasonality monitor bootstrap failed: %s", exc)
     start_scheduler()
 
-    async def _initial_portfolio_sync() -> None:
-        try:
-            await sync_on_startup()
-        except Exception as exc:
-            logger.warning("Portfolio sync on startup failed (will retry): %s", exc)
+    # Block until paper book + ledger are reconciled and agent memory seeded,
+    # so the first HTTP requests never see an empty/stale portfolio race.
+    try:
+        await sync_on_startup()
+    except Exception as exc:
+        logger.warning("Portfolio sync on startup failed (will retry on schedule): %s", exc)
 
     async def _initial_scan() -> None:
         try:
@@ -72,7 +73,6 @@ async def lifespan(app: FastAPI):
         except Exception as exc:
             logger.warning("Initial pearl hunt failed (will retry on schedule): %s", exc)
 
-    asyncio.create_task(_initial_portfolio_sync())
     asyncio.create_task(_initial_scan())
     asyncio.create_task(initial_news())
     asyncio.create_task(_initial_pearl())

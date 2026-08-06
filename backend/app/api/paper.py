@@ -124,6 +124,14 @@ async def paper_reset():
     return await build_portfolio()
 
 
+@router.get("/api/paper/ledger/status")
+async def paper_ledger_status():
+    """Disk ledger vs SQLite — path, trade counts, last ts, ok/drift."""
+    from app.paper.ledger_agent import ledger_status
+
+    return await ledger_status()
+
+
 @router.post("/api/paper/purge-agent-positions")
 async def paper_purge_agent_positions(force: bool = False):
     """Close positions created by execution agent (dry-run mirror), not manual user orders."""

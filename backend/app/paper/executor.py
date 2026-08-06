@@ -199,7 +199,7 @@ async def place_order(
     await paper_db.insert_trade(trade)
     from app.paper.portfolio_agent import sync_after_trade
 
-    await sync_after_trade()
+    await sync_after_trade(trade)
     logger.info("Paper %s %s x %s @ %s PLN", side, quantity, symbol, price_pln)
     return trade
 

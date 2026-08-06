@@ -39,14 +39,26 @@ export function ProgramUsBacktestPanel() {
   const equity = (data?.equity_curve || []).map((p) => ({ time: p.time, equity: p.equity }))
   const bh = (data?.buy_hold?.equity_curve || []).map((p) => ({ time: p.time, equity: p.equity }))
   const prog = data?.program
+  const ratio = prog?.ratio_agent_vs_bh
+  const vsBhChip =
+    ratio == null
+      ? null
+      : ratio > 1.02
+        ? { className: 'pres-season-chip season-best_six', label: t('dashboard.programVsBhWin') }
+        : ratio < 0.98
+          ? { className: 'pres-season-chip season-worst_six', label: t('dashboard.programVsBhLose') }
+          : { className: 'pres-season-chip', label: t('dashboard.programVsBhFlat') }
 
   return (
     <section className="dashboard-section program-us-backtest">
       <div className="section-header">
         <h2 className="section-title">{t('dashboard.programTitle')}</h2>
-        <Link to="/narzedzia/roi" className="link-btn tap-target card-nav-link">
-          {t('dashboard.programFullRoi')}
-        </Link>
+        <div className="telemetry-chips">
+          {vsBhChip && <span className={vsBhChip.className}>{vsBhChip.label}</span>}
+          <Link to="/narzedzia/roi" className="link-btn tap-target card-nav-link">
+            {t('dashboard.programFullRoi')}
+          </Link>
+        </div>
       </div>
       <p className="page-lead">{t('dashboard.programLead')}</p>
       {loading && <p className="empty-state">{t('layout.loading')}</p>}

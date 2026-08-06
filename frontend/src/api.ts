@@ -454,6 +454,10 @@ export type AgentTelemetryPoint = {
   n_long: number
   n_universe: number
   health_ok: boolean
+  portfolio_equity_pln?: number | null
+  signal_nav?: number | null
+  inception_nav?: number | null
+  source?: string
 }
 
 export type AgentTelemetryResponse = {
@@ -463,6 +467,14 @@ export type AgentTelemetryResponse = {
   max_drawdown_pct: number
   vs_spx_nav: number | null
   count: number
+  metric?: string
+  disclaimer?: string
+  baseline_started_at?: string
+  live?: {
+    portfolio_equity_pln?: number
+    inception_nav?: number
+    vs_spx_nav?: number | null
+  } | null
 }
 
 export async function fetchAgentTelemetry(

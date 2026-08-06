@@ -358,6 +358,13 @@ async def reset_account() -> dict:
             (INITIAL_CASH_PLN, INITIAL_CASH_PLN, now),
         )
         await db.commit()
+    try:
+        from app.paper.ledger_agent import archive_ledger
+
+        archive_ledger()
+    except Exception:
+        # Reset must still succeed even if ledger archive fails.
+        pass
     return await get_account()
 
 

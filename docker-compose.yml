@@ -34,7 +34,8 @@ services:
       CYCLICAL_TELEGRAM_PREDATOR_INTERVAL_SECONDS: "${CYCLICAL_TELEGRAM_PREDATOR_INTERVAL_SECONDS:-60}"
     volumes:
       - trader-data:/app/data
-      - portfolio-data:/app/data/baza_portfela
+      # Same folder as local Mac uvicorn — portfolio bible survives Docker↔local switches
+      - ./backend/data/baza_portfela:/app/data/baza_portfela
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/health', timeout=5)"]
       interval: 30s
@@ -45,4 +46,3 @@ services:
 
 volumes:
   trader-data:
-  portfolio-data:
