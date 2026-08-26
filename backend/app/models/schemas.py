@@ -4,7 +4,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
-MacroNewsCategory = Literal["fed", "usa", "macro", "global", "musk"]
+MacroNewsCategory = Literal["fed", "usa", "macro", "global", "musk", "crypto"]
 
 
 class AssetClass(str, Enum):
@@ -424,6 +424,7 @@ class PaperPositionView(BaseModel):
     unrealized_pnl_pct: float
     currency: str
     opened_at: str | None = None
+    image_url: str | None = None
     pending_limit_orders: list["PaperLimitOrderView"] = Field(default_factory=list)
     broker_info: BrokerPurchaseInfo | None = None
 
@@ -502,6 +503,19 @@ class PaperClosedPositionView(BaseModel):
     currency: str
     opened_at: str
     closed_at: str
+    image_url: str | None = None
+
+
+class PaperTradeStats(BaseModel):
+    trades: int = 0
+    wins: int = 0
+    losses: int = 0
+    win_rate: float | None = None
+    avg_win_pln: float | None = None
+    avg_loss_pln: float | None = None
+    expectancy_pln: float | None = None
+    best_pln: float | None = None
+    worst_pln: float | None = None
 
 
 class PaperPortfolio(BaseModel):
@@ -518,6 +532,7 @@ class PaperPortfolio(BaseModel):
     positions: list[PaperPositionView]
     closed_positions_count: int = 0
     closed_positions: list[PaperClosedPositionView] = Field(default_factory=list)
+    trade_stats: PaperTradeStats | None = None
     limit_orders: list[PaperLimitOrderView] = []
     recent_trades: list[PaperTradeView]
     quotes_available: int

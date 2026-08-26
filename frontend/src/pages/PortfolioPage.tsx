@@ -2,10 +2,17 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { PortfolioSummary, usePaperPortfolio } from '../components/PaperTrading'
 import { OpenOrdersPanel } from '../components/OpenOrdersPanel'
-import { PositionsSection } from '../components/PositionsSection'
+import { PositionsSection, type PositionsTab } from '../components/PositionsSection'
 import { QuickTradeButtons } from '../components/QuickTradeButtons'
 import { ErrorState } from '../components/Loading'
-import { resetPaperPortfolio, purgeAgentPaperPositions, cancelPaperOrder, cancelAllPaperOrders } from '../api'
+import {
+  resetPaperPortfolio,
+  purgeAgentPaperPositions,
+  cancelPaperOrder,
+  cancelAllPaperOrders,
+  fetchBinancePortfolioSync,
+  type BinancePortfolioSync,
+} from '../api'
 import { formatPln } from '../utils/format'
 import { formatThrownError } from '../i18n/utils'
 import { useLocale } from '../context/LocaleContext'
@@ -19,9 +26,9 @@ const QUICK_TRADE = [
 
 export function PortfolioPage() {
   const location = useLocation()
-  const { t, dateLocale } = useLocale()
+  const { t } = useLocale()
   const { portfolio, loading, error, reload } = usePaperPortfolio()
-  const [positionsTab, setPositionsTab] = useState<'open' | 'closed'>('open')
+  const [positionsTab, setPositionsTab] = useState<PositionsTab>('open')
 
   useEffect(() => {
     if (location.pathname === '/portfel') reload()
@@ -34,6 +41,13 @@ export function PortfolioPage() {
   const [tradingSymbol, setTradingSymbol] = useState<string | null>(null)
   const [cancellingId, setCancellingId] = useState<number | null>(null)
   const [cancellingAll, setCancellingAll] = useState(false)
+  const [binanceSync, setBinanceSync] = useState<BinancePortfolioSync | null>(null)
+
+  useEffect(() => {
+    void fetchBinancePortfolioSync()
+      .then(setBinanceSync)
+      .catch(() => setBinanceSync(null))
+  }, [portfolio])
 
   const handleTradeComplete = async (symbol: string) => {
     setTradingSymbol(symbol)
@@ -117,6 +131,64 @@ export function PortfolioPage() {
         <p className="page-lead">{t('portfolio.lead')}</p>
       </header>
 
+      <section className="portfolio-paper-banner kar-digital-firm-banner" aria-label={t('portfolio.karBanner')}>
+        <div className="portfolio-paper-banner-main">
+          <strong>{t('portfolio.karBanner')}</strong>
+          <span>{t('portfolio.karLead')}</span>
+        </div>
+        <div className="portfolio-quick-trade">
+          <Link to="/axiom" className="btn btn-primary tap-target">
+            {t('portfolio.karOpenAxiom')}
+          </Link>
+          <Link to="/launch" className="btn btn-ghost tap-target">
+            {t('portfolio.karOpenLaunch')}
+          </Link>
+        </div>
+      </section>
+
+      <section className="portfolio-paper-banner binance-bot-banner" aria-label={t('portfolio.binanceBanner')}>
+        <div className="portfolio-paper-banner-main">
+          <strong>{t('portfolio.binanceBanner')}</strong>
+          <span>
+            {!binanceSync
+              ? t('portfolio.binanceLoading')
+              : !binanceSync.configured
+                ? t('portfolio.binanceNoKeys')
+                : binanceSync.connected
+                  ? binanceSync.dry_run
+                    ? t('portfolio.binanceConnectedDry', { n: binanceSync.drift_count ?? 0 })
+                    : t('portfolio.binanceConnectedLive', { n: binanceSync.drift_count ?? 0 })
+                  : t('portfolio.binanceDisconnected')}
+          </span>
+        </div>
+        {binanceSync && (binanceSync.drift?.length ?? 0) > 0 ? (
+          <div className="portfolio-binance-drift">
+            {binanceSync.drift.slice(0, 6).map((d) => (
+              <div key={d.symbol} className="portfolio-binance-drift-row">
+                <span>
+                  {d.symbol}: paper {d.paper_qty} · Binance {d.binance_qty}
+                  {d.alert ? ' ⚠' : ''}
+                </span>
+                {d.trade_url ? (
+                  <a href={d.trade_url} target="_blank" rel="noreferrer" className="link-btn">
+                    {t('portfolio.binanceTrade')}
+                  </a>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {binanceSync?.connected && Object.keys(binanceSync.trade_links || {}).length > 0 ? (
+          <div className="portfolio-quick-trade">
+            {Object.entries(binanceSync.trade_links).map(([sym, url]) => (
+              <a key={sym} href={url} target="_blank" rel="noreferrer" className="btn btn-ghost tap-target">
+                {t('portfolio.binanceTradeSymbol', { symbol: sym })}
+              </a>
+            ))}
+          </div>
+        ) : null}
+      </section>
+
       <PortfolioSummary portfolio={portfolio} />
 
       <section className="portfolio-paper-banner" aria-label={t('portfolio.paperBanner')}>
@@ -197,45 +269,14 @@ export function PortfolioPage() {
         onTabChange={setPositionsTab}
         openCount={portfolio.positions_count}
         closedCount={portfolio.closed_positions_count ?? closedPositions.length}
+        historyCount={portfolio.recent_trades.length}
         positions={portfolio.positions}
         closedPositions={closedPositions}
+        recentTrades={portfolio.recent_trades}
         openOrders={openOrders}
         tradingSymbol={tradingSymbol}
         onTradeComplete={handleTradeComplete}
       />
-
-      <section className="portfolio-section">
-        <div className="section-header">
-          <div className="section-header-left">
-            <h3 className="section-title">{t('portfolio.tradeHistory')}</h3>
-            <span className="section-badge">{portfolio.recent_trades.length}</span>
-          </div>
-        </div>
-        {portfolio.recent_trades.length === 0 ? (
-          <p className="empty-state">{t('portfolio.emptyTrades')}</p>
-        ) : (
-          <div className="data-table trades-table">
-            <div className="data-table-head">
-              <span>{t('portfolio.tableSide')}</span>
-              <span>{t('portfolio.tableSymbol')}</span>
-              <span>{t('portfolio.tableQty')}</span>
-              <span>{t('portfolio.tableAmount')}</span>
-              <span>{t('portfolio.tableTime')}</span>
-            </div>
-            {portfolio.recent_trades.map((trade) => (
-              <div key={trade.id} className="data-table-row trade-row">
-                <span className={`side-${trade.side}`}>
-                  {trade.side === 'buy' ? t('portfolio.buySide') : t('portfolio.sellSide')}
-                </span>
-                <span className="trade-symbol">{trade.symbol}</span>
-                <span className="tabular">{trade.quantity}</span>
-                <span className="tabular">{formatPln(trade.total_pln)}</span>
-                <span className="trade-time">{new Date(trade.created_at).toLocaleString(dateLocale)}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
     </div>
   )
 }

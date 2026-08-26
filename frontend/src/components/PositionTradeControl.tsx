@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { cancelPaperOrder, placePaperOrder } from '../api'
+import { cancelPaperOrder, closePaperPosition, placePaperOrder } from '../api'
 import { useLocale } from '../context/LocaleContext'
 import { formatThrownError } from '../i18n/utils'
 import { OpenOrdersPanel } from './OpenOrdersPanel'
 import { PaperLimitOrder } from '../types'
 
 type OrderType = 'market' | 'limit' | 'stop' | 'take_profit'
+
+const CLOSE_PCTS = [25, 50, 75, 100] as const
 
 function defaultTriggerPrice(type: OrderType, side: 'buy' | 'sell', live: number): number {
   if (type === 'market') return live
@@ -25,6 +27,7 @@ interface PositionTradeControlProps {
   disabled?: boolean
   compact?: boolean
   onComplete: () => Promise<void>
+  onClosed?: () => void
 }
 
 export function PositionTradeControl({
@@ -38,12 +41,14 @@ export function PositionTradeControl({
   disabled,
   compact,
   onComplete,
+  onClosed,
 }: PositionTradeControlProps) {
   const { t, dateLocale } = useLocale()
-  const [orderType, setOrderType] = useState<OrderType>('limit')
+  const [orderType, setOrderType] = useState<OrderType>('stop')
   const [price, setPrice] = useState(String(priceNative))
   const [orderValue, setOrderValue] = useState('10000')
   const [busy, setBusy] = useState(false)
+  const [closingPct, setClosingPct] = useState<number | null>(null)
   const [cancellingId, setCancellingId] = useState<number | null>(null)
 
   const formatQty = (qty: number): string => {
@@ -52,8 +57,9 @@ export function PositionTradeControl({
   }
 
   useEffect(() => {
-    setPrice(String(defaultTriggerPrice(orderType, 'buy', priceNative).toFixed(4)))
-  }, [priceNative, symbol, orderType])
+    const side = isShort ? 'buy' : 'sell'
+    setPrice(String(defaultTriggerPrice(orderType, side, priceNative).toFixed(4)))
+  }, [priceNative, symbol, orderType, isShort])
 
   const absQty = Math.abs(quantity)
   const priceNum = parseFloat(price) || 0
@@ -84,6 +90,23 @@ export function PositionTradeControl({
       alert(formatThrownError(e, t('positions.cancelFailed')))
     } finally {
       setCancellingId(null)
+    }
+  }
+
+  const handleClosePct = async (percent: number) => {
+    // No window.confirm — Simple Browser / embedded previews often block dialogs
+    // and make close look "broken". One-click market close like pro desks.
+    setClosingPct(percent)
+    setBusy(true)
+    try {
+      await closePaperPosition(symbol, percent)
+      await onComplete()
+      onClosed?.()
+    } catch (e) {
+      alert(formatThrownError(e, t('api.closePosition')))
+    } finally {
+      setBusy(false)
+      setClosingPct(null)
     }
   }
 
@@ -138,6 +161,7 @@ export function PositionTradeControl({
   }
 
   const isDisabled = disabled || busy
+  const reduceSide: 'buy' | 'sell' = isShort ? 'buy' : 'sell'
 
   const tabLabel = (kind: OrderType) => {
     if (kind === 'market') return t('paper.market')
@@ -148,6 +172,28 @@ export function PositionTradeControl({
 
   return (
     <div className={`position-trade-control ${compact ? 'position-trade-control-compact' : ''}`}>
+      <div className="position-close-strip">
+        <div className="position-close-strip-head">
+          <span className="position-close-label">
+            {isShort ? t('positions.closeCover') : t('positions.closeLabel')}
+          </span>
+          <span className="position-close-hint">{t('positions.closeHint')}</span>
+        </div>
+        <div className="position-close-pcts" role="group" aria-label={t('positions.closeLabel')}>
+          {CLOSE_PCTS.map((pct) => (
+            <button
+              key={pct}
+              type="button"
+              className={`btn-close-position ${pct === 100 ? 'btn-close-position-prominent' : ''}`}
+              disabled={isDisabled}
+              onClick={() => void handleClosePct(pct)}
+            >
+              {closingPct === pct ? '…' : pct === 100 ? t('positions.closeAll') : `${pct}%`}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <OpenOrdersPanel
         orders={pendingOrders}
         compact
@@ -156,7 +202,7 @@ export function PositionTradeControl({
       />
 
       <div className="position-trade-header">
-        <span className="position-trade-label">{t('positions.order')}</span>
+        <span className="position-trade-label">{t('positions.autoProtect')}</span>
         <span className="position-trade-qty tabular">
           {isShort ? `${t('common.short')} ` : ''}
           {formatQty(absQty)} {t('paper.pieces')}
@@ -225,8 +271,13 @@ export function PositionTradeControl({
         <button type="button" className="btn-buy tap-target" disabled={isDisabled} onClick={() => submit('buy')}>
           {t('positions.addTo')}
         </button>
-        <button type="button" className="btn-sell tap-target" disabled={isDisabled} onClick={() => submit('sell')}>
-          {t('positions.sellBtn')}
+        <button
+          type="button"
+          className="btn-sell tap-target"
+          disabled={isDisabled}
+          onClick={() => submit(reduceSide)}
+        >
+          {isShort ? t('positions.coverBtn') : t('positions.sellBtn')}
         </button>
       </div>
     </div>

@@ -79,8 +79,11 @@ _BASE_ASSETS = [
     {"symbol": "NVDA", "name": "NVIDIA (Mag7)", "asset_class": "stock", "region": "us"},
     {"symbol": "META", "name": "Meta (Mag7)", "asset_class": "stock", "region": "us"},
     {"symbol": "TSLA", "name": "Tesla (Mag7)", "asset_class": "stock", "region": "us"},
-    # ── ELON MUSK ECOSYSTEM (SpaceX prywatna — proxy + łańcuch dostaw) ──
-    {"symbol": "ARKX", "name": "ARK Space ETF (proxy SpaceX)", "asset_class": "stock", "region": "us"},
+    # ── ELON MUSK ECOSYSTEM (SpaceX IPO Jun 2026 — Nasdaq SPCX) ──
+    {"symbol": "SPCX", "name": "SpaceX (Space Exploration Technologies)", "asset_class": "stock", "region": "us"},
+    # Alias card → same live SPCX tape (not ARKX)
+    {"symbol": "SPACEX", "name": "SpaceX (alias → SPCX)", "asset_class": "stock", "region": "us", "yahoo_symbol": "SPCX"},
+    {"symbol": "ARKX", "name": "ARK Space Exploration ETF", "asset_class": "stock", "region": "us"},
     {"symbol": "RKLB", "name": "Rocket Lab (kosmos)", "asset_class": "stock", "region": "us"},
     {"symbol": "IRDM", "name": "Iridium (satelity)", "asset_class": "stock", "region": "us"},
     {"symbol": "ASTS", "name": "AST SpaceMobile (satelity)", "asset_class": "stock", "region": "us"},
@@ -221,6 +224,24 @@ def resolve_yahoo_symbol(symbol: str) -> str:
     if meta and meta.get("yahoo_symbol"):
         return str(meta["yahoo_symbol"])
     return symbol
+
+
+def is_price_proxy(symbol: str) -> bool:
+    meta = lookup_asset(symbol)
+    yahoo = str(meta.get("yahoo_symbol") or "").strip().upper() if meta else ""
+    return bool(yahoo and yahoo != symbol.strip().upper())
+
+
+def display_symbol_label(symbol: str) -> str:
+    """UI label — never pretend a private name is a listed equity ticker."""
+    meta = lookup_asset(symbol)
+    if not meta:
+        return symbol
+    name = str(meta.get("name") or symbol)
+    yahoo = str(meta.get("yahoo_symbol") or "").strip()
+    if yahoo and yahoo.upper() != symbol.strip().upper():
+        return f"{symbol} · live {yahoo} (proxy)"
+    return name if name != symbol else symbol
 
 
 REGIONS = {

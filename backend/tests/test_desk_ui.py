@@ -60,3 +60,28 @@ def test_build_desk_ui_from_tool_results():
 
 def test_build_desk_ui_none_without_focus():
     assert build_desk_ui(None, []) is None
+
+
+def test_build_desk_ui_ignores_foreign_symbol_tools():
+    tools = [
+        {
+            "tool": "analyze_trend",
+            "result": {"symbol": "AVAX-USD", "trend": "uptrend", "strength": 88},
+        },
+        {
+            "tool": "detect_patterns",
+            "result": {
+                "symbol": "LQD",
+                "support": [100.0],
+                "resistance": [110.0],
+                "patterns": [{"name": "range", "confidence": 50, "kind": "continuation"}],
+            },
+        },
+    ]
+    ui = build_desk_ui("LQD", tools)
+    assert ui is not None
+    assert ui["symbol"] == "LQD"
+    assert ui["support"] == [100.0]
+    # Must not latch AVAX trend into LQD desk
+    assert ui.get("bias") in ("neutral", "bull", "bear")
+    assert ui.get("conviction") != 88

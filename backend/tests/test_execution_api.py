@@ -9,7 +9,7 @@ def test_execution_status(client):
     data = res.json()
     assert "enabled" in data
     assert "brokers" in data
-    assert len(data["brokers"]) == 4
+    assert len(data["brokers"]) == 5
 
 
 def test_execution_proposals(client):
@@ -22,7 +22,7 @@ def test_execution_brokers(client):
     res = client.get("/api/execution/brokers")
     assert res.status_code == 200
     ids = {b["broker_id"] for b in res.json()}
-    assert ids == {"ibkr", "etoro", "kraken", "nexo"}
+    assert ids == {"ibkr", "etoro", "kraken", "nexo", "binance"}
 
 
 def test_purge_agent_positions_only_for_agent_symbols(client):

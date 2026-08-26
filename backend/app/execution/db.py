@@ -164,6 +164,21 @@ async def recent_symbol_proposal(symbol: str, hours: int) -> dict | None:
         return dict(row) if row else None
 
 
+async def pending_broker_proposal(symbol: str, broker_id: str) -> dict | None:
+    async with db_session() as db:
+        db.row_factory = __import__("aiosqlite").Row
+        cursor = await db.execute(
+            """
+            SELECT * FROM execution_proposals
+            WHERE symbol=? AND broker_id=? AND status IN ('pending', 'approved', 'dry_run')
+            ORDER BY created_at DESC LIMIT 1
+            """,
+            (symbol, broker_id),
+        )
+        row = await cursor.fetchone()
+        return dict(row) if row else None
+
+
 async def record_agent_run(processed: int, created: int) -> None:
     now = _now()
     async with db_session() as db:

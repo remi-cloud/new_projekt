@@ -4,11 +4,15 @@ from fastapi import FastAPI
 
 from app.api import (
     ai,
+    axiom,
     backup,
+    coordinator,
     cycles,
     dashboard,
     execution,
+    fomo,
     growth,
+    launch_scout,
     health,
     live,
     markets,
@@ -39,6 +43,10 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(social.router)
     app.include_router(ai.router)
     app.include_router(pearl.router)
+    app.include_router(fomo.router)
+    app.include_router(axiom.router)
+    app.include_router(launch_scout.router)
+    app.include_router(coordinator.router)
     app.include_router(execution.router)
     app.include_router(notifications.router)
     app.include_router(paper.router)

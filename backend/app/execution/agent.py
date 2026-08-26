@@ -75,7 +75,13 @@ async def run_once(*, force: bool = False) -> ExecutionRunResult:
             skipped += 1
             continue
 
-        amount_pln = compute_amount_pln(eff["amount_pln"])
+        amount_pln = compute_amount_pln(
+            eff["amount_pln"],
+            confidence=candidate.confidence,
+        )
+        if amount_pln <= 0:
+            skipped += 1
+            continue
         status = "pending" if eff["require_approval"] else ("dry_run" if eff["dry_run"] else "pending")
 
         proposal_id = await exec_db.insert_proposal({
@@ -139,7 +145,10 @@ async def _save_skipped(
         "broker_id": broker_id,
         "source": candidate.source,
         "confidence": candidate.confidence,
-        "amount_pln": compute_amount_pln(eff["amount_pln"]),
+        "amount_pln": compute_amount_pln(
+            eff["amount_pln"],
+            confidence=candidate.confidence,
+        ),
         "rationale": candidate.rationale,
         "status": status,
         "error_message": status,

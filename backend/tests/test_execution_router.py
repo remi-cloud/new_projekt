@@ -27,3 +27,10 @@ def test_route_broker_candidate():
     )
     primary, fallback = route_broker(c)
     assert primary == "kraken"
+
+
+def test_binance_adapter_resolves():
+    from app.execution.brokers import get_broker_adapter
+
+    adapter = get_broker_adapter("binance")
+    assert adapter.broker_id == "binance"

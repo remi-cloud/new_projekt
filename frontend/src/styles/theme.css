@@ -2574,6 +2574,27 @@ body {
   color: var(--text);
 }
 
+.agent-proxy-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: rgba(250, 204, 21, 0.12);
+  border: 1px solid rgba(250, 204, 21, 0.4);
+  color: #facc15;
+}
+
+.agent-price-note {
+  margin: 0 0 8px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
 .agent-bias-pill {
   display: inline-flex;
   align-items: center;
@@ -3115,6 +3136,7 @@ body {
 .macro-news-cat-macro { background: rgba(217, 119, 6, 0.18); color: #fcd34d; }
 .macro-news-cat-musk { background: rgba(139, 92, 246, 0.2); color: #c4b5fd; }
 .macro-news-cat-global { background: rgba(5, 150, 105, 0.18); color: #6ee7b7; }
+.macro-news-cat-crypto { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
 
 .macro-news-live,
 .macro-news-impact {

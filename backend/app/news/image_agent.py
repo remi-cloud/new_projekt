@@ -32,6 +32,7 @@ _CATEGORY_THEME: dict[MacroNewsCategory, tuple[str, str, str]] = {
     "macro": ("#14100a", "#d97706", "#fcd34d"),
     "global": ("#0a1414", "#059669", "#6ee7b7"),
     "musk": ("#120a1a", "#8b5cf6", "#c4b5fd"),
+    "crypto": ("#1a1408", "#f59e0b", "#fbbf24"),
 }
 
 _inflight: set[str] = set()

@@ -46,6 +46,25 @@ export function HomePage() {
       />
 
       <div className="home-page-body">
+        <section className="dashboard-section desk-teaser launch-flagship-home">
+          <div className="section-header">
+            <h2 className="section-title">{t('launch.homeTitle')}</h2>
+            <button type="button" className="link-btn tap-target" onClick={() => navigate('/launch')}>
+              {t('launch.openDesk')}
+            </button>
+          </div>
+          <p className="pearl-lead launch-quote">{t('launch.quote')}</p>
+          <p className="page-lead">{t('launch.homeLead')}</p>
+          <div className="desk-teaser-actions">
+            <button type="button" className="btn btn-primary tap-target" onClick={() => navigate('/launch')}>
+              {t('launch.homeCta')}
+            </button>
+            <button type="button" className="btn tap-target" onClick={() => navigate('/superokazje')}>
+              {t('nav.super')}
+            </button>
+          </div>
+        </section>
+
         <InvestmentShowcase />
 
         <section className="home-cycles">

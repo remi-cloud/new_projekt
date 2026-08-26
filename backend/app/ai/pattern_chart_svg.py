@@ -70,12 +70,15 @@ def render_pattern_svg(
     def y_at(price: float) -> float:
         return PAD_T + (hi - price) / span * plot_h
 
+    from app.data.assets import display_symbol_label
+
+    title = display_symbol_label(symbol)
     parts: list[str] = [
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" '
-        f'role="img" aria-label="{_esc(symbol)} patterns">',
+        f'role="img" aria-label="{_esc(title)} patterns">',
         f'<rect width="{W}" height="{H}" fill="#0f1115"/>',
-        f'<text x="{PAD_L}" y="18" fill="#e2e8f0" font-size="13" '
-        f'font-family="ui-sans-serif,system-ui">{_esc(symbol)} · patterns</text>',
+        f'<text x="{PAD_L}" y="18" fill="#e2e8f0" font-size="12" '
+        f'font-family="ui-sans-serif,system-ui">{_esc(title)} · patterns</text>',
         f'<text x="{W - PAD_R}" y="18" text-anchor="end" fill="#64748b" font-size="11" '
         f'font-family="ui-monospace,monospace">{_esc(analysis.summary[:72])}</text>',
     ]

@@ -65,8 +65,8 @@ async def macro_calendar_month(year: int | None = None, month: int | None = None
 
 @router.get("/api/news/macro", response_model=MacroNewsFeed)
 async def macro_news(category: str | None = None, limit: int = 50, lang: str | None = None):
-    if category and category not in ("all", "fed", "usa", "macro", "global", "musk"):
-        raise HTTPException(status_code=400, detail="Category: all, fed, usa, macro, global, musk")
+    if category and category not in ("all", "fed", "usa", "macro", "global", "musk", "crypto"):
+        raise HTTPException(status_code=400, detail="Category: all, fed, usa, macro, global, musk, crypto")
     return await get_macro_news(category=category, limit=min(limit, 100), locale=lang)
 
 

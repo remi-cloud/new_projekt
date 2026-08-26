@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from app.data.broker_map import resolve_broker_info
 from app.paper import paper_db
+from app.paper.coin_image import resolve_coin_image_url
 from app.paper.currency import get_usd_pln_rate, native_currency, to_pln
 from app.paper.limit_orders import limit_orders_for_portfolio
 from app.paper.pricing import get_live_price, refresh_quotes_for_symbols
@@ -60,6 +61,7 @@ async def _position_to_view(pos: dict, usd_pln: float) -> dict:
         "unrealized_pnl_pct": round(unrealized_pct, 2),
         "currency": currency,
         "opened_at": pos.get("opened_at"),
+        "image_url": resolve_coin_image_url(symbol, str(asset_class)),
         "broker_info": resolve_broker_info(symbol, str(asset_class), region),
     }
 
@@ -123,9 +125,12 @@ async def build_portfolio() -> dict:
             "currency": c["currency"],
             "opened_at": c["opened_at"],
             "closed_at": c["closed_at"],
+            "image_url": resolve_coin_image_url(c["symbol"], str(c.get("asset_class") or "")),
         }
         for c in closed_raw
     ]
+
+    trade_stats = _closed_trade_stats(closed_positions)
 
     return {
         "cash_pln": round(cash, 2),
@@ -141,7 +146,39 @@ async def build_portfolio() -> dict:
         "positions": sorted(positions, key=lambda p: p["market_value_pln"], reverse=True),
         "closed_positions_count": len(closed_positions),
         "closed_positions": closed_positions,
+        "trade_stats": trade_stats,
         "limit_orders": limit_orders,
         "recent_trades": trades,
         "quotes_available": len(scanner.quotes),
+    }
+
+
+def _closed_trade_stats(closed: list[dict]) -> dict:
+    """Aggregate closed-trade performance for portfolio UI."""
+    n = len(closed)
+    if n == 0:
+        return {
+            "trades": 0,
+            "wins": 0,
+            "losses": 0,
+            "win_rate": None,
+            "avg_win_pln": None,
+            "avg_loss_pln": None,
+            "expectancy_pln": None,
+            "best_pln": None,
+            "worst_pln": None,
+        }
+    pnls = [float(c.get("realized_pnl_pln") or 0) for c in closed]
+    wins = [p for p in pnls if p > 0]
+    losses = [p for p in pnls if p < 0]
+    return {
+        "trades": n,
+        "wins": len(wins),
+        "losses": len(losses),
+        "win_rate": round(100.0 * len(wins) / n, 1),
+        "avg_win_pln": round(sum(wins) / len(wins), 2) if wins else None,
+        "avg_loss_pln": round(sum(losses) / len(losses), 2) if losses else None,
+        "expectancy_pln": round(sum(pnls) / n, 2),
+        "best_pln": round(max(pnls), 2),
+        "worst_pln": round(min(pnls), 2),
     }

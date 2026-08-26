@@ -6,6 +6,9 @@ export function toTradingViewSymbol(
   assetClass?: AssetClass,
   region?: Region,
 ): string {
+  // SpaceX IPO (Jun 2026) — Nasdaq SPCX
+  if (['SPCX', 'SPACEX'].includes(symbol.toUpperCase())) return 'NASDAQ:SPCX'
+
   // xStocks: chart the underlying equity (price exposure proxy)
   if (assetClass === 'tokenized' && symbol.endsWith('-USD')) {
     const base = symbol.replace(/-USD$/i, '').toUpperCase()
@@ -62,8 +65,9 @@ export function toTradingViewSymbol(
   const nasdaq = new Set([
     'AAPL', 'MSFT', 'GOOGL', 'GOOG', 'AMZN', 'NVDA', 'META', 'TSLA',
     'AVGO', 'COST', 'NFLX', 'AMD', 'INTC', 'ADBE', 'PYPL', 'QCOM',
-    'RKLB', 'IRDM', 'ASTS', 'GSAT', 'ON', 'ARKX',
+    'RKLB', 'IRDM', 'ASTS', 'GSAT', 'ON', 'ARKX', 'SPCX', 'SPACEX',
   ])
+  if (symbol === 'ARKX') return 'AMEX:ARKX'
   if (nasdaq.has(symbol)) return `NASDAQ:${symbol}`
 
   if (region === 'eu' || region === 'pl') {

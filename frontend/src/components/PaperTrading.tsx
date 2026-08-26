@@ -285,6 +285,9 @@ export function TradePanel({ symbol, name, price, onTrade }: TradePanelProps) {
 export function PortfolioSummary({ portfolio }: { portfolio: PaperPortfolioType }) {
   const { t } = useLocale()
   const pnlClass = portfolio.total_pnl_pln >= 0 ? 'positive' : 'negative'
+  const unrealizedClass = portfolio.unrealized_pnl_pln >= 0 ? 'positive' : 'negative'
+  const realizedClass = portfolio.realized_pnl_pln >= 0 ? 'positive' : 'negative'
+  const stats = portfolio.trade_stats
   return (
     <div className="portfolio-summary portfolio-summary-hero">
       <div className="portfolio-hero">
@@ -309,6 +312,51 @@ export function PortfolioSummary({ portfolio }: { portfolio: PaperPortfolioType 
           <strong className="tabular">{portfolio.usd_pln_rate.toFixed(4)}</strong>
         </div>
       </div>
+      <div className="portfolio-stats-row portfolio-pnl-breakdown">
+        <div className="mini-stat">
+          <span>{t('portfolio.unrealizedPnl')}</span>
+          <strong className={`tabular ${unrealizedClass}`}>
+            {portfolio.unrealized_pnl_pln >= 0 ? '+' : ''}
+            {formatPln(portfolio.unrealized_pnl_pln)}
+          </strong>
+        </div>
+        <div className="mini-stat">
+          <span>{t('portfolio.realizedPnl')}</span>
+          <strong className={`tabular ${realizedClass}`}>
+            {portfolio.realized_pnl_pln >= 0 ? '+' : ''}
+            {formatPln(portfolio.realized_pnl_pln)}
+          </strong>
+        </div>
+        <div className="mini-stat">
+          <span>{t('portfolio.totalPnl')}</span>
+          <strong className={`tabular ${pnlClass}`}>
+            {portfolio.total_pnl_pln >= 0 ? '+' : ''}
+            {formatPln(portfolio.total_pnl_pln)}
+          </strong>
+        </div>
+      </div>
+      {stats && stats.trades > 0 ? (
+        <div className="portfolio-stats-row portfolio-trade-stats" aria-label={t('portfolio.tradeStats')}>
+          <div className="mini-stat">
+            <span>{t('portfolio.winRate')}</span>
+            <strong className="tabular">
+              {stats.win_rate != null ? `${stats.win_rate}%` : '—'}
+            </strong>
+          </div>
+          <div className="mini-stat">
+            <span>{t('portfolio.tradeCount')}</span>
+            <strong className="tabular">{stats.trades}</strong>
+          </div>
+          <div className="mini-stat">
+            <span>{t('portfolio.expectancy')}</span>
+            <strong className="tabular">
+              {stats.expectancy_pln != null
+                ? `${stats.expectancy_pln >= 0 ? '+' : ''}${formatPln(stats.expectancy_pln)}`
+                : '—'}
+            </strong>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

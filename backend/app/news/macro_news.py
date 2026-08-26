@@ -108,6 +108,21 @@ RSS_SOURCES: list[tuple[str, str, MacroNewsCategory]] = [
     ("https://www.straitstimes.com/news/business/rss.xml", "Straits Times · Business", "global"),
     ("https://economictimes.indiatimes.com/rssfeedsdefault.cms", "Economic Times", "global"),
     ("https://timesofindia.indiatimes.com/rssfeeds/1898055.cms", "Times of India · Business", "global"),
+
+    # ── Crypto / blockchain ───────────────────────────────────────
+    ("https://news.bitcoin.com/feed/", "Bitcoin.com", "crypto"),
+    ("https://www.coindesk.com/arc/outboundfeeds/rss/", "CoinDesk", "crypto"),
+    ("https://cointelegraph.com/rss", "Cointelegraph", "crypto"),
+    ("https://decrypt.co/feed", "Decrypt", "crypto"),
+    ("https://www.theblock.co/rss.xml", "The Block", "crypto"),
+    ("https://blog.blockchain.com/rss/", "Blockchain.com", "crypto"),
+    ("https://news.google.com/rss/search?q=site:bitcoinmagazine.com+when:3h&hl=en-US&gl=US&ceid=US:en", "Bitcoin Magazine", "crypto"),
+    ("https://news.google.com/rss/search?q=site:cryptoslate.com+when:3h&hl=en-US&gl=US&ceid=US:en", "CryptoSlate", "crypto"),
+    ("https://news.google.com/rss/search?q=Bitcoin+OR+BTC+when:3h&hl=en-US&gl=US&ceid=US:en", "Google · Bitcoin", "crypto"),
+    ("https://news.google.com/rss/search?q=Ethereum+OR+ETH+when:3h&hl=en-US&gl=US&ceid=US:en", "Google · Ethereum", "crypto"),
+    ("https://news.google.com/rss/search?q=(crypto+ETF+OR+Bitcoin+ETF+OR+Ethereum+ETF)+OR+(SEC+crypto)+when:3h&hl=en-US&gl=US&ceid=US:en", "Google · Crypto ETF", "crypto"),
+    ("https://news.google.com/rss/search?q=Binance+OR+Coinbase+when:3h&hl=en-US&gl=US&ceid=US:en", "Google · Exchanges", "crypto"),
+    ("https://news.google.com/rss/search?q=blockchain+OR+DeFi+OR+stablecoin+when:3h&hl=en-US&gl=US&ceid=US:en", "Google · DeFi", "crypto"),
 ]
 
 _MUSK_SOURCE_LABELS = frozenset({
@@ -122,7 +137,14 @@ _USA_SOURCE_LABELS = frozenset({
     "NY Post · Politics", "Washington Examiner", "CNBC · Politics",
 })
 
-_PRIORITY_SOURCE_LABELS = _MUSK_SOURCE_LABELS | _USA_SOURCE_LABELS | frozenset({
+_CRYPTO_SOURCE_LABELS = frozenset({
+    "Bitcoin.com", "CoinDesk", "Cointelegraph", "Decrypt", "The Block",
+    "Blockchain.com", "Bitcoin Magazine", "CryptoSlate",
+    "Google · Bitcoin", "Google · Ethereum", "Google · Crypto ETF",
+    "Google · Exchanges", "Google · DeFi",
+})
+
+_PRIORITY_SOURCE_LABELS = _MUSK_SOURCE_LABELS | _USA_SOURCE_LABELS | _CRYPTO_SOURCE_LABELS | frozenset({
     "Stagflation · Fed", "Stagflation · Policy", "ZeroHedge",
     "Desk · Trump · wzrost", "Desk · Musk · podaż", "Desk · Stagflacja",
 })
@@ -145,6 +167,39 @@ _CATEGORY_RULES: list[tuple[MacroNewsCategory, tuple[str, ...]]] = [
             r"\bdoge\b",
             r"department of government efficiency",
             r"musk",
+        ),
+    ),
+    (
+        "crypto",
+        (
+            r"\bbitcoin\b",
+            r"\bbtc\b",
+            r"\bethereum\b",
+            r"\beth\b",
+            r"\bsolana\b",
+            r"\bsol\b",
+            r"\bcrypto\b",
+            r"cryptocurrency",
+            r"\bdefi\b",
+            r"\bnft\b",
+            r"stablecoin",
+            r"\busdt\b",
+            r"\busdc\b",
+            r"bitcoin etf",
+            r"ethereum etf",
+            r"crypto etf",
+            r"\bbinance\b",
+            r"\bcoinbase\b",
+            r"\bblockchain\b",
+            r"\bmining\b",
+            r"\bhalving\b",
+            r"\bdogecoin\b",
+            r"\bxrp\b",
+            r"\bripple\b",
+            r"\bweb3\b",
+            r"\btokeniz",
+            r"sec.*(crypto|bitcoin|ethereum)",
+            r"(crypto|bitcoin|ethereum).*sec",
         ),
     ),
     (
@@ -247,6 +302,15 @@ _IMPACT_HIGH = (
     r"\btesla\b",
     r"\bspacex\b",
     r"\brobotaxi\b",
+    r"\bbitcoin\b",
+    r"\bbtc\b",
+    r"\bethereum\b",
+    r"crypto etf",
+    r"bitcoin etf",
+    r"\bbinance\b",
+    r"\bcoinbase\b",
+    r"\bhalving\b",
+    r"stablecoin",
 )
 
 _cache: MacroNewsFeed | None = None
@@ -429,6 +493,8 @@ def _impact_level(title: str, summary: str | None) -> str:
 def _source_cap(source: str) -> int:
     if source in _MUSK_SOURCE_LABELS:
         return settings.news_musk_max_per_source
+    if source in _CRYPTO_SOURCE_LABELS:
+        return settings.news_crypto_max_per_source
     if source in _USA_SOURCE_LABELS or source.startswith("Desk ·"):
         return settings.news_usa_max_per_source
     if source in ("Stagflation · Fed", "Stagflation · Policy", "ZeroHedge"):
@@ -457,7 +523,7 @@ def _display_fresh(pool: list[MacroNewsItem], category: MacroNewsCategory | None
 
 
 def _category_counts(pool: list[MacroNewsItem]) -> dict[str, int]:
-    counts = {c: 0 for c in ("fed", "usa", "macro", "global", "musk")}
+    counts = {c: 0 for c in ("fed", "usa", "macro", "global", "musk", "crypto")}
     for item in _display_fresh(pool):
         counts[item.category] = counts.get(item.category, 0) + 1
     return counts
@@ -515,26 +581,31 @@ def _build_category_view(
     fresh_pool = _display_fresh(pool)
     musk_slots = settings.news_musk_feed_slots
     usa_slots = settings.news_usa_feed_slots
+    crypto_slots = settings.news_crypto_feed_slots
 
     musk_items = [n for n in fresh_pool if n.category == "musk"]
     usa_items = [n for n in fresh_pool if n.category == "usa"]
-    other_items = [n for n in fresh_pool if n.category not in ("musk", "usa")]
+    crypto_items = [n for n in fresh_pool if n.category == "crypto"]
+    other_items = [n for n in fresh_pool if n.category not in ("musk", "usa", "crypto")]
 
     if boost:
         musk_items = sort_by_alignment(musk_items)
         usa_items = sort_by_alignment(usa_items)
+        crypto_items = sort_by_alignment(crypto_items)
         other_items = sort_by_alignment(other_items)
     else:
         musk_items.sort(key=lambda n: n.published_at, reverse=True)
         usa_items.sort(key=lambda n: n.published_at, reverse=True)
+        crypto_items.sort(key=lambda n: n.published_at, reverse=True)
         other_items.sort(key=lambda n: n.published_at, reverse=True)
 
     musk_part = musk_items[:musk_slots]
     usa_part = usa_items[:usa_slots]
-    reserved = len(musk_part) + len(usa_part)
+    crypto_part = crypto_items[:crypto_slots]
+    reserved = len(musk_part) + len(usa_part) + len(crypto_part)
     remaining = max(0, limit - reserved)
     diverse_rest = _diversify_by_source(other_items, remaining)
-    combined = musk_part + usa_part + diverse_rest
+    combined = musk_part + usa_part + crypto_part + diverse_rest
     if boost:
         combined = sort_by_alignment(combined)
     else:
@@ -617,11 +688,15 @@ async def refresh_macro_news() -> tuple[MacroNewsFeed, list[MacroNewsItem]]:
         category = _classify_item(row["title"], row.get("summary"), row["default_category"])
         if row["default_category"] == "musk" and category != "musk":
             continue
+        if row["default_category"] == "crypto":
+            category = "crypto"
 
         impact = _impact_level(row["title"], row.get("summary"))
         age_mins = int((now - published).total_seconds() / 60)
-        # Musk sources: even stricter — only within display window
-        if age_mins > settings.news_display_max_hours * 60 and row["source"] in _MUSK_SOURCE_LABELS:
+        # Musk / crypto priority sources: even stricter — only within display window
+        if age_mins > settings.news_display_max_hours * 60 and row["source"] in (
+            _MUSK_SOURCE_LABELS | _CRYPTO_SOURCE_LABELS
+        ):
             continue
 
         news.append(

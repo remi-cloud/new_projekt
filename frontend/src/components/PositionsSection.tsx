@@ -1,20 +1,25 @@
 import { Link } from 'react-router-dom'
 import { useLocale } from '../context/LocaleContext'
-import { PaperClosedPosition, PaperLimitOrder, PaperPosition } from '../types'
+import { PaperClosedPosition, PaperLimitOrder, PaperPosition, PaperTrade } from '../types'
 import { formatPln } from '../utils/format'
 import { BrokerPurchaseHint } from './BrokerPurchaseHint'
 import { AskAgentButton } from './AskAgentButton'
+import { CoinAvatar } from './CoinAvatar'
 import { CommunityActions } from './CommunityActions'
 import { InstrumentShareMenu } from './InstrumentShareMenu'
 import { PositionTradeControl } from './PositionTradeControl'
 
+export type PositionsTab = 'open' | 'closed' | 'history'
+
 interface PositionsSectionProps {
-  tab: 'open' | 'closed'
-  onTabChange: (tab: 'open' | 'closed') => void
+  tab: PositionsTab
+  onTabChange: (tab: PositionsTab) => void
   openCount: number
   closedCount: number
+  historyCount: number
   positions: PaperPosition[]
   closedPositions: PaperClosedPosition[]
+  recentTrades: PaperTrade[]
   openOrders: PaperLimitOrder[]
   tradingSymbol: string | null
   onTradeComplete: (symbol: string) => Promise<void>
@@ -25,8 +30,10 @@ export function PositionsSection({
   onTabChange,
   openCount,
   closedCount,
+  historyCount,
   positions,
   closedPositions,
+  recentTrades,
   openOrders,
   tradingSymbol,
   onTradeComplete,
@@ -38,6 +45,12 @@ export function PositionsSection({
     const d = new Date(iso)
     if (Number.isNaN(d.getTime())) return null
     return d.toLocaleString(dateLocale)
+  }
+
+  const formatQty = (qty: number): string => {
+    const abs = Math.abs(qty)
+    if (abs >= 1) return abs.toLocaleString(dateLocale, { maximumFractionDigits: 4 })
+    return abs.toPrecision(4)
   }
 
   return (
@@ -66,6 +79,16 @@ export function PositionsSection({
               {t('positions.closed')}
               <span className="position-tab-count">{closedCount}</span>
             </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === 'history'}
+              className={`position-tab ${tab === 'history' ? 'active' : ''}`}
+              onClick={() => onTabChange('history')}
+            >
+              {t('positions.history')}
+              <span className="position-tab-count">{historyCount}</span>
+            </button>
           </div>
         </div>
       </div>
@@ -89,8 +112,13 @@ export function PositionsSection({
                   className="position-row-link tap-target"
                 >
                   <div className="position-main">
-                    <strong className="position-symbol">{p.symbol}</strong>
-                    <span className="position-name">{p.name}</span>
+                    <div className="position-identity">
+                      <CoinAvatar symbol={p.symbol} name={p.name} imageUrl={p.image_url} />
+                      <div className="position-identity-text">
+                        <strong className="position-symbol">{p.symbol}</strong>
+                        <span className="position-name">{p.name}</span>
+                      </div>
+                    </div>
                     {formatDt(p.opened_at) && (
                       <span className="position-opened-at">
                         {t('positions.opened', { date: formatDt(p.opened_at)! })}
@@ -111,7 +139,7 @@ export function PositionsSection({
                     </div>
                   </div>
                   <span className="position-qty tabular">
-                    {p.is_short ? `${t('common.short')} ${Math.abs(p.quantity)}` : p.quantity}
+                    {p.is_short ? `${t('common.short')} ${formatQty(p.quantity)}` : formatQty(p.quantity)}
                   </span>
                   <span className="position-value tabular">{formatPln(p.market_value_pln)}</span>
                   <span
@@ -133,71 +161,102 @@ export function PositionsSection({
                   compact
                   disabled={tradingSymbol === p.symbol}
                   onComplete={() => onTradeComplete(p.symbol)}
+                  onClosed={() => onTabChange('history')}
                 />
               </div>
             ))}
           </div>
         )
-      ) : closedCount === 0 ? (
-        <p className="empty-state">{t('positions.emptyClosed')}</p>
-      ) : (
-        <div className="data-table closed-positions-table">
-          <div className="data-table-head">
-            <span>{t('table.instrument')}</span>
-            <span>{t('table.side')}</span>
-            <span>{t('table.quantity')}</span>
-            <span>{t('table.entryExit')}</span>
-            <span>{t('table.pnlRealized')}</span>
-            <span>{t('table.closedAt')}</span>
-          </div>
-          {closedPositions.map((p) => (
-            <Link
-              key={p.id}
-              to={`/instrument/${encodeURIComponent(p.symbol)}`}
-              className="data-table-row closed-position-row tap-target"
-            >
-              <div className="position-main">
-                <strong className="position-symbol">{p.symbol}</strong>
-                <span className="position-name">{p.name}</span>
-                {formatDt(p.opened_at) && (
-                  <span className="position-opened-at">
-                    {t('positions.opened', { date: formatDt(p.opened_at)! })}
-                  </span>
-                )}
-                <div className="dash-agent-actions closed-position-share" onClick={(e) => e.stopPropagation()}>
-                  <AskAgentButton mode="instrument" symbol={p.symbol} name={p.name} compact />
-                  <CommunityActions symbol={p.symbol} name={p.name} compact />
-                  <InstrumentShareMenu
-                    symbol={p.symbol}
-                    name={p.name}
-                    kind="position"
-                    side={p.is_short ? t('common.short') : t('common.long')}
-                    pnlPct={p.realized_pnl_pct}
-                    compact
-                  />
-                </div>
-              </div>
-              <span className={p.is_short ? 'side-sell' : 'side-buy'}>
-                {p.is_short ? t('common.short') : t('common.long')}
-              </span>
-              <span className="tabular">{p.quantity}</span>
-              <span className="tabular closed-position-prices">
-                {p.entry_price_native.toLocaleString(dateLocale)} → {p.exit_price_native.toLocaleString(dateLocale)}{' '}
-                {p.currency}
-                <em>
-                  {formatPln(p.entry_price_pln)} → {formatPln(p.exit_price_pln)}
-                  {t('table.perUnit')}
-                </em>
-              </span>
-              <span
-                className={`position-pnl tabular ${p.realized_pnl_pln >= 0 ? 'positive' : 'negative'}`}
+      ) : tab === 'closed' ? (
+        closedCount === 0 ? (
+          <p className="empty-state">{t('positions.emptyClosed')}</p>
+        ) : (
+          <div className="data-table closed-positions-table">
+            <div className="data-table-head">
+              <span>{t('table.instrument')}</span>
+              <span>{t('table.side')}</span>
+              <span>{t('table.quantity')}</span>
+              <span>{t('table.entryExit')}</span>
+              <span>{t('table.pnlRealized')}</span>
+              <span>{t('table.closedAt')}</span>
+            </div>
+            {closedPositions.map((p) => (
+              <Link
+                key={p.id}
+                to={`/instrument/${encodeURIComponent(p.symbol)}`}
+                className="data-table-row closed-position-row tap-target"
               >
-                {p.realized_pnl_pln >= 0 ? '+' : ''}
-                {formatPln(p.realized_pnl_pln)}
-                <em>{p.realized_pnl_pct}%</em>
+                <div className="position-main">
+                  <div className="position-identity">
+                    <CoinAvatar symbol={p.symbol} name={p.name} imageUrl={p.image_url} />
+                    <div className="position-identity-text">
+                      <strong className="position-symbol">{p.symbol}</strong>
+                      <span className="position-name">{p.name}</span>
+                    </div>
+                  </div>
+                  {formatDt(p.opened_at) && (
+                    <span className="position-opened-at">
+                      {t('positions.opened', { date: formatDt(p.opened_at)! })}
+                    </span>
+                  )}
+                  <div className="dash-agent-actions closed-position-share" onClick={(e) => e.stopPropagation()}>
+                    <AskAgentButton mode="instrument" symbol={p.symbol} name={p.name} compact />
+                    <CommunityActions symbol={p.symbol} name={p.name} compact />
+                    <InstrumentShareMenu
+                      symbol={p.symbol}
+                      name={p.name}
+                      kind="position"
+                      side={p.is_short ? t('common.short') : t('common.long')}
+                      pnlPct={p.realized_pnl_pct}
+                      compact
+                    />
+                  </div>
+                </div>
+                <span className={p.is_short ? 'side-sell' : 'side-buy'}>
+                  {p.is_short ? t('common.short') : t('common.long')}
+                </span>
+                <span className="tabular">{p.quantity}</span>
+                <span className="tabular closed-position-prices">
+                  {p.entry_price_native.toLocaleString(dateLocale)} → {p.exit_price_native.toLocaleString(dateLocale)}{' '}
+                  {p.currency}
+                  <em>
+                    {formatPln(p.entry_price_pln)} → {formatPln(p.exit_price_pln)}
+                    {t('table.perUnit')}
+                  </em>
+                </span>
+                <span
+                  className={`position-pnl tabular ${p.realized_pnl_pln >= 0 ? 'positive' : 'negative'}`}
+                >
+                  {p.realized_pnl_pln >= 0 ? '+' : ''}
+                  {formatPln(p.realized_pnl_pln)}
+                  <em>{p.realized_pnl_pct}%</em>
+                </span>
+                <span className="trade-time">{formatDt(p.closed_at)}</span>
+              </Link>
+            ))}
+          </div>
+        )
+      ) : historyCount === 0 ? (
+        <p className="empty-state">{t('positions.emptyHistory')}</p>
+      ) : (
+        <div className="data-table trades-table positions-history-table">
+          <div className="data-table-head">
+            <span>{t('portfolio.tableSide')}</span>
+            <span>{t('portfolio.tableSymbol')}</span>
+            <span>{t('portfolio.tableQty')}</span>
+            <span>{t('portfolio.tableAmount')}</span>
+            <span>{t('portfolio.tableTime')}</span>
+          </div>
+          {recentTrades.map((trade) => (
+            <div key={trade.id} className="data-table-row trade-row">
+              <span className={`side-${trade.side}`}>
+                {trade.side === 'buy' ? t('portfolio.buySide') : t('portfolio.sellSide')}
               </span>
-              <span className="trade-time">{formatDt(p.closed_at)}</span>
-            </Link>
+              <span className="trade-symbol">{trade.symbol}</span>
+              <span className="tabular">{trade.quantity}</span>
+              <span className="tabular">{formatPln(trade.total_pln)}</span>
+              <span className="trade-time">{formatDt(trade.created_at)}</span>
+            </div>
           ))}
         </div>
       )}

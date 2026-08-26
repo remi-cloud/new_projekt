@@ -18,6 +18,16 @@ def test_resolve_focus_symbol_explicit_wins():
     assert resolve_focus_symbol("Co z AAPL?", "BTC-USD") == "BTC-USD"
     assert resolve_focus_symbol("trend na eth", None) == "ETH-USD"
     assert resolve_focus_symbol("ethereum setup", None) == "ETH-USD"
+    # Explicit never replaced by text extraction (LQD vs AVAX/ADA in prompt)
+    assert resolve_focus_symbol("Full analysis of Avalanche AVAX-USD", "LQD") == "LQD"
+    assert resolve_focus_symbol("trend on bitcoin", "SPCX") == "SPCX"
+    assert resolve_focus_symbol("spacex analysis", None) == "SPCX"
+    assert resolve_focus_symbol("Full analysis", "SPACEX") == "SPCX"
+    # Typo LIQ → LQD (iShares IG bond ETF)
+    assert resolve_focus_symbol("Full analysis of LIQ", "LIQ") == "LQD"
+    assert resolve_focus_symbol("liq chart", None) == "LQD"
+    # Stopword "on" must not resolve to ON Semiconductor
+    assert resolve_focus_symbol("trend on LQD", None) == "LQD"
 
 
 def _synth(n: int = 50) -> list[ChartCandle]:

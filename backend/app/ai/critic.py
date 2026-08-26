@@ -18,6 +18,7 @@ Reject or revise when:
 - omits Council lenses (Value/Capital, First principles/Asymmetry, Liquidity & power) when tool_data includes analyze_trend / risk_snapshot / instrument context
 - omits Risk section when tool_data has risk_snapshot / support-resistance / Superokazja levels
 - omits Setup levels when detect_patterns or risk_snapshot provided numbers
+- has reward_risk / risk_reward / super_score in tool_data but draft skips asymmetric-bet verdict (R:R cite + ACCEPT/REJECT/WAIT or upside vs ruin)
 - impersonates celebrities (“I am Warren…”, “jako Elon…”, “as Rothschild…”)
 - overconfident / guarantees profits
 - missing educational disclaimer
@@ -130,11 +131,70 @@ def _rule_critic(draft: str, tool_context: str = "") -> dict:
                 "(US month/term and/or BTC month + vs-SPX)"
             )
 
+    has_asym_data = any(
+        k in ctx
+        for k in (
+            "reward_risk",
+            "risk_reward",
+            "super_score",
+            "super_levels",
+        )
+    )
+    if has_asym_data:
+        # Lens heading "Asymmetry" alone is not enough — require R:R cite or accept/reject.
+        mentions_rr = any(
+            x in low
+            for x in ("r:r", "r/r", "risk/reward", "risk-reward", "reward_risk", "risk_reward", "payoff")
+        )
+        mentions_verdict = any(
+            x in low
+            for x in (
+                "accept",
+                "reject",
+                "akcept",
+                "odrzuc",
+                "upside vs ruin",
+                "upside vs",
+            )
+        )
+        if not (mentions_rr or mentions_verdict):
+            issues.append(
+                "Missing asymmetric-bet check despite R:R / super_score in tools "
+                "(cite R:R + ACCEPT/REJECT/WAIT or upside vs ruin)"
+            )
+
+        # Hard numeric gate: ACCEPT with R:R < 1 is a fail
+        rr_vals = [
+            float(m)
+            for m in re.findall(
+                r'"(?:reward_risk|risk_reward)"\s*:\s*([0-9]+(?:\.[0-9]+)?)',
+                tool_context or "",
+            )
+        ]
+        if not rr_vals:
+            rr_vals = [
+                float(m)
+                for m in re.findall(
+                    r"(?:reward_risk|risk_reward)[=:\s]+([0-9]+(?:\.[0-9]+)?)",
+                    ctx,
+                )
+            ]
+        rr = min(rr_vals) if rr_vals else None
+        accept_verdict = bool(
+            re.search(r"(→|->|:)\s*accept\b", low)
+            or re.search(r"\baccept\b\s*\(", low)
+        )
+        if rr is not None and rr < 1.0 and accept_verdict:
+            issues.append(
+                f"Hard asymmetric gate: ACCEPT with R:R {rr:.2f} < 1 — must REJECT or WAIT"
+            )
+
     score = max(30, 90 - len(issues) * 12)
     lesson = None
     if issues:
         lesson = (
             "Supermind desk: Council lenses + Setup + Risk z tool data; "
+            "asymmetric bet: cytuj R:R + ACCEPT/REJECT/WAIT; "
             "dla US cytuj sezonowość miesiąca/kadencji; dla BTC fazę ATH + bias miesiąca + vs SPX; "
             "bez impersonacji; bez gwarancji zysku; disclaimer edukacyjny."
         )

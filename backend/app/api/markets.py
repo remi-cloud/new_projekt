@@ -170,10 +170,18 @@ async def market_assessment(symbol: str):
     )
 
 
+def _canonical_market_symbol(symbol: str) -> str:
+    """Resolve aliases (e.g. LIQ → LQD) so charts/quotes open on real tickers."""
+    from app.ai.tools import normalize_symbol
+
+    return normalize_symbol(symbol) or symbol.strip()
+
+
 @router.get("/api/markets/chart/{symbol:path}", response_model=ChartResponse)
 async def market_chart(symbol: str, range: str = "3M"):
     if range not in CHART_PRESETS:
         range = "3M"
+    symbol = _canonical_market_symbol(symbol)
     chart = await fetch_chart(symbol, range)
     if not chart:
         raise HTTPException(status_code=404, detail=f"Brak danych wykresu dla {symbol}")
@@ -202,6 +210,7 @@ async def market_chart(symbol: str, range: str = "3M"):
 @router.get("/api/markets/quote/{symbol:path}")
 async def market_quote(symbol: str):
     """Fresh live price (Yahoo v7 quote) — bypasses chart candle cache."""
+    symbol = _canonical_market_symbol(symbol)
     known = symbol in ASSET_MAP
     pearl = None if known else await get_find_by_symbol(symbol)
     try:
@@ -218,13 +227,27 @@ async def market_quote(symbol: str):
         if not known and not pearl:
             raise HTTPException(status_code=404, detail=f"Nieznany instrument: {symbol}") from exc
         raise HTTPException(status_code=404, detail=exc.message) from exc
+    from app.data.assets import display_symbol_label, is_price_proxy, lookup_asset, resolve_yahoo_symbol
+
     q = next((x for x in scanner.quotes if x.symbol == symbol), None)
+    meta = lookup_asset(symbol) or {}
+    yahoo = resolve_yahoo_symbol(symbol)
+    proxy = is_price_proxy(symbol)
     return {
         "symbol": symbol,
+        "name": meta.get("name"),
+        "yahoo_symbol": yahoo,
+        "is_proxy": proxy,
+        "display_label": display_symbol_label(symbol),
         "price": price,
         "currency": currency,
         "change_pct_24h": q.change_pct_24h if q else None,
         "updated_at": q.updated_at.isoformat() if q and q.updated_at else None,
+        "price_note": (
+            f"Alias of listed ticker {yahoo} (live Yahoo)."
+            if proxy
+            else None
+        ),
     }
 
 

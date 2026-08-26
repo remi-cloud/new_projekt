@@ -14,8 +14,19 @@ logger = logging.getLogger(__name__)
 
 
 async def poll_predator_feed(*, notify: bool = True) -> dict:
-    """Fetch new Telegram updates, parse signals, store, optionally alert."""
-    if not getattr(settings, "telegram_predator_enabled", True):
+    """Fetch new Telegram updates, parse signals, store, optionally alert.
+
+    Shares one BotFather getUpdates stream with FOMO Family Telegram ingest.
+    """
+    predator_on = bool(getattr(settings, "telegram_predator_enabled", True))
+    try:
+        from app.fomo.telegram import fomo_telegram_enabled, ingest_fomo_telegram_text
+    except Exception:
+        fomo_telegram_enabled = lambda: False  # type: ignore[assignment]
+        ingest_fomo_telegram_text = None  # type: ignore[assignment]
+
+    fomo_tg_on = bool(fomo_telegram_enabled())
+    if not predator_on and not fomo_tg_on:
         return {"ok": False, "reason": "disabled", "new": 0, "updates": 0}
     if not predator_client.predator_configured():
         return {"ok": False, "reason": "no_token", "new": 0, "updates": 0}
@@ -26,6 +37,7 @@ async def poll_predator_feed(*, notify: bool = True) -> dict:
     new_signals = 0
     events: list[AlertEvent] = []
     max_update_id = offset
+    fomo_tg_new = 0
 
     for upd in updates:
         uid = int(upd.get("update_id") or 0)
@@ -33,6 +45,18 @@ async def poll_predator_feed(*, notify: bool = True) -> dict:
             max_update_id = uid
         text, mid, chat_id = predator_client.extract_text_from_update(upd)
         if not text or not chat_id:
+            continue
+
+        # Shared getUpdates: also route FOMO Family / bag alerts (same bot token).
+        if fomo_tg_on and ingest_fomo_telegram_text is not None:
+            try:
+                fomo_tg_new += await ingest_fomo_telegram_text(
+                    text, message_id=mid, chat_id=chat_id
+                )
+            except Exception as exc:
+                logger.debug("FOMO Telegram ingest skipped: %s", exc)
+
+        if not predator_on:
             continue
         if not predator_client.chat_allowed(chat_id):
             continue
@@ -70,15 +94,17 @@ async def poll_predator_feed(*, notify: bool = True) -> dict:
         notified = sum(result.values())
 
     logger.info(
-        "Predator Telegram poll: updates=%d new_signals=%d notified=%d",
+        "Predator Telegram poll: updates=%d new_signals=%d fomo_tg=%d notified=%d",
         len(updates),
         new_signals,
+        fomo_tg_new,
         notified,
     )
     return {
         "ok": True,
         "updates": len(updates),
         "new": new_signals,
+        "fomo_telegram_new": fomo_tg_new,
         "notified": notified,
         "offset": max_update_id,
     }

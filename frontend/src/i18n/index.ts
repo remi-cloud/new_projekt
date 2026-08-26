@@ -63,6 +63,9 @@ export type TranslationPath =
   | `logo.${keyof Translations['logo']}`
   | `broker.${keyof Translations['broker']}`
   | `pearl.${keyof Translations['pearl']}`
+  | `fomo.${keyof Translations['fomo']}`
+  | `axiom.${keyof Translations['axiom']}`
+  | `launch.${keyof Translations['launch']}`
   | `execution.${keyof Translations['execution']}`
   | `agent.${keyof Translations['agent']}`
   | `tools.${keyof Omit<Translations['tools'], 'groups' | 'tags' | 'items'>}`

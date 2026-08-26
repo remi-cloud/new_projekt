@@ -115,6 +115,33 @@ export async function fetchPaperPortfolio(): Promise<PaperPortfolio> {
   return res.json()
 }
 
+export type BinancePortfolioSync = {
+  ok: boolean
+  connected: boolean
+  configured: boolean
+  dry_run: boolean
+  last_sync_at?: string
+  paper_positions: Array<{ symbol: string; quantity: number; market_value_pln?: number }>
+  binance_positions: Array<{ symbol: string; quantity: number; trade_url?: string }>
+  drift: Array<{
+    symbol: string
+    paper_qty: number
+    binance_qty: number
+    delta_pct: number
+    alert?: boolean
+    trade_url?: string
+  }>
+  drift_count: number
+  drift_alerts: number
+  trade_links: Record<string, string>
+}
+
+export async function fetchBinancePortfolioSync(): Promise<BinancePortfolioSync> {
+  const res = await fetch(`${API_BASE}/portfolio/binance-sync`)
+  if (!res.ok) await throwApiError(res, 'fetchPortfolio')
+  return res.json()
+}
+
 export async function fetchPaperMaxBuy(symbol: string): Promise<{ max_quantity: number }> {
   const encoded = symbol.split('/').map(encodeURIComponent).join('/')
   const res = await fetch(`${API_BASE}/paper/max-buy/${encoded}`)
@@ -485,6 +512,39 @@ export async function fetchAgentTelemetry(
   return res.json()
 }
 
+export type CoordinatorDeskStatus = {
+  ok?: boolean
+  last_tick_at?: string | null
+  last_error?: string | null
+  warming_up?: boolean
+  link_guard?: {
+    ok?: boolean
+    missing_chain_axiom?: number
+    bad_4meme?: number
+  }
+}
+
+export type CoordinatorHealth = {
+  ok: boolean
+  at?: string
+  startup_grace?: boolean
+  desks?: {
+    launch?: CoordinatorDeskStatus
+    axiom?: CoordinatorDeskStatus
+    fomo?: CoordinatorDeskStatus
+  }
+  warnings?: string[]
+  hard_errors?: string[]
+  desks_stale?: string[]
+  binance_bot?: { ok?: boolean; connected?: boolean }
+}
+
+export async function fetchCoordinatorHealth(): Promise<CoordinatorHealth> {
+  const res = await fetch(`${API_BASE}/coordinator/health`)
+  if (!res.ok) await throwApiError(res, 'noData')
+  return res.json()
+}
+
 export type ProgramUsBacktestResponse = {
   final_value?: number
   cagr_pct?: number
@@ -829,6 +889,333 @@ export async function fetchPearlFinds(agentId?: string) {
 
 export async function runPearlHunt(agent: 'equity' | 'crypto' | 'both' = 'both') {
   const res = await fetch(`${API_BASE}/pearl/run?agent=${agent}`, { method: 'POST' })
+  if (!res.ok) await throwApiError(res, 'serverUnavailable')
+  return res.json()
+}
+
+export type FomoTrader = {
+  handle: string
+  rank: number
+  pnl?: number | null
+  win_rate?: number | null
+  trades?: number
+  updated_at?: string
+}
+
+export type FomoEvent = {
+  event_id: string
+  handle: string
+  action: string
+  mint: string
+  symbol: string
+  chain: string
+  usd_amount?: number | null
+  ts_unix?: number
+  created_at?: string
+}
+
+export type FomoStatus = {
+  enabled: boolean
+  mode?: 'live' | 'degraded' | 'idle' | string
+  needs_api_key?: boolean
+  has_api_key?: boolean
+  top_n?: number
+  timeframe?: string
+  interval_seconds?: number
+  last_tick_at?: string | null
+  last_error?: string | null
+  traders_count?: number
+  events_count?: number
+  source?: string
+  usage?: Record<string, unknown>
+  telegram?: {
+    enabled?: boolean
+    configured_chats?: string[]
+    listen_mode?: string
+    shared_bot?: boolean
+    hint?: string
+  }
+  family?: {
+    traders_with_bags?: number
+    positions_open?: number
+    positions_all?: number
+    open_usd_approx?: number
+  }
+}
+
+export async function fetchFomoStatus(): Promise<FomoStatus> {
+  const res = await fetch(`${API_BASE}/fomo/status`)
+  if (!res.ok) await throwApiError(res, 'serverUnavailable')
+  return res.json()
+}
+
+export async function fetchFomoTop(limit = 30): Promise<{ traders: FomoTrader[] }> {
+  const res = await fetch(`${API_BASE}/fomo/top?limit=${limit}`)
+  if (!res.ok) await throwApiError(res, 'serverUnavailable')
+  return res.json()
+}
+
+export async function fetchFomoEvents(
+  limit = 50,
+  side?: 'buy' | 'sell',
+): Promise<{ events: FomoEvent[] }> {
+  const qs = new URLSearchParams({ limit: String(limit) })
+  if (side) qs.set('side', side)
+  const res = await fetch(`${API_BASE}/fomo/events?${qs}`)
+  if (!res.ok) await throwApiError(res, 'serverUnavailable')
+  return res.json()
+}
+
+export async function runFomoTick(force = false) {
+  const res = await fetch(`${API_BASE}/fomo/run?force=${force ? 'true' : 'false'}`, { method: 'POST' })
+  if (!res.ok) await throwApiError(res, 'serverUnavailable')
+  return res.json()
+}
+
+export async function registerFomoKey(agentName = 'cyclical-trader-fomo-ghost') {
+  const res = await fetch(`${API_BASE}/fomo/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ agent_name: agentName }),
+  })
+  if (!res.ok) await throwApiError(res, 'serverUnavailable')
+  return res.json()
+}
+
+export type FomoBag = {
+  handle: string
+  mint: string
+  symbol: string
+  chain: string
+  status: string
+  net_usd?: number | null
+  buy_usd?: number | null
+  sell_usd?: number | null
+  buys?: number
+  sells?: number
+  last_ts?: number | null
+  last_action?: string | null
+  family?: string
+}
+
+export type FomoFamilySummary = {
+  family?: string
+  traders_with_bags?: number
+  positions_open?: number
+  positions_all?: number
+  open_usd_approx?: number
+}
+
+export async function fetchFomoFamily(limit = 100): Promise<{
+  bags: FomoBag[]
+  summary?: FomoFamilySummary
+}> {
+  const res = await fetch(`${API_BASE}/fomo/family?limit=${limit}`)
+  if (!res.ok) await throwApiError(res, 'serverUnavailable')
+  return res.json()
+}
+
+export async function fetchFomoBags(
+  limit = 100,
+  includeClosed = false,
+): Promise<{ bags: FomoBag[]; summary?: FomoFamilySummary }> {
+  const qs = new URLSearchParams({
+    limit: String(limit),
+    include_closed: includeClosed ? 'true' : 'false',
+  })
+  const res = await fetch(`${API_BASE}/fomo/bags?${qs}`)
+  if (!res.ok) await throwApiError(res, 'serverUnavailable')
+  return res.json()
+}
+
+export type AxiomStatus = {
+  enabled: boolean
+  brand?: string
+  tagline?: string
+  interval_seconds?: number
+  last_tick_at?: string | null
+  last_error?: string | null
+  pulse_count?: number
+  positions_open?: number
+  positions_all?: number
+  pulse_source?: string
+  axiom_auth?: boolean
+  wallets_tracked?: number
+  kar_digital_wallet?: string | null
+  kar_digital_configured?: boolean
+  include_closed?: boolean
+}
+
+export type AxiomPulseMarket = {
+  mint: string
+  symbol: string
+  name?: string
+  chain: string
+  pair_address?: string | null
+  price_usd?: number | null
+  liquidity_usd?: number | null
+  market_cap_usd?: number | null
+  volume_24h?: number | null
+  change_1h?: number | null
+  change_24h?: number | null
+  image_url?: string | null
+  url?: string | null
+  source?: string
+  updated_at?: string
+}
+
+export type AxiomPosition = {
+  position_id: string
+  owner: string
+  owner_kind: string
+  mint: string
+  symbol: string
+  chain: string
+  status: string
+  usd_size?: number | null
+  amount?: number | null
+  last_ts?: number | null
+  url?: string | null
+  image_url?: string | null
+  updated_at?: string
+}
+
+export async function fetchAxiomStatus(): Promise<AxiomStatus> {
+  const res = await fetch(`${API_BASE}/axiom/status`)
+  if (!res.ok) await throwApiError(res, 'serverUnavailable')
+  return res.json()
+}
+
+export async function fetchAxiomPulse(limit = 80): Promise<{ markets: AxiomPulseMarket[] }> {
+  const res = await fetch(`${API_BASE}/axiom/pulse?limit=${limit}`)
+  if (!res.ok) await throwApiError(res, 'serverUnavailable')
+  return res.json()
+}
+
+export async function fetchAxiomPositions(
+  limit = 200,
+  status: 'open' | 'closed' | 'all' = 'all',
+): Promise<{ positions: AxiomPosition[] }> {
+  const qs = new URLSearchParams({ limit: String(limit), status })
+  const res = await fetch(`${API_BASE}/axiom/positions?${qs}`)
+  if (!res.ok) await throwApiError(res, 'serverUnavailable')
+  return res.json()
+}
+
+export async function runAxiomTick() {
+  const res = await fetch(`${API_BASE}/axiom/run`, { method: 'POST' })
+  if (!res.ok) await throwApiError(res, 'serverUnavailable')
+  return res.json()
+}
+
+export type LaunchCandidate = {
+  candidate_id: string
+  mint: string
+  symbol: string
+  name?: string
+  chain: string
+  dex_id?: string
+  pair_address?: string
+  market_cap?: number | null
+  liq_usd?: number | null
+  age_hours?: number | null
+  tier: string
+  score?: number
+  source?: string
+  url?: string
+  launchpad_url?: string
+  image_url?: string | null
+  tags?: string[]
+  updated_at?: string
+}
+
+export type LaunchStatus = {
+  enabled: boolean
+  flagship?: boolean
+  brand?: string
+  tagline?: string
+  entry_note?: string
+  interval_seconds?: number
+  thresholds?: Record<string, number>
+  chains?: string[]
+  last_tick_at?: string | null
+  last_error?: string | null
+  counts?: { all?: number; seed?: number; fresh?: number; early?: number; watch?: number }
+  whispers_count?: number
+  whispers_enabled?: boolean
+  traders_count?: number
+  sources?: string[]
+  note?: string
+}
+
+export type MemeWhisper = {
+  id: string
+  author: string
+  text: string
+  url?: string
+  ts_unix?: number
+  keywords?: string[]
+  source?: string
+  created_at?: string
+}
+
+export type LaunchTrader = {
+  wallet: string
+  rank: number
+  score?: number
+  buys?: number
+  source?: string
+  updated_at?: string
+}
+
+export type LaunchTraderEvent = {
+  event_id: string
+  wallet: string
+  action: string
+  mint: string
+  symbol: string
+  chain: string
+  usd_amount?: number | null
+  ts_unix?: number
+  source?: string
+}
+
+export async function fetchLaunchStatus(): Promise<LaunchStatus> {
+  const res = await fetch(`${API_BASE}/launch/status`)
+  if (!res.ok) await throwApiError(res, 'serverUnavailable')
+  return res.json()
+}
+
+export async function fetchLaunchCandidates(
+  tier: 'seed' | 'fresh' | 'early' | 'watch' | 'all' = 'seed',
+  limit = 50,
+): Promise<{ candidates: LaunchCandidate[] }> {
+  const qs = new URLSearchParams({ tier, limit: String(limit) })
+  const res = await fetch(`${API_BASE}/launch/candidates?${qs}`)
+  if (!res.ok) await throwApiError(res, 'serverUnavailable')
+  return res.json()
+}
+
+export async function runLaunchScoutTick() {
+  const res = await fetch(`${API_BASE}/launch/run`, { method: 'POST' })
+  if (!res.ok) await throwApiError(res, 'serverUnavailable')
+  return res.json()
+}
+
+export async function fetchLaunchWhispers(limit = 20): Promise<{ whispers: MemeWhisper[] }> {
+  const res = await fetch(`${API_BASE}/launch/whispers?limit=${limit}`)
+  if (!res.ok) await throwApiError(res, 'serverUnavailable')
+  return res.json()
+}
+
+export async function fetchLaunchTraders(limit = 30): Promise<{ traders: LaunchTrader[] }> {
+  const res = await fetch(`${API_BASE}/launch/traders?limit=${limit}`)
+  if (!res.ok) await throwApiError(res, 'serverUnavailable')
+  return res.json()
+}
+
+export async function fetchLaunchTraderEvents(limit = 40): Promise<{ events: LaunchTraderEvent[] }> {
+  const res = await fetch(`${API_BASE}/launch/trader-events?limit=${limit}`)
   if (!res.ok) await throwApiError(res, 'serverUnavailable')
   return res.json()
 }

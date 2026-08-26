@@ -74,6 +74,7 @@ async def init_ai_db() -> None:
     await _upsert_knowledge_entries(INTRAMONTH_KNOWLEDGE, "intramonth")
     await _upsert_knowledge_entries(GLOBAL_BOOK_KNOWLEDGE, "global_cycle_book")
     await _upsert_knowledge_entries(CALENDAR_PUMP_KNOWLEDGE, "calendar_pumps")
+    await _upsert_knowledge_entries(ASYMMETRIC_BETS_KNOWLEDGE, "asymmetric_bets")
 
 
 SEASONALITY_KNOWLEDGE = [
@@ -158,6 +159,49 @@ CALENDAR_PUMP_KNOWLEDGE = [
             "Cytuj symbole + avg_pct + win_rate; nie zmyślaj rankingu."
         ),
         "calendar,pump,seasonality,commodity,utility,etf,month",
+    ),
+]
+
+
+ASYMMETRIC_BETS_KNOWLEDGE = [
+    (
+        "risk",
+        "Asymmetric bets — reguła desk",
+        (
+            "Każdy setup to zaklad asymetryczny: upside vs ruin. "
+            "Źródła tool: risk_snapshot.reward_risk, risk_snapshot.super_levels (IN/SL/TP), "
+            "get_super_opportunity.levels.risk_reward + super_score, consult_trade_signal (Risk/reward factor). "
+            "Agent MUSI wyciągnąć z tool data: R:R, poziomy IN/SL/TP1, suggested_size_units / risk_pct, "
+            "super_score — i wydać werdykt ACCEPT / REJECT / WAIT. Nie zmyślać R:R."
+        ),
+        "asymmetric,asymmetry,rr,risk_reward,reward_risk,sizing,accept,reject",
+    ),
+    (
+        "risk",
+        "Asymmetric bets — progi R:R i Superokazja (zweryfikowane w kodzie)",
+        (
+            "Zweryfikowane progi scorera Superokazji (score_super_opportunity) i ai_trade_advisor: "
+            "R:R ≥ 2.0 → silny boost (preferowany accept przy konfluencji); "
+            "R:R ≥ 1.4 → umiarkowany OK; "
+            "R:R ≥ 1.0 → słaby (mniejszy size / wymagaj potwierdzenia MTF); "
+            "R:R < 1.0 → reject / wait (kara w score). "
+            "is_super gdy super_score ≥ 72. "
+            "Cytuj liczby z tools (reward_risk / risk_reward), nie inventuj."
+        ),
+        "asymmetric,rr,superokazja,super_score,threshold",
+    ),
+    (
+        "risk",
+        "Asymmetric bets — sizing i stop (risk_snapshot)",
+        (
+            "risk_snapshot: stop_dist = ATR14 × 1.5 (fallback 2% ceny); "
+            "risk_pct domyślnie 1.0, clamp 0.25–2.0% equity paper; "
+            "size_units = risk_budget / stop_dist; "
+            "R:R liczone z Superokazja levels IN→TP vs IN→SL gdy dostępne. "
+            "W Setup + Risk podaj stop, size i R:R; przy braku R:R — mniejszy size lub WAIT. "
+            "Soczewka First principles / Asymmetry = upside vs ruin + accept/reject."
+        ),
+        "asymmetric,atr,sizing,risk_pct,stop,risk_snapshot",
     ),
 ]
 

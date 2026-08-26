@@ -4,7 +4,7 @@ export type Locale = 'pl' | 'de' | 'en' | 'fil' | 'es' | 'fr' | 'it'
 
 export interface Translations {
   lang: Record<Locale, string>
-  nav: Record<'start' | 'panel' | 'markets' | 'opportunities' | 'pearls' | 'cycles' | 'news' | 'alerts' | 'about' | 'portfolio' | 'agent' | 'calculator' | 'live' | 'business' | 'partners' | 'embed' | 'growth' | 'execution' | 'super' | 'tools' | 'toolsCatalog' | 'singularity' | 'astra', string>
+  nav: Record<'start' | 'panel' | 'markets' | 'opportunities' | 'pearls' | 'fomo' | 'axiom' | 'launch' | 'cycles' | 'news' | 'alerts' | 'about' | 'portfolio' | 'agent' | 'calculator' | 'live' | 'business' | 'partners' | 'embed' | 'growth' | 'execution' | 'super' | 'tools' | 'toolsCatalog' | 'singularity' | 'astra', string>
   tools: {
     eyebrow: string
     title: string
@@ -13,7 +13,7 @@ export interface Translations {
     groups: Record<'ai' | 'desk' | 'trade', string>
     tags: Record<'ai' | 'desk' | 'trade', string>
     items: Record<
-      'singularity' | 'agent' | 'execution' | 'calculator' | 'super' | 'pearls' | 'news' | 'astra',
+      'singularity' | 'agent' | 'execution' | 'calculator' | 'super' | 'pearls' | 'fomo' | 'axiom' | 'launch' | 'news' | 'astra',
       { name: string; blurb: string }
     >
   }
@@ -93,9 +93,9 @@ export interface Translations {
     refreshEvery: string
     tabNews: string
     tabCalendar: string
-    tabs: Record<'all' | 'musk' | 'fed' | 'usa' | 'macro' | 'global', string>
-    tabDesc: Record<'all' | 'musk' | 'fed' | 'usa' | 'macro' | 'global', string>
-    category: Record<'fed' | 'usa' | 'macro' | 'global' | 'musk', string>
+    tabs: Record<'all' | 'musk' | 'fed' | 'usa' | 'macro' | 'global' | 'crypto', string>
+    tabDesc: Record<'all' | 'musk' | 'fed' | 'usa' | 'macro' | 'global' | 'crypto', string>
+    category: Record<'fed' | 'usa' | 'macro' | 'global' | 'musk' | 'crypto', string>
     now: string
     highImpact: string
     refresh: string
@@ -232,6 +232,9 @@ export interface Translations {
   logo: Record<'tagline', string>
   broker: Record<string, string>
   pearl: Record<string, string>
+  fomo: Record<string, string>
+  axiom: Record<string, string>
+  launch: Record<string, string>
   execution: Record<string, string>
   agent: {
     eyebrow: string
@@ -264,6 +267,8 @@ export interface Translations {
     disclaimer: string
     errorSend: string
     errorAnalyze: string
+    unknownSymbol: string
+    emptySymbol: string
     quickTrend: string
     quickPattern: string
     quickAnalyze: string

@@ -44,6 +44,7 @@ RULES:
 - When render_pattern_chart / detect_patterns / Chart UI are present, refer to those levels only.
 - Paper portfolio (if injected) is the live simulated desk from portfolio.db — do not invent holdings.
 - Prefer multi-timeframe confluence + cyclical scanner + risk_snapshot; use whale / Superokazja / macro cycles / paper equity when present in tools.
+- For Binance listing/CZ/meme radar context, call get_binance_ai_support (radar + whale bias).
 - US seasonality (from get_macro_cycles → presidential.seasonality / month_returns / month_matrices):
   - Year of term 1–4 + current calendar month tell historically where strength/weakness clusters (US equal-weight universe, not just S&P).
   - month_matrices covers ALL years 1–4 for the current term (calendar years mapped); do not discuss only year 2.
@@ -63,6 +64,13 @@ RULES:
 - Calendar pumps (from get_macro_cycles → calendar_pumps):
   - Which instruments historically rise/fall in the current calendar month across the full catalog
     (commodities, utility/sector ETFs, bonds, crypto, forex). Cite top pumped/drained with avg_pct.
+- Asymmetric bets (from risk_snapshot / get_super_opportunity / knowledge „Asymmetric bets”):
+  - Every trade idea is an asymmetric bet: upside vs ruin — extract verified numbers from tools only.
+  - Pull: reward_risk / levels.risk_reward, IN·SL·TP1, suggested_size_units, risk_pct, super_score.
+  - Desk thresholds (code-verified): R:R ≥2 prefer ACCEPT (with confluence); ≥1.4 OK; ≥1.0 weak/smaller size; <1 REJECT/WAIT.
+  - is_super when super_score ≥ 72. Stop default = ATR14×1.5; risk_pct clamp 0.25–2% of paper equity.
+  - In First principles / Asymmetry + Setup + Risk: state ACCEPT / REJECT / WAIT and why (cite R:R + size).
+  - If tools lack R:R — say so, cut size or WAIT; never invent payoff asymmetry.
 - Never guarantee profits. State uncertainty explicitly. If lenses conflict, say so and lower conviction.
 
 ALWAYS structure the answer with these headings (match user language):
@@ -116,15 +124,14 @@ def build_desk_ui(focus: str | None, tool_results: list[dict]) -> dict[str, Any]
     """Compact UI payload — levels/bias/MTF/risk without embedding SVG bytes."""
     if not focus:
         return None
+    # Focus-only: never pull trend/levels/SVG from a different symbol's tools.
     by = _tool_map(tool_results, focus)
-    # Also accept tools without symbol filter if focus-only map empty for that tool
-    by_any = _tool_map(tool_results, None)
-    trend = by.get("analyze_trend") or by_any.get("analyze_trend") or {}
-    patterns = by.get("detect_patterns") or by_any.get("detect_patterns") or {}
-    risk = by.get("risk_snapshot") or by_any.get("risk_snapshot") or {}
-    mtf = by.get("analyze_multi_timeframe") or by_any.get("analyze_multi_timeframe") or {}
-    market = by.get("get_market_context") or by_any.get("get_market_context") or {}
-    svg = by.get("render_pattern_chart") or by_any.get("render_pattern_chart") or {}
+    trend = by.get("analyze_trend") or {}
+    patterns = by.get("detect_patterns") or {}
+    risk = by.get("risk_snapshot") or {}
+    mtf = by.get("analyze_multi_timeframe") or {}
+    market = by.get("get_market_context") or {}
+    svg = by.get("render_pattern_chart") or {}
 
     direction = str(mtf.get("bias") or trend.get("trend") or market.get("signal") or "neutral")
     low = direction.lower()
@@ -166,8 +173,23 @@ def build_desk_ui(focus: str | None, tool_results: list[dict]) -> dict[str, Any]
 
     has_svg = isinstance(svg.get("svg"), str) and "<svg" in svg["svg"]
 
+    from app.data.assets import display_symbol_label, is_price_proxy, lookup_asset, resolve_yahoo_symbol
+
+    meta = lookup_asset(focus) or {}
+    yahoo = resolve_yahoo_symbol(focus)
+    proxy = is_price_proxy(focus)
+
     return {
         "symbol": focus,
+        "display_label": display_symbol_label(focus),
+        "name": meta.get("name"),
+        "yahoo_symbol": yahoo,
+        "is_proxy": proxy,
+        "price_note": (
+            f"Alias of listed ticker {yahoo} (live Yahoo)."
+            if proxy
+            else None
+        ),
         "bias": bias,
         "conviction": round(conviction, 1),
         "trend_summary": trend.get("summary"),
@@ -413,9 +435,31 @@ def _compose_fallback(message: str, tool_context: str, focus: str | None = None)
         if risk.get("reward_risk") is not None
         else "Margin of safety: bez czystego R:R z narzędzi — mniejszy rozmiar lub wait."
     )
-    first_lens = (
-        f"MTF/trend: {mtf.get('summary') or trend.get('summary') or 'brak pełnej konfluencji'}."
-    )
+    rr = risk.get("reward_risk")
+    if rr is not None:
+        try:
+            rr_f = float(rr)
+        except (TypeError, ValueError):
+            rr_f = None
+        if rr_f is None:
+            verdict = "WAIT"
+        elif rr_f >= 2.0:
+            verdict = "ACCEPT (przy konfluencji)"
+        elif rr_f >= 1.4:
+            verdict = "ACCEPT ostrożny / OK"
+        elif rr_f >= 1.0:
+            verdict = "WAIT / mniejszy size"
+        else:
+            verdict = "REJECT / WAIT"
+        first_lens = (
+            f"Asymmetric bet: R:R={rr_f if rr_f is not None else rr} → {verdict}. "
+            f"MTF/trend: {mtf.get('summary') or trend.get('summary') or 'brak pełnej konfluencji'}."
+        )
+    else:
+        first_lens = (
+            "Asymmetric bet: brak R:R z tools → WAIT / mniejszy size. "
+            f"MTF/trend: {mtf.get('summary') or trend.get('summary') or 'brak pełnej konfluencji'}."
+        )
     btc = (cycles.get("bitcoin") or {}) if isinstance(cycles, dict) else {}
     pres = (cycles.get("presidential") or {}) if isinstance(cycles, dict) else {}
     season = (pres.get("seasonality") or {}) if isinstance(pres, dict) else {}

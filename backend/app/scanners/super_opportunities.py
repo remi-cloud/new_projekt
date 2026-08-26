@@ -104,6 +104,20 @@ async def resolve_opportunity_for_symbol(symbol: str) -> Opportunity | None:
     )
 
 
+def _structure_atr_pct(price: float, heatmap: dict) -> float:
+    """ATR-like % from liquidation heatmap span — independent of cycle confidence."""
+    if price <= 0:
+        return 0.015
+    bins = heatmap.get("bins") or []
+    if len(bins) >= 2:
+        prices = [float(b["price"]) for b in bins if b.get("price")]
+        if len(prices) >= 2:
+            span = (max(prices) - min(prices)) / price
+            # ~1/6 of structure span; clamp 0.8%–4%
+            return max(0.008, min(0.04, span / 6.0))
+    return 0.015
+
+
 def compute_entry_exit_levels(
     price: float,
     action: SignalAction,
@@ -112,12 +126,18 @@ def compute_entry_exit_levels(
     ask: float | None,
     heatmap: dict,
 ) -> dict:
+    """SL/TP from price structure (ATR proxy + liq walls), not from cycle confidence.
+
+    ``confidence`` is kept for API compatibility but does not set risk/reward %.
+    """
     mid = price
     if bid and ask:
         mid = (bid + ask) / 2
 
-    risk_pct = max(0.008, 0.04 - (confidence / 100) * 0.025)
-    reward_pct = risk_pct * (1.8 + confidence / 100)
+    risk_pct = _structure_atr_pct(mid, heatmap)
+    # Base ~2:1 structure target; walls may tighten TP
+    reward_pct = risk_pct * 2.0
+    _ = confidence  # unused — break R:R ↔ confidence circularity
     bins = heatmap.get("bins") or []
 
     if action in (SignalAction.BUY, SignalAction.WATCH):
@@ -190,7 +210,8 @@ def score_super_opportunity(
     heatmap: dict,
     whale: dict | None = None,
 ) -> tuple[float, list[str]]:
-    score = opp.confidence * 0.55
+    # Lower cycle weight so structure R:R is not double-counted with confidence
+    score = opp.confidence * 0.35
     model = {
         "bitcoin": "Cykl Bitcoin",
         "presidential": "Cykl prezydencki",
@@ -437,12 +458,8 @@ async def build_super_opportunities(min_score: float = 0) -> dict:
 
     results = await asyncio.gather(*[_one(o) for o in pool])
     items = [r for r in results if r and r["super_score"] >= min_score]
-    items.sort(
-        key=lambda x: (
-            x["super_score"] + (4.0 if x["levels"]["side"] == "short" else 0.0),
-        ),
-        reverse=True,
-    )
+    # Equal sort by super_score — no short-side rank boost
+    items.sort(key=lambda x: x["super_score"], reverse=True)
 
     supers = [i for i in items if i["is_super"]]
     return {

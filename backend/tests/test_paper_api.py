@@ -73,3 +73,13 @@ def test_paper_order_then_close(client):
 def test_ai_chat_empty_rejected(client):
     r = client.post("/api/ai/chat", json={"message": "   "})
     assert r.status_code == 400
+
+
+def test_portfolio_binance_sync(client):
+    r = client.get("/api/portfolio/binance-sync")
+    assert r.status_code == 200
+    data = r.json()
+    assert "connected" in data
+    assert "paper_positions" in data
+    assert "binance_positions" in data
+    assert "drift" in data

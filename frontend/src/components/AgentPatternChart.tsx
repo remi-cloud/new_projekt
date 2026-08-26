@@ -84,12 +84,12 @@ export function toolResultsFromMeta(meta?: Record<string, unknown> | null): unkn
 
 export function focusSymbolFromMeta(meta?: Record<string, unknown> | null): string | null {
   if (!meta) return null
-  if (typeof meta.focus_symbol === 'string' && meta.focus_symbol.trim()) return meta.focus_symbol.trim()
-  const tools = toolResultsFromMeta(meta)
-  if (!Array.isArray(tools)) return null
-  for (const raw of tools) {
-    const r = (raw as ToolBlock)?.result
-    if (r && typeof r.symbol === 'string' && r.symbol.trim()) return r.symbol.trim()
+  // Prefer explicitly requested / locked focus — never latch onto a random tool symbol.
+  if (typeof meta.requested_symbol === 'string' && meta.requested_symbol.trim()) {
+    return meta.requested_symbol.trim()
+  }
+  if (typeof meta.focus_symbol === 'string' && meta.focus_symbol.trim()) {
+    return meta.focus_symbol.trim()
   }
   return null
 }

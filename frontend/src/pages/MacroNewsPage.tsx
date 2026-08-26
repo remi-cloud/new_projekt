@@ -14,7 +14,7 @@ import { MacroNewsCategory, MacroNewsFeed, MacroNewsItem } from '../types'
 type ViewMode = 'news' | 'calendar'
 type TabId = 'all' | MacroNewsCategory
 
-const NEWS_TAB_IDS: TabId[] = ['all', 'musk', 'fed', 'usa', 'macro', 'global']
+const NEWS_TAB_IDS: TabId[] = ['all', 'musk', 'fed', 'usa', 'macro', 'global', 'crypto']
 
 function formatTime(item: MacroNewsItem, t: (p: TranslationPath, v?: Record<string, string | number>) => string, dateLocale: string): string {
   if (item.age_minutes != null) {

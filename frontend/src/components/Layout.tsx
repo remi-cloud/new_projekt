@@ -38,6 +38,9 @@ const NAV_KEYS: Record<string, TranslationPath> = {
   '/powiadomienia': 'nav.alerts',
   '/o-nas': 'nav.about',
   '/portfel': 'nav.portfolio',
+  '/perly': 'nav.pearls',
+  '/fomo': 'nav.fomo',
+  '/launch': 'nav.launch',
 }
 
 export function Layout({ scannerRunning, scanInProgress, liveMode, liveConnected, onScan, scanning }: LayoutProps) {

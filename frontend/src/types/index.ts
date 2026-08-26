@@ -306,7 +306,7 @@ export interface RegionalCycleSnapshot {
   rationale: string
 }
 
-export type MacroNewsCategory = 'fed' | 'usa' | 'macro' | 'global' | 'musk'
+export type MacroNewsCategory = 'fed' | 'usa' | 'macro' | 'global' | 'musk' | 'crypto'
 
 export interface MacroNewsItem {
   id: string
@@ -445,6 +445,7 @@ export interface PaperPosition {
   unrealized_pnl_pct: number
   currency: string
   opened_at?: string
+  image_url?: string | null
   pending_limit_orders?: PaperLimitOrder[]
   broker_info?: BrokerPurchaseInfo | null
 }
@@ -482,6 +483,19 @@ export interface PaperClosedPosition {
   currency: string
   opened_at: string
   closed_at: string
+  image_url?: string | null
+}
+
+export interface PaperTradeStats {
+  trades: number
+  wins: number
+  losses: number
+  win_rate: number | null
+  avg_win_pln: number | null
+  avg_loss_pln: number | null
+  expectancy_pln: number | null
+  best_pln: number | null
+  worst_pln: number | null
 }
 
 export interface PaperPortfolio {
@@ -498,6 +512,7 @@ export interface PaperPortfolio {
   positions: PaperPosition[]
   closed_positions_count?: number
   closed_positions?: PaperClosedPosition[]
+  trade_stats?: PaperTradeStats
   limit_orders?: PaperLimitOrder[]
   recent_trades: PaperTrade[]
   quotes_available: number

@@ -7,6 +7,7 @@ import { focusSymbolFromMeta, toolResultsFromMeta } from '../components/AgentPat
 import {
   fetchAiHistory,
   fetchAiStatus,
+  fetchRoiAssets,
   postAiChat,
   postAiFeedback,
   postAiAnalyze,
@@ -16,6 +17,7 @@ import {
 } from '../api'
 import { formatThrownError, resolveApiMessage } from '../i18n/utils'
 import { consumeAgentSeed, instrumentAnalysisPrompt } from '../lib/agentSeed'
+import { resolveAgentSymbol } from '../lib/agentSymbol'
 
 const SESSION_KEY = 'cyclical_ai_session'
 
@@ -52,12 +54,24 @@ export function FinanceAgentPage() {
   const [messages, setMessages] = useState<ChatEntry[]>([])
   const [input, setInput] = useState('')
   const [symbol, setSymbol] = useState('BTC-USD')
+  const [knownSymbols, setKnownSymbols] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [lastQuestion, setLastQuestion] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
   const seededRef = useRef(false)
   const skipNextHistoryRef = useRef(false)
+  const symbolRef = useRef(symbol)
+  const knownRef = useRef<string[]>([])
+  const requestGenRef = useRef(0)
+
+  useEffect(() => {
+    symbolRef.current = symbol
+  }, [symbol])
+
+  useEffect(() => {
+    knownRef.current = knownSymbols
+  }, [knownSymbols])
 
   useEffect(() => {
     fetchAiStatus()
@@ -66,7 +80,26 @@ export function FinanceAgentPage() {
         setStatus(null)
         setError(formatThrownError(err, resolveApiMessage('fetchAiStatus')))
       })
+    fetchRoiAssets()
+      .then((assets) => setKnownSymbols(assets.map((a) => a.symbol)))
+      .catch(() => setKnownSymbols([]))
   }, [])
+
+  const canonicalizeToolbarSymbol = useCallback((): string | null => {
+    const resolved = resolveAgentSymbol(symbolRef.current, knownRef.current)
+    if (!resolved.ok) {
+      if (resolved.reason === 'empty') setError(t('agent.emptySymbol'))
+      else setError(t('agent.unknownSymbol', { symbol: resolved.input || symbolRef.current }))
+      return null
+    }
+    if (resolved.symbol !== symbolRef.current.trim().toUpperCase().replace(/\s+/g, '')) {
+      setSymbol(resolved.symbol)
+      symbolRef.current = resolved.symbol
+    } else {
+      symbolRef.current = resolved.symbol
+    }
+    return resolved.symbol
+  }, [t])
 
   useEffect(() => {
     if (!sessionId) return
@@ -92,43 +125,49 @@ export function FinanceAgentPage() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages, loading])
 
-  const applyResponse = useCallback((res: AiChatResponse, question: string) => {
-    if (res.session_id) {
-      if (res.session_id !== sessionId) {
+  const applyResponse = useCallback(
+    (res: AiChatResponse, question: string, requestedSymbol: string, gen: number) => {
+      if (gen !== requestGenRef.current) return
+      if (res.session_id) {
+        // Skip one history wipe so live tool_results/SVG stay
         skipNextHistoryRef.current = true
-      } else {
-        // Same session: still skip one history wipe so live tool_results/SVG stay
-        skipNextHistoryRef.current = true
+        setSessionId(res.session_id)
+        localStorage.setItem(SESSION_KEY, res.session_id)
       }
-      setSessionId(res.session_id)
-      localStorage.setItem(SESSION_KEY, res.session_id)
-    }
-    if (res.focus_symbol) {
-      setSymbol(res.focus_symbol)
-    }
-    setMessages((prev) => [
-      ...prev,
-      { role: 'user', content: question },
-      {
-        id: res.message_id,
-        role: 'assistant',
-        content: res.reply,
-        meta: {
-          tools_used: res.tools_used,
-          critic_score: res.critic_score,
-          llm_active: res.llm_active,
-          tool_results: res.tool_results,
-          focus_symbol: res.focus_symbol,
-          desk_ui: res.desk_ui,
+      // Toolbar symbol is user-owned — never overwrite from API focus_symbol.
+      const lockedFocus = requestedSymbol || res.focus_symbol || null
+      setMessages((prev) => [
+        ...prev,
+        { role: 'user', content: question },
+        {
+          id: res.message_id,
+          role: 'assistant',
+          content: res.reply,
+          meta: {
+            tools_used: res.tools_used,
+            critic_score: res.critic_score,
+            llm_active: res.llm_active,
+            tool_results: res.tool_results,
+            focus_symbol: lockedFocus,
+            requested_symbol: requestedSymbol || undefined,
+            desk_ui: res.desk_ui,
+          },
         },
-      },
-    ])
-  }, [sessionId])
+      ])
+    },
+    [],
+  )
 
   const sendMessage = useCallback(
     async (text: string, sym?: string) => {
       const q = text.trim()
       if (!q || loading) return
+      if (sym) {
+        symbolRef.current = sym
+      }
+      const requested = canonicalizeToolbarSymbol()
+      if (!requested) return
+      const gen = ++requestGenRef.current
       setError(null)
       setLoading(true)
       setLastQuestion(q)
@@ -137,17 +176,17 @@ export function FinanceAgentPage() {
           message: q,
           session_id: sessionId || undefined,
           locale,
-          symbol: sym,
+          symbol: requested,
         })
-        applyResponse(res, q)
+        applyResponse(res, q, requested, gen)
         setInput('')
       } catch {
-        setError(t('agent.errorSend'))
+        if (gen === requestGenRef.current) setError(t('agent.errorSend'))
       } finally {
-        setLoading(false)
+        if (gen === requestGenRef.current) setLoading(false)
       }
     },
-    [applyResponse, loading, locale, sessionId, t],
+    [applyResponse, canonicalizeToolbarSymbol, loading, locale, sessionId, t],
   )
 
   useEffect(() => {
@@ -179,29 +218,32 @@ export function FinanceAgentPage() {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
-    void sendMessage(input, symbol || undefined)
+    void sendMessage(input)
   }
 
   const handleQuick = (kind: 'trend' | 'pattern' | 'analyze' | 'cycles') => {
-    const sym = symbol.trim() || 'BTC-USD'
+    const sym = canonicalizeToolbarSymbol()
+    if (!sym) return
     const prompts: Record<typeof kind, string> = {
       trend: t('agent.quickTrend').replace('{{symbol}}', sym),
       pattern: t('agent.quickPattern').replace('{{symbol}}', sym),
       analyze: t('agent.quickAnalyze').replace('{{symbol}}', sym),
       cycles: t('agent.quickCycles'),
     }
-    void sendMessage(prompts[kind], kind === 'cycles' ? undefined : sym)
+    // Always pass toolbar symbol — including Cycles — so focus cannot jump.
+    void sendMessage(prompts[kind], sym)
   }
 
   const handleAnalyzeOnly = async () => {
-    const sym = symbol.trim()
-    if (!sym || loading) return
+    if (loading) return
+    const sym = canonicalizeToolbarSymbol()
+    if (!sym) return
+    const gen = ++requestGenRef.current
     setError(null)
     setLoading(true)
     setLastQuestion(t('agent.analyzeOnly').replace('{{symbol}}', sym))
     try {
       const res = await postAiAnalyze(sym, locale)
-      const focus = res.focus_symbol || res.symbol || sym
       const fake: AiChatResponse = {
         session_id: sessionId,
         reply: res.summary,
@@ -210,14 +252,14 @@ export function FinanceAgentPage() {
         tool_results: res.tools,
         llm_active: res.llm_active,
         tool_count: res.tools.length,
-        focus_symbol: focus,
+        focus_symbol: sym,
         desk_ui: res.desk_ui,
       }
-      applyResponse(fake, t('agent.analyzeOnly').replace('{{symbol}}', focus))
+      applyResponse(fake, t('agent.analyzeOnly').replace('{{symbol}}', sym), sym, gen)
     } catch {
-      setError(t('agent.errorAnalyze'))
+      if (gen === requestGenRef.current) setError(t('agent.errorAnalyze'))
     } finally {
-      setLoading(false)
+      if (gen === requestGenRef.current) setLoading(false)
     }
   }
 
@@ -286,10 +328,23 @@ export function FinanceAgentPage() {
           <input
             type="text"
             value={symbol}
+            list="agent-symbol-catalog"
             onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-            placeholder="BTC-USD"
+            onBlur={() => {
+              const resolved = resolveAgentSymbol(symbolRef.current, knownRef.current)
+              if (resolved.ok && resolved.symbol !== symbol) setSymbol(resolved.symbol)
+            }}
+            placeholder="LQD / BTC-USD / SPCX"
             className="agent-input-inline"
+            disabled={loading}
+            autoComplete="off"
+            spellCheck={false}
           />
+          <datalist id="agent-symbol-catalog">
+            {knownSymbols.map((s) => (
+              <option key={s} value={s} />
+            ))}
+          </datalist>
         </label>
         <div className="agent-quick-actions">
           <button type="button" className="btn btn-ghost agent-quick-btn" onClick={() => handleQuick('trend')} disabled={loading}>
@@ -335,6 +390,10 @@ export function FinanceAgentPage() {
                 {msg.role === 'user' && <div className="agent-msg-body">{msg.content}</div>}
                 {msg.role === 'assistant' && hasDesk && (
                   <AgentDeskCard
+                    requestedSymbol={
+                      (typeof msg.meta?.requested_symbol === 'string' && msg.meta.requested_symbol) ||
+                      focusSymbolFromMeta(msg.meta)
+                    }
                     focusSymbol={focusSymbolFromMeta(msg.meta)}
                     toolResults={toolResultsFromMeta(msg.meta)}
                     deskUi={deskUiFromMeta(msg.meta)}
@@ -344,9 +403,13 @@ export function FinanceAgentPage() {
                 )}
                 {msg.role === 'assistant' && msg.meta && (
                   <div className="agent-msg-meta">
-                    {typeof msg.meta.focus_symbol === 'string' && (
+                    {(typeof msg.meta.requested_symbol === 'string' ||
+                      typeof msg.meta.focus_symbol === 'string') && (
                       <span>
-                        {t('agent.analyzingSymbol').replace('{{symbol}}', msg.meta.focus_symbol as string)}
+                        {t('agent.analyzingSymbol').replace(
+                          '{{symbol}}',
+                          String(msg.meta.requested_symbol || msg.meta.focus_symbol),
+                        )}
                       </span>
                     )}
                     {typeof msg.meta.critic_score === 'number' && (
@@ -394,7 +457,7 @@ export function FinanceAgentPage() {
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault()
-                void sendMessage(input, symbol || undefined)
+                void sendMessage(input)
               }
             }}
           />

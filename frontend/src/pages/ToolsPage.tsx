@@ -3,7 +3,7 @@ import { useLocale } from '../context/LocaleContext'
 import type { TranslationPath } from '../i18n'
 
 type ToolDef = {
-  id: 'singularity' | 'astra' | 'agent' | 'execution' | 'calculator' | 'super' | 'pearls' | 'news'
+  id: 'singularity' | 'astra' | 'agent' | 'execution' | 'calculator' | 'super' | 'pearls' | 'fomo' | 'axiom' | 'launch' | 'news'
   to: string
   nameKey: TranslationPath
   blurbKey: TranslationPath
@@ -11,6 +11,20 @@ type ToolDef = {
 }
 
 const TOOLS: ToolDef[] = [
+  {
+    id: 'launch',
+    to: '/launch',
+    nameKey: 'tools.items.launch.name',
+    blurbKey: 'tools.items.launch.blurb',
+    group: 'ai',
+  },
+  {
+    id: 'axiom',
+    to: '/axiom',
+    nameKey: 'tools.items.axiom.name',
+    blurbKey: 'tools.items.axiom.blurb',
+    group: 'ai',
+  },
   {
     id: 'singularity',
     to: '/narzedzia/singularity',
@@ -30,6 +44,13 @@ const TOOLS: ToolDef[] = [
     to: '/agent',
     nameKey: 'tools.items.agent.name',
     blurbKey: 'tools.items.agent.blurb',
+    group: 'ai',
+  },
+  {
+    id: 'fomo',
+    to: '/fomo',
+    nameKey: 'tools.items.fomo.name',
+    blurbKey: 'tools.items.fomo.blurb',
     group: 'ai',
   },
   {

@@ -143,8 +143,12 @@ def primary_exchange(symbol: str, asset_class: str | None = None) -> str:
     nasdaq = {
         "AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "NVDA", "META", "TSLA",
         "AVGO", "COST", "NFLX", "AMD", "INTC", "ADBE", "PYPL", "QCOM",
-        "RKLB", "IRDM", "ASTS", "GSAT", "ON", "ARKX",
+        "RKLB", "IRDM", "ASTS", "GSAT", "ON", "ARKX", "SPCX", "SPACEX",
     }
+    if symbol == "ARKX":
+        return "AMEX / ARK Space ETF"
+    if symbol in ("SPCX", "SPACEX"):
+        return "NASDAQ"
     if symbol in nasdaq:
         return "NASDAQ"
     return "NYSE / US listed"

@@ -57,6 +57,8 @@ export interface DeskLabels {
 }
 
 interface Props {
+  /** Toolbar / request symbol — sole source of truth for chart + labels. */
+  requestedSymbol?: string | null
   focusSymbol?: string | null
   toolResults?: unknown
   deskUi?: Record<string, unknown> | null
@@ -64,12 +66,38 @@ interface Props {
   labels: DeskLabels
 }
 
-export function AgentDeskCard({ focusSymbol, toolResults, deskUi, reply, labels }: Props) {
+function sameSymbol(a?: string | null, b?: string | null): boolean {
+  if (!a || !b) return false
+  return a.trim().toUpperCase() === b.trim().toUpperCase()
+}
+
+export function AgentDeskCard({
+  requestedSymbol,
+  focusSymbol,
+  toolResults,
+  deskUi,
+  reply,
+  labels,
+}: Props) {
   const desk = deskUi && typeof deskUi === 'object' ? deskUi : null
+  const deskSym = typeof desk?.symbol === 'string' ? desk.symbol.trim() : null
+  // Never bind chart/labels to a foreign desk symbol.
   const sym =
-    (typeof desk?.symbol === 'string' && desk.symbol) ||
+    requestedSymbol?.trim() ||
     focusSymbol?.trim() ||
+    (deskSym && sameSymbol(deskSym, requestedSymbol || focusSymbol) ? deskSym : null) ||
     null
+
+  const deskMatches = !deskSym || !sym || sameSymbol(deskSym, sym)
+  const displayLabel =
+    (deskMatches && typeof desk?.display_label === 'string' && desk.display_label) ||
+    (deskMatches && typeof desk?.name === 'string' && desk.name) ||
+    sym
+  const priceNote =
+    deskMatches && typeof desk?.price_note === 'string' ? desk.price_note : null
+  const yahooSym =
+    deskMatches && typeof desk?.yahoo_symbol === 'string' ? desk.yahoo_symbol : null
+  const isProxy = Boolean(deskMatches && desk?.is_proxy)
 
   const trend = findResult(toolResults, 'analyze_trend', sym)
   const patterns = findResult(toolResults, 'detect_patterns', sym)
@@ -77,29 +105,43 @@ export function AgentDeskCard({ focusSymbol, toolResults, deskUi, reply, labels 
   const mtfTool = findResult(toolResults, 'analyze_multi_timeframe', sym)
 
   const biasRaw = String(
-    desk?.bias || (desk?.mtf as { bias?: string } | undefined)?.bias || mtfTool?.bias || trend?.trend || 'neutral',
+    (deskMatches && desk?.bias) ||
+      (deskMatches && (desk?.mtf as { bias?: string } | undefined)?.bias) ||
+      mtfTool?.bias ||
+      trend?.trend ||
+      'neutral',
   )
   const conviction = Number(
-    desk?.conviction ?? trend?.strength ?? (desk?.mtf as { confluence_score?: number } | undefined)?.confluence_score ?? NaN,
+    (deskMatches ? desk?.conviction : undefined) ??
+      trend?.strength ??
+      (deskMatches ? (desk?.mtf as { confluence_score?: number } | undefined)?.confluence_score : undefined) ??
+      NaN,
   )
-  const support = (Array.isArray(desk?.support) ? desk!.support : patterns?.support) as unknown[] | undefined
-  const resistance = (Array.isArray(desk?.resistance) ? desk!.resistance : patterns?.resistance) as unknown[] | undefined
+  const support = (
+    deskMatches && Array.isArray(desk?.support) ? desk!.support : patterns?.support
+  ) as unknown[] | undefined
+  const resistance = (
+    deskMatches && Array.isArray(desk?.resistance) ? desk!.resistance : patterns?.resistance
+  ) as unknown[] | undefined
   const sList = Array.isArray(support) ? support : []
   const rList = Array.isArray(resistance) ? resistance : []
 
   const mtf =
-    (desk?.mtf as { frames?: { range?: string; trend?: string; strength?: number; error?: string }[] } | undefined) ||
+    (deskMatches
+      ? (desk?.mtf as { frames?: { range?: string; trend?: string; strength?: number; error?: string }[] } | undefined)
+      : undefined) ||
     (mtfTool as { frames?: { range?: string; trend?: string; strength?: number; error?: string }[] } | undefined)
   const frames = Array.isArray(mtf?.frames) ? mtf!.frames! : []
 
   const risk =
-    (desk?.risk as Record<string, unknown> | undefined) ||
+    (deskMatches ? (desk?.risk as Record<string, unknown> | undefined) : undefined) ||
     (riskTool as Record<string, unknown> | undefined) ||
     {}
 
-  const patternNames = Array.isArray(desk?.patterns)
-    ? (desk!.patterns as { name?: string; confidence?: number }[])
-    : []
+  const patternNames =
+    deskMatches && Array.isArray(desk?.patterns)
+      ? (desk!.patterns as { name?: string; confidence?: number }[])
+      : []
 
   const sections = parseReplySections(reply || '')
   const lenses = extractCouncilLenses(sections)
@@ -133,7 +175,12 @@ export function AgentDeskCard({ focusSymbol, toolResults, deskUi, reply, labels 
       {sym && (
         <div className="agent-desk-head">
           <div className="agent-desk-title">
-            <span className="agent-desk-symbol">{sym}</span>
+            <span className="agent-desk-symbol">{displayLabel || sym}</span>
+            {isProxy && yahooSym && (
+              <span className="agent-proxy-pill" title={priceNote || undefined}>
+                LIVE {yahooSym}
+              </span>
+            )}
             <span className={`agent-bias-pill agent-bias-${bc}`}>{biasRaw}</span>
             {convPct != null && (
               <span className="agent-desk-conv-label">
@@ -154,8 +201,11 @@ export function AgentDeskCard({ focusSymbol, toolResults, deskUi, reply, labels 
       )}
 
       {sym && (
-        <p className="agent-desk-analyzing">{labels.analyzingSymbol.replace('{{symbol}}', sym)}</p>
+        <p className="agent-desk-analyzing">
+          {labels.analyzingSymbol.replace('{{symbol}}', String(displayLabel || sym))}
+        </p>
       )}
+      {priceNote && <p className="agent-price-note">{priceNote}</p>}
 
       {sym && (
         <div className="agent-desk-chart">

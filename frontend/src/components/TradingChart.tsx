@@ -741,7 +741,11 @@ export function ChartLoader({
           } catch {
             if (gen === loadGenRef.current) {
               setChartBundle(null)
-              setLoadError(t('chart.loadFailed', { preset: requestedPreset }))
+              const tip =
+                symbol.trim().toUpperCase() === 'LIQ'
+                  ? t('chart.loadFailedHint', { preset: requestedPreset })
+                  : t('chart.loadFailed', { preset: requestedPreset })
+              setLoadError(tip)
             }
           }
         } else if (gen === loadGenRef.current) {

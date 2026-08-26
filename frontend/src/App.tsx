@@ -35,6 +35,13 @@ const EmbedWidgetPage = lazy(() => import('./pages/EmbedWidgetPage').then((m) =>
 const PearlHunterPage = lazy(() =>
   import('./pages/PearlHunterPage').then((m) => ({ default: m.PearlHunterPage })),
 )
+const FomoGhostPage = lazy(() =>
+  import('./pages/FomoGhostPage').then((m) => ({ default: m.FomoGhostPage })),
+)
+const AxiomPage = lazy(() => import('./pages/AxiomPage').then((m) => ({ default: m.AxiomPage })))
+const LaunchScoutPage = lazy(() =>
+  import('./pages/LaunchScoutPage').then((m) => ({ default: m.LaunchScoutPage })),
+)
 const ExecutionAgentPage = lazy(() =>
   import('./pages/ExecutionAgentPage').then((m) => ({ default: m.ExecutionAgentPage })),
 )
@@ -109,6 +116,9 @@ export default function App() {
                 <Route path="astra" element={<Navigate to="/narzedzia/astra" replace />} />
                 <Route path="agenci" element={<Navigate to="/narzedzia/singularity" replace />} />
                 <Route path="perly" element={<PearlHunterPage />} />
+                <Route path="fomo" element={<FomoGhostPage />} />
+                <Route path="axiom" element={<AxiomPage />} />
+                <Route path="launch" element={<LaunchScoutPage />} />
                 <Route path="execution" element={<ExecutionAgentPage />} />
                 <Route path="portfel" element={<PortfolioPage />} />
                 <Route path="rynki" element={<MarketsPage />} />

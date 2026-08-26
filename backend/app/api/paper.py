@@ -32,6 +32,14 @@ async def paper_portfolio():
     return PaperPortfolio(**data)
 
 
+@router.get("/api/portfolio/binance-sync")
+async def portfolio_binance_sync():
+    """Paper portfolio vs Binance spot — drift + trade deep links."""
+    from app.integrations.portfolio_binance_bridge import build_binance_sync
+
+    return await build_binance_sync()
+
+
 @router.get("/api/paper/max-buy/{symbol:path}")
 async def paper_max_buy(symbol: str):
     qty = await max_buy_quantity(symbol)

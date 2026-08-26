@@ -49,11 +49,13 @@ class Settings(BaseSettings):
     news_max_per_source: int = 3
     news_musk_max_per_source: int = 6
     news_usa_max_per_source: int = 5
-    news_feed_limit: int = 60
+    news_crypto_max_per_source: int = 4
+    news_feed_limit: int = 72
     news_musk_feed_slots: int = 12
     news_usa_feed_slots: int = 10
+    news_crypto_feed_slots: int = 8
     news_ideology_boost: bool = True
-    news_pool_limit: int = 300
+    news_pool_limit: int = 360
     news_calendar_ai_enabled: bool = True
     pexels_api_key: str = ""
 
@@ -123,6 +125,8 @@ class Settings(BaseSettings):
     etoro_api_key: str = ""
     kraken_api_key: str = ""
     kraken_api_secret: str = ""
+    binance_api_key: str = ""
+    binance_api_secret: str = ""
     nexo_api_key: str = ""
     nexo_api_secret: str = ""
 
@@ -150,6 +154,55 @@ class Settings(BaseSettings):
     telegram_predator_chat_id: str = ""  # optional filter; empty = all chats bot can see
     telegram_predator_notify: bool = True
     telegram_predator_interval_seconds: int = 60
+
+    # FOMO Ghost — Cope Capital (fomo.family top portfolios → bag activity)
+    fomo_enabled: bool = True
+    cope_api_key: str = ""  # CYCLICAL_COPE_API_KEY (also accepts COPE_API_KEY via client fallback)
+    fomo_interval_seconds: int = 60
+    fomo_top_n: int = 30
+    fomo_leaderboard_timeframe: str = "7d"
+    # FOMO Telegram listener (same BotFather token as Predator; forward Family channels)
+    fomo_telegram_enabled: bool = True
+    fomo_telegram_chat_ids: str = ""  # comma-separated chat ids; empty = heuristic FOMO text only
+
+    # Axiom desk — Pulse + all positions (FOMO Family bags + optional wallets)
+    axiom_enabled: bool = True
+    axiom_interval_seconds: int = 90
+    axiom_trending_period: str = "1h"
+    axiom_include_closed: bool = True
+    axiom_access_token: str = ""  # browser cookie auth-access-token (optional)
+    axiom_refresh_token: str = ""  # browser cookie auth-refresh-token (optional)
+    axiom_wallets: str = ""  # comma-separated Solana wallets → all SPL positions via RPC
+    # Firm Solana wallet for Kar Digital desk (merged into Axiom positions as owner_kind=kar_digital)
+    kar_digital_wallet: str = ""
+
+    # Launch Scout / Meme Universe — Seed (~$200) + multi-DEX + trader tracking
+    launch_scout_enabled: bool = True
+    launch_scout_interval_seconds: int = 60
+    launch_scout_max_mc: float = 5_000_000  # allow valuable migrated memes (was 1M — skipped cate/cash etc.)
+    launch_scout_seed_mc: float = 2_000
+    launch_scout_fresh_mc: float = 100_000
+    launch_scout_early_mc: float = 500_000
+    launch_scout_min_liq_usd: float = 1_000
+    # Only post-migration DEX pairs with DexScreener paid visibility (boost/profile)
+    launch_scout_require_migrated: bool = True
+    launch_scout_require_dex_paid: bool = True
+    launch_scout_value_tickers: str = "memestock,cate,cash,cat,xst,calas,pepe,bonk,wif"
+    launch_scout_chains: str = (
+        "solana,base,ethereum,bsc,arbitrum,polygon,avalanche,optimism,blast,tron,sui,bitcoin,robinhood"
+    )
+    meme_whispers_enabled: bool = True
+    meme_whispers_x_enabled: bool = True
+    solana_tracker_api_key: str = ""  # optional CYCLICAL_SOLANA_TRACKER_API_KEY for Pump PnL board
+
+    coordinator_interval_seconds: int = 300
+    binance_ai_bot_url: str = ""
+    binance_ai_bot_key: str = ""
+    binance_ai_bot_enabled: bool = True
+    binance_ai_bot_interval_seconds: int = 120
+    binance_ai_bot_dry_run: bool = True
+    binance_ai_bot_mirror_paper: bool = True
+    binance_drift_alert_pct: float = 15.0
 
     class Config:
         env_prefix = "CYCLICAL_"

@@ -3,6 +3,9 @@ import { AskAgentButton } from '../components/AskAgentButton'
 import { CommunityActions } from '../components/CommunityActions'
 import { InstrumentShareMenu } from '../components/InstrumentShareMenu'
 import { AgentTelemetryStrip } from '../components/AgentTelemetryStrip'
+import { CoordinatorHealthStrip } from '../components/CoordinatorHealthStrip'
+import { FomoGhostStrip } from '../components/FomoGhostStrip'
+import { LaunchScoutStrip } from '../components/LaunchScoutStrip'
 import { CycleCardBitcoin } from '../components/CycleCardBitcoin'
 import { CycleCardPresidential } from '../components/CycleCardPresidential'
 import { MarketSummaryBanner } from '../components/MarketAssessmentCard'
@@ -33,6 +36,9 @@ export function DashboardPage() {
       )}
 
       <AgentTelemetryStrip />
+      <CoordinatorHealthStrip />
+      <FomoGhostStrip />
+      <LaunchScoutStrip />
       <ProgramUsBacktestPanel />
 
       <section className="dashboard-section">
@@ -47,17 +53,19 @@ export function DashboardPage() {
 
       <section className="dashboard-section desk-teaser">
         <div className="section-header">
-          <h2 className="section-title">Biurko skanera · Kar Digital</h2>
-          <Link to="/superokazje" className="link-btn tap-target card-nav-link">
-            Superokazje →
+          <h2 className="section-title">{t('launch.homeTitle')}</h2>
+          <Link to="/launch" className="link-btn tap-target card-nav-link">
+            {t('launch.openDesk')}
           </Link>
         </div>
-        <p className="page-lead">
-          Heatmapa likwidacji 3D, poziomy IN/SL/TP, whale flows i Singularity — obok cykli AI i paper tradingu.
-        </p>
+        <p className="pearl-lead launch-quote">{t('launch.quote')}</p>
+        <p className="page-lead">{t('launch.homeLead')}</p>
         <div className="desk-teaser-actions">
-          <Link to="/superokazje" className="btn btn-primary tap-target card-nav-link">
-            Otwórz Superokazje
+          <Link to="/launch" className="btn btn-primary tap-target card-nav-link">
+            {t('launch.homeCta')}
+          </Link>
+          <Link to="/superokazje" className="btn tap-target card-nav-link">
+            {t('nav.super')}
           </Link>
           <Link to="/narzedzia/singularity" className="btn tap-target card-nav-link">
             Singularity

@@ -104,6 +104,11 @@ check /api/paper/portfolio 200
 check /api/super-opportunities 200
 check /api/whale-flows 200
 check /api/singularity/status 200
+check /api/launch/status 200
+check /api/axiom/status 200
+check /api/fomo/status 200
+check /api/coordinator/health 200
+check /api/portfolio/binance-sync 200
 check /api/ai/status 200
 check /api/news/macro 200
 check "/api/news/calendar?year=$(date +%Y)&month=$(date +%-m 2>/dev/null || date +%m)" 200
@@ -159,6 +164,28 @@ if [[ -n "$PAPER_RAW" ]]; then
     echo "OK   paper portfolio cash_pln=$CASH equity=$EQUITY positions=$POS"
   else
     echo "FAIL paper portfolio missing cash/equity fields"
+    fail=1
+  fi
+fi
+
+check_json_field /api/coordinator/health \
+  'import sys,json;d=json.load(sys.stdin);lg=((d.get("desks") or {}).get("launch") or {}).get("link_guard") or {};print("ok" if lg.get("bad_4meme",0)==0 and lg.get("missing_chain_axiom",0)==0 else "")' \
+  "coordinator.link_guard"
+
+LAUNCH_RAW=$(curl -sf --max-time 30 "$BASE/api/launch/candidates?tier=seed&limit=5" || true)
+if [[ -n "$LAUNCH_RAW" ]]; then
+  BAD_URLS=$(printf '%s' "$LAUNCH_RAW" | python3 -c '
+import sys,json
+data=json.load(sys.stdin)
+cands=data.get("candidates") or []
+bad=sum(1 for c in cands if ":4meme" in (c.get("url") or "").lower())
+missing=sum(1 for c in cands if c.get("chain")=="solana" and "axiom.trade/meme/" in (c.get("url") or "") and "chain=" not in (c.get("url") or ""))
+print(bad + missing)
+' 2>/dev/null || echo 1)
+  if [[ "$BAD_URLS" == "0" ]]; then
+    echo "OK   launch.terminal_urls bad=0"
+  else
+    echo "FAIL launch.terminal_urls bad=$BAD_URLS"
     fail=1
   fi
 fi

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.execution.brokers.binance import BinanceAdapter
 from app.execution.brokers.etoro import EtoroAdapter
 from app.execution.brokers.ibkr import IbkrAdapter
 from app.execution.brokers.kraken import KrakenAdapter
@@ -12,6 +13,7 @@ _ADAPTERS = {
     "etoro": EtoroAdapter,
     "kraken": KrakenAdapter,
     "nexo": NexoAdapter,
+    "binance": BinanceAdapter,
 }
 
 _instances: dict[str, object] = {}

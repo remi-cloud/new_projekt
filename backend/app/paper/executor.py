@@ -287,4 +287,12 @@ async def close_position(symbol: str, percent: float = 100.0) -> dict:
         if close_qty >= abs_qty:
             close_qty = _round_qty(abs_qty, meta["asset_class"])
     side = "sell" if qty > 0 else "buy"
-    return await place_order(symbol, side, quantity=close_qty)
+    trade = await place_order(symbol, side, quantity=close_qty)
+    remaining = await paper_db.get_position(symbol)
+    if percent >= 100 or not remaining or abs(float(remaining.get("quantity") or 0)) < 1e-9:
+        from app.paper.limit_orders import cancel_all_pending_orders
+
+        cancelled = await cancel_all_pending_orders(symbol)
+        if cancelled:
+            logger.info("Close %s: cancelled %s pending order(s)", symbol, cancelled)
+    return trade

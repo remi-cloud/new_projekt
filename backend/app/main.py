@@ -37,6 +37,15 @@ async def lifespan(app: FastAPI):
     from app.telegram.predator_db import init_predator_db
 
     await init_predator_db()
+    from app.fomo.db import init_fomo_db
+
+    await init_fomo_db()
+    from app.launch_scout.db import init_launch_scout_db
+
+    await init_launch_scout_db()
+    from app.axiom.db import init_axiom_db
+
+    await init_axiom_db()
     ensure_vapid_keys()
     try:
         from app.cycles.seasonality_monitor import run_seasonality_monitor
@@ -45,6 +54,9 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.warning("Seasonality monitor bootstrap failed: %s", exc)
     start_scheduler()
+    from app.coordinator.service import mark_app_started
+
+    mark_app_started()
 
     # Block until paper book + ledger are reconciled and agent memory seeded,
     # so the first HTTP requests never see an empty/stale portfolio race.

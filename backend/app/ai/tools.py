@@ -30,7 +30,65 @@ SYMBOL_ALIASES = {
     "wig20": "WIG20.WA",
     "gold": "GC=F",
     "oil": "CL=F",
+    "spacex": "SPCX",
+    "space-x": "SPCX",
+    "space x": "SPCX",
+    "spcx": "SPCX",
+    # Common typo for iShares IG Corp Bond ETF
+    "liq": "LQD",
 }
+
+# Common English / filler tokens that normalize to real tickers (e.g. ON) or noise.
+_SYMBOL_STOPWORDS = frozenset(
+    {
+        "a",
+        "an",
+        "the",
+        "and",
+        "or",
+        "on",
+        "in",
+        "at",
+        "to",
+        "for",
+        "of",
+        "it",
+        "is",
+        "are",
+        "be",
+        "as",
+        "by",
+        "from",
+        "with",
+        "all",
+        "any",
+        "ai",
+        "vs",
+        "me",
+        "my",
+        "we",
+        "us",
+        "you",
+        "your",
+        "this",
+        "that",
+        "trend",
+        "pattern",
+        "patterns",
+        "macro",
+        "cycle",
+        "cycles",
+        "full",
+        "analysis",
+        "analyze",
+        "chart",
+        "price",
+        "buy",
+        "sell",
+        "long",
+        "short",
+    }
+)
 
 TOOL_DEFINITIONS = [
     {
@@ -141,6 +199,65 @@ TOOL_DEFINITIONS = [
     {
         "type": "function",
         "function": {
+            "name": "get_fomo_ghost",
+            "description": (
+                "FOMO Ghost: top-30 fomo.family portfolios (Cope Capital) and recent "
+                "tokens landing in their bags (buy activity). Educational — not advice."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "limit": {"type": "integer", "description": "Max bag events (default 15)"},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_launch_scout",
+            "description": (
+                "Meme Universe · Launch Scout (flagship): Seed (~$200 MC / <$2k), Fresh/Early/Watch, "
+                "Pump.fun top-30 trader moves, Robinhood chain, Dex/Gecko, Elon/CZ + Binance radar. "
+                "Catch pumps before $1M — not late tips. Educational — not investment advice."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "tier": {
+                        "type": "string",
+                        "description": "seed | fresh | early | watch | all (default seed)",
+                    },
+                    "limit": {"type": "integer", "description": "Max candidates (default 15)"},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_binance_portfolio_sync",
+            "description": (
+                "Binance AI BOT portfolio bridge: paper crypto positions vs Binance spot balances, "
+                "drift % and trade deep links. Read-only. Use when user asks about Binance vs portfel."
+            ),
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_binance_ai_support",
+            "description": (
+                "Binance AI bridge: CZ/listing radar headlines + BTC/ETH/SOL whale bias from Binance feeds. "
+                "Use for listing/meme radar / macro crypto context. Educational — not advice."
+            ),
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "get_singularity_book",
             "description": "Singularity war-room summary: scout counts, merged LONG/SHORT book",
             "parameters": {"type": "object", "properties": {}},
@@ -199,11 +316,11 @@ TOOL_DEFINITIONS = [
 
 def normalize_symbol(raw: str) -> str | None:
     s = raw.strip().upper().replace(" ", "")
-    if s in SYMBOL_ALIASES:
-        return SYMBOL_ALIASES[s.lower()]
     low = raw.strip().lower()
     if low in SYMBOL_ALIASES:
         return SYMBOL_ALIASES[low]
+    if s.lower() in SYMBOL_ALIASES:
+        return SYMBOL_ALIASES[s.lower()]
     known = {a["symbol"].upper() for a in MONITORED_ASSETS}
     if s in known:
         return s
@@ -216,23 +333,29 @@ def normalize_symbol(raw: str) -> str | None:
 
 
 def extract_symbol_from_text(text: str) -> str | None:
-    for word in re.findall(r"[A-Za-z0-9^./-]+", text):
+    for word in re.findall(r"[A-Za-z0-9^./-]+", text or ""):
+        if word.lower() in _SYMBOL_STOPWORDS:
+            continue
         sym = normalize_symbol(word)
         if sym:
             return sym
-    low = text.lower()
-    for alias, sym in SYMBOL_ALIASES.items():
-        if alias in low:
+    low = (text or "").lower()
+    # Whole-word / bounded alias match only — avoid substring false positives.
+    for alias, sym in sorted(SYMBOL_ALIASES.items(), key=lambda kv: -len(kv[0])):
+        if re.search(rf"(?<![a-z0-9]){re.escape(alias)}(?![a-z0-9])", low):
             return sym
     return None
 
 
 def resolve_focus_symbol(message: str, explicit_symbol: str | None = None) -> str | None:
-    """Canonical symbol for a chat turn: API symbol wins, then text extraction."""
-    if explicit_symbol:
-        norm = normalize_symbol(explicit_symbol)
+    """Canonical symbol for a chat turn: explicit API symbol always wins."""
+    if explicit_symbol and str(explicit_symbol).strip():
+        raw = str(explicit_symbol).strip()
+        norm = normalize_symbol(raw)
         if norm:
             return norm
+        # Never replace a user/API ticker with a different one from the message.
+        return raw.upper().replace(" ", "")
     return extract_symbol_from_text(message or "")
 
 
@@ -798,6 +921,101 @@ async def run_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
                 "summary": whale.get("summary"),
                 "factors": (whale.get("factors") or [])[:5],
             }
+        if name == "get_fomo_ghost":
+            from app.fomo.service import get_fomo_status, list_fomo_events, list_fomo_top
+
+            lim = int(arguments.get("limit") or 15)
+            lim = max(1, min(40, lim))
+            status = await get_fomo_status()
+            top = await list_fomo_top(limit=30)
+            buys = await list_fomo_events(limit=lim, side="buy")
+            return {
+                "status": {
+                    "enabled": status.get("enabled"),
+                    "needs_api_key": status.get("needs_api_key"),
+                    "last_tick_at": status.get("last_tick_at"),
+                    "traders_count": status.get("traders_count"),
+                    "events_count": status.get("events_count"),
+                },
+                "top_handles": [t.get("handle") for t in top[:30]],
+                "recent_bag_buys": buys,
+                "note": "Buy = token landed in bag; not always a brand-new position.",
+            }
+        if name == "get_launch_scout":
+            from app.launch_scout.service import (
+                get_launch_status,
+                list_launch_candidates,
+                list_launch_traders,
+                list_meme_whispers,
+            )
+
+            lim = int(arguments.get("limit") or 15)
+            lim = max(1, min(40, lim))
+            tier = str(arguments.get("tier") or "seed").strip().lower()
+            if tier not in ("seed", "fresh", "early", "watch", "all"):
+                tier = "seed"
+            status = await get_launch_status()
+            cands = await list_launch_candidates(tier=tier, limit=lim)
+            whispers = await list_meme_whispers(limit=10)
+            traders = await list_launch_traders(limit=10)
+            return {
+                "status": {
+                    "enabled": status.get("enabled"),
+                    "flagship": status.get("flagship"),
+                    "brand": status.get("brand"),
+                    "last_tick_at": status.get("last_tick_at"),
+                    "counts": status.get("counts"),
+                    "thresholds": status.get("thresholds"),
+                    "whispers_count": status.get("whispers_count"),
+                    "traders_count": status.get("traders_count"),
+                    "entry_note": status.get("entry_note"),
+                },
+                "tier": tier,
+                "candidates": [
+                    {
+                        "symbol": c.get("symbol"),
+                        "chain": c.get("chain"),
+                        "dex_id": c.get("dex_id"),
+                        "market_cap": c.get("market_cap"),
+                        "liq_usd": c.get("liq_usd"),
+                        "tier": c.get("tier"),
+                        "score": c.get("score"),
+                        "tags": c.get("tags"),
+                        "url": c.get("url"),
+                        "mint": c.get("mint"),
+                    }
+                    for c in cands
+                ],
+                "traders": [
+                    {
+                        "wallet": t.get("wallet"),
+                        "rank": t.get("rank"),
+                        "buys": t.get("buys"),
+                        "score": t.get("score"),
+                        "source": t.get("source"),
+                    }
+                    for t in traders
+                ],
+                "whispers": [
+                    {
+                        "author": w.get("author"),
+                        "text": (w.get("text") or "")[:240],
+                        "keywords": w.get("keywords"),
+                        "url": w.get("url"),
+                        "source": w.get("source"),
+                    }
+                    for w in whispers
+                ],
+                "note": "Meme Universe flagship — educational, not investment advice.",
+            }
+        if name == "get_binance_portfolio_sync":
+            from app.integrations.portfolio_binance_bridge import build_binance_sync
+
+            return await build_binance_sync()
+        if name == "get_binance_ai_support":
+            from app.integrations.binance_ai_bridge import get_binance_ai_context
+
+            return await get_binance_ai_context()
         if name == "get_singularity_book":
             from app.agents.orchestrator import orchestrator
 
@@ -928,8 +1146,92 @@ async def auto_tools_for_question(
                     "result": await run_tool("search_knowledge", {"query": q}),
                 }
             )
+
+    if any(
+        k in low
+        for k in (
+            "asymmetr",
+            "asymetri",
+            "asymmetric",
+            "r:r",
+            "risk/reward",
+            "risk reward",
+            "reward risk",
+            "sizing",
+            "accept",
+            "reject",
+            "superokaz",
+            "payoff",
+        )
+    ):
+        results.append(
+            {
+                "tool": "search_knowledge",
+                "result": await run_tool(
+                    "search_knowledge",
+                    {"query": "Asymmetric bets R:R Superokazja sizing ACCEPT REJECT"},
+                ),
+            }
+        )
+        if sym and not any(t.get("tool") == "risk_snapshot" for t in results):
+            results.append(
+                {"tool": "risk_snapshot", "result": await run_tool("risk_snapshot", {"symbol": sym})}
+            )
+        if sym and not any(t.get("tool") == "get_super_opportunity" for t in results):
+            results.append(
+                {
+                    "tool": "get_super_opportunity",
+                    "result": await run_tool("get_super_opportunity", {"symbol": sym}),
+                }
+            )
     if any(k in low for k in ("singularity", "scout", "war room", "orchestr")):
         results.append({"tool": "get_singularity_book", "result": await run_tool("get_singularity_book", {})})
+
+    if any(
+        k in low
+        for k in (
+            "launch scout",
+            "meme universe",
+            "launchpad",
+            "low mc",
+            "low-mc",
+            "market cap",
+            "marketcap",
+            "pump.fun",
+            "pumpfun",
+            "dexscreener",
+            "fresh launch",
+            "nowy token",
+            "nowe tokeny",
+            "mały mc",
+            "maly mc",
+            "elon",
+            "musk",
+            "changpeng",
+            "binance alpha",
+            "who owns the memes",
+        )
+    ):
+        results.append(
+            {
+                "tool": "get_launch_scout",
+                "result": await run_tool("get_launch_scout", {"tier": "seed", "limit": 15}),
+            }
+        )
+
+    if any(k in low for k in ("binance", "listing radar", "cz binance", "binance trade", "portfel binance", "portfolio binance")):
+        results.append(
+            {
+                "tool": "get_binance_ai_support",
+                "result": await run_tool("get_binance_ai_support", {}),
+            }
+        )
+        results.append(
+            {
+                "tool": "get_binance_portfolio_sync",
+                "result": await run_tool("get_binance_portfolio_sync", {}),
+            }
+        )
 
     if any(
         k in low

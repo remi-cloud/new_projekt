@@ -280,6 +280,51 @@ async def scheduled_predator_poll() -> None:
         logger.warning("Predator Telegram poll failed: %s", exc)
 
 
+async def scheduled_fomo_ghost() -> None:
+    try:
+        from app.fomo.service import run_fomo_tick
+
+        await run_fomo_tick()
+    except Exception as exc:
+        logger.warning("FOMO Ghost tick failed: %s", exc)
+
+
+async def scheduled_launch_scout() -> None:
+    try:
+        from app.launch_scout.service import run_launch_scout_tick
+
+        await run_launch_scout_tick()
+    except Exception as exc:
+        logger.warning("Launch Scout tick failed: %s", exc)
+
+
+async def scheduled_axiom() -> None:
+    try:
+        from app.axiom.service import run_axiom_tick
+
+        await run_axiom_tick()
+    except Exception as exc:
+        logger.warning("Axiom tick failed: %s", exc)
+
+
+async def scheduled_coordinator() -> None:
+    try:
+        from app.coordinator.service import run_coordinator_tick
+
+        await run_coordinator_tick()
+    except Exception as exc:
+        logger.warning("Coordinator tick failed: %s", exc)
+
+
+async def scheduled_binance_ai_bot() -> None:
+    try:
+        from app.integrations.binance_ai_agent import run_binance_ai_tick
+
+        await run_binance_ai_tick()
+    except Exception as exc:
+        logger.warning("Binance AI BOT tick failed: %s", exc)
+
+
 async def scheduled_seasonality_monitor() -> None:
     try:
         from app.cycles.seasonality_monitor import run_seasonality_monitor
@@ -354,14 +399,54 @@ def start_scheduler() -> None:
             id="ai_self_learn",
             replace_existing=True,
         )
-    if getattr(settings, "telegram_predator_enabled", True) and getattr(
-        settings, "telegram_bot_token", ""
+    if getattr(settings, "telegram_bot_token", "") and (
+        getattr(settings, "telegram_predator_enabled", True)
+        or getattr(settings, "fomo_telegram_enabled", True)
     ):
         scheduler.add_job(
             scheduled_predator_poll,
             "interval",
             seconds=max(30, int(settings.telegram_predator_interval_seconds)),
             id="telegram_predator_poll",
+            replace_existing=True,
+        )
+    if getattr(settings, "fomo_enabled", True):
+        scheduler.add_job(
+            scheduled_fomo_ghost,
+            "interval",
+            seconds=max(60, int(getattr(settings, "fomo_interval_seconds", 60) or 60)),
+            id="fomo_ghost_tick",
+            replace_existing=True,
+        )
+    if getattr(settings, "launch_scout_enabled", True):
+        scheduler.add_job(
+            scheduled_launch_scout,
+            "interval",
+            seconds=max(60, int(getattr(settings, "launch_scout_interval_seconds", 60) or 60)),
+            id="launch_scout_tick",
+            replace_existing=True,
+        )
+    if getattr(settings, "axiom_enabled", True):
+        scheduler.add_job(
+            scheduled_axiom,
+            "interval",
+            seconds=max(60, int(getattr(settings, "axiom_interval_seconds", 90) or 90)),
+            id="axiom_tick",
+            replace_existing=True,
+        )
+    scheduler.add_job(
+        scheduled_coordinator,
+        "interval",
+        seconds=max(60, int(getattr(settings, "coordinator_interval_seconds", 300) or 300)),
+        id="coordinator_tick",
+        replace_existing=True,
+    )
+    if getattr(settings, "binance_ai_bot_enabled", True):
+        scheduler.add_job(
+            scheduled_binance_ai_bot,
+            "interval",
+            seconds=max(60, int(getattr(settings, "binance_ai_bot_interval_seconds", 120) or 120)),
+            id="binance_ai_bot_tick",
             replace_existing=True,
         )
     scheduler.add_job(
@@ -377,7 +462,7 @@ def start_scheduler() -> None:
     logger.info(
         "Scheduler started — prices every %ds, news every %ds, full scan every %d min, "
         "autosave every %ds, pearl equity %d min, pearl crypto %d min, execution %d min, "
-        "ai self-learn %d min, predator telegram %ds",
+        "ai self-learn %d min, predator telegram %ds, fomo ghost %ds, launch scout %ds, axiom %ds",
         settings.price_poll_interval_seconds,
         settings.news_refresh_interval_seconds,
         settings.scan_interval_minutes,
@@ -388,6 +473,15 @@ def start_scheduler() -> None:
         settings.ai_self_learn_interval_minutes if settings.ai_self_learn_enabled else 0,
         settings.telegram_predator_interval_seconds
         if getattr(settings, "telegram_bot_token", "")
+        else 0,
+        max(60, int(getattr(settings, "fomo_interval_seconds", 60) or 60))
+        if getattr(settings, "fomo_enabled", True)
+        else 0,
+        max(60, int(getattr(settings, "launch_scout_interval_seconds", 60) or 60))
+        if getattr(settings, "launch_scout_enabled", True)
+        else 0,
+        max(60, int(getattr(settings, "axiom_interval_seconds", 90) or 90))
+        if getattr(settings, "axiom_enabled", True)
         else 0,
     )
 
