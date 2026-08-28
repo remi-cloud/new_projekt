@@ -90,6 +90,7 @@ export interface Translations {
     live: string
     connecting: string
     freshLastHour: string
+    fetchedAt: string
     refreshEvery: string
     tabNews: string
     tabCalendar: string

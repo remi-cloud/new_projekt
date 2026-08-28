@@ -103,6 +103,8 @@ def _tag_bonus(tags: list[str]) -> float:
         tag_bonus += 8.0
     if "value_watch" in tagset:
         tag_bonus += 20.0
+    if "session_asia" in tagset or "session_eu" in tagset or "session_us" in tagset:
+        tag_bonus += 4.0
     if "bsc" in tagset or "bnb" in tagset:
         tag_bonus += 4.0
     if "bonding" in tagset:
@@ -307,7 +309,31 @@ def finalize_candidate(raw: dict[str, Any], thresholds: dict[str, float | bool])
     age_h = age_hours(raw.get("pair_created_ms"))
     if tier == "watch" and age_h is not None and age_h < 24 and mc_f < float(thresholds["early_mc"]):
         tier = "early"
+
+    # Session Clock soft tags + boost (does not change Seed/migrated gates)
+    session_boost = 0.0
+    try:
+        from app.cycles.session_clock import session_boost_for_timestamp
+
+        ms = raw.get("pair_created_ms")
+        ts = None
+        if ms:
+            ms_i = int(ms)
+            ts = ms_i // 1000 if ms_i > 10_000_000_000 else ms_i
+        boost, sess_tags = session_boost_for_timestamp(
+            ts,
+            hottest_session=str(thresholds.get("session_hottest") or "") or None,
+            macro_strongest=str(thresholds.get("session_macro_strongest") or "") or None,
+        )
+        session_boost = float(boost)
+        for t in sess_tags:
+            if t not in tags:
+                tags.append(t)
+    except Exception:
+        session_boost = 0.0
+
     score = score_candidate(market_cap=mc_f, age_h=age_h, liq_usd=liq_f, tags=tags)
+    score = round(float(score) + session_boost, 2)
     mint = str(raw.get("mint") or raw.get("token_address") or "")
     confidence = data_confidence(
         mint=mint or None,
@@ -324,6 +350,7 @@ def finalize_candidate(raw: dict[str, Any], thresholds: dict[str, float | bool])
             "tier": tier,
             "age_hours": round(age_h, 2) if age_h is not None else None,
             "score": score,
+            "session_boost": session_boost,
             "confidence": confidence,
             "tags": tags,
             "pair_address": pair_address.split(":")[0] if ":" in pair_address else pair_address,

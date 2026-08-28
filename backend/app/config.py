@@ -36,12 +36,12 @@ class Settings(BaseSettings):
     twilio_from_number: str = ""
     alert_phone_number: str = ""
 
-    # Macro news — only breaking / very fresh ("nowinki")
-    news_fresh_hours: int = 4
-    news_display_max_hours: int = 2
-    news_article_max_age_days: int = 2
-    news_poll_interval_seconds: int = 120
-    news_refresh_interval_seconds: int = 120
+    # Macro news — live wire only (no curated desk essays in feed)
+    news_fresh_hours: int = 2
+    news_display_max_hours: int = 1
+    news_article_max_age_days: int = 1
+    news_poll_interval_seconds: int = 60
+    news_refresh_interval_seconds: int = 60
     news_alert_cooldown_minutes: int = 30
     news_images_enabled: bool = True
     news_images_use_dalle: bool = True
@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     news_musk_feed_slots: int = 12
     news_usa_feed_slots: int = 10
     news_crypto_feed_slots: int = 8
-    news_ideology_boost: bool = True
+    news_ideology_boost: bool = False
     news_pool_limit: int = 360
     news_calendar_ai_enabled: bool = True
     pexels_api_key: str = ""
@@ -191,6 +191,12 @@ class Settings(BaseSettings):
     launch_scout_chains: str = (
         "solana,base,ethereum,bsc,arbitrum,polygon,avalanche,optimism,blast,tron,sui,bitcoin,robinhood"
     )
+    wallet_scout_top_n: int = 15  # RPC holdings for top Pump wallets (Wallet Scout P0)
+    dex_arena_enabled: bool = True
+    dex_arena_top_n: int = 8
+    dex_arena_lanes: str = "pumpfun,raydium,pancakeswap,flap,4meme,other"
+    session_clock_enabled: bool = True
+    session_clock_lookback_days: int = 14
     meme_whispers_enabled: bool = True
     meme_whispers_x_enabled: bool = True
     solana_tracker_api_key: str = ""  # optional CYCLICAL_SOLANA_TRACKER_API_KEY for Pump PnL board

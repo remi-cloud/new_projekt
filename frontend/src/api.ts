@@ -516,18 +516,41 @@ export type CoordinatorDeskStatus = {
   ok?: boolean
   last_tick_at?: string | null
   last_error?: string | null
+  last_warnings?: string | null
   warming_up?: boolean
+  degraded?: boolean
+  degraded_reason?: string | null
   link_guard?: {
     ok?: boolean
     missing_chain_axiom?: number
+    axiom_missing_chain?: number
+    axiom_bad_4meme?: number
     bad_4meme?: number
   }
+}
+
+export type CoordinatorModuleStatus = {
+  ok?: boolean
+  priority?: string
+  open_bags?: number
+  wallets_scanned?: number
+  top_n?: number
+  boards?: number
+  whale_mints_tracked?: number
+  enabled?: boolean
+  now_session?: string
+  hot_lane?: string
+  error?: string
 }
 
 export type CoordinatorHealth = {
   ok: boolean
   at?: string
   startup_grace?: boolean
+  priorities?: Record<string, string[]>
+  wallet_scout?: CoordinatorModuleStatus
+  dex_arena?: CoordinatorModuleStatus
+  session_clock?: CoordinatorModuleStatus
   desks?: {
     launch?: CoordinatorDeskStatus
     axiom?: CoordinatorDeskStatus
@@ -1124,6 +1147,7 @@ export type LaunchCandidate = {
   source?: string
   url?: string
   launchpad_url?: string
+  dex_home_url?: string | null
   image_url?: string | null
   tags?: string[]
   updated_at?: string
@@ -1140,12 +1164,54 @@ export type LaunchStatus = {
   chains?: string[]
   last_tick_at?: string | null
   last_error?: string | null
+  last_warnings?: string | null
+  wallet_scout?: { open_bags?: number; wallets_scanned?: number; top_n?: number } | null
   counts?: { all?: number; seed?: number; fresh?: number; early?: number; watch?: number }
   whispers_count?: number
   whispers_enabled?: boolean
   traders_count?: number
   sources?: string[]
   note?: string
+  dex_arena_enabled?: boolean
+}
+
+export type DexArenaPick = {
+  candidate_id?: string
+  mint?: string
+  symbol: string
+  chain?: string
+  dex_id?: string
+  tier?: string
+  market_cap?: number | null
+  score?: number | null
+  whale_boost?: number
+  arena_score?: number
+  url?: string | null
+  dex_home_url?: string | null
+  tags?: string[]
+  whale?: boolean
+}
+
+export type DexArenaBoard = {
+  dex_id: string
+  label?: string
+  home_url: string
+  candidate_count: number
+  whale_mints?: string[]
+  best: DexArenaPick[]
+}
+
+export type DexArenaSnapshot = {
+  ok?: boolean
+  enabled?: boolean
+  brand?: string
+  priority?: string
+  lanes?: string[]
+  top_n?: number
+  whale_mints_tracked?: number
+  boards?: DexArenaBoard[]
+  note?: string
+  reason?: string
 }
 
 export type MemeWhisper = {
@@ -1159,13 +1225,32 @@ export type MemeWhisper = {
   created_at?: string
 }
 
+export type LaunchTraderBag = {
+  mint: string
+  symbol: string
+  chain?: string
+  status?: string
+  side?: string
+  net_usd?: number | null
+  last_action?: string | null
+  url?: string | null
+  amount?: number | null
+  source?: string
+}
+
 export type LaunchTrader = {
   wallet: string
   rank: number
   score?: number
   buys?: number
+  sells?: number
   source?: string
   updated_at?: string
+  mints?: string[]
+  open_bags?: number
+  last_side?: string | null
+  bags?: LaunchTraderBag[]
+  holdings?: LaunchTraderBag[]
 }
 
 export type LaunchTraderEvent = {
@@ -1189,9 +1274,68 @@ export async function fetchLaunchStatus(): Promise<LaunchStatus> {
 export async function fetchLaunchCandidates(
   tier: 'seed' | 'fresh' | 'early' | 'watch' | 'all' = 'seed',
   limit = 50,
-): Promise<{ candidates: LaunchCandidate[] }> {
+  dex?: string | null,
+): Promise<{ candidates: LaunchCandidate[]; dex?: string | null }> {
   const qs = new URLSearchParams({ tier, limit: String(limit) })
+  if (dex) qs.set('dex', dex)
   const res = await fetch(`${API_BASE}/launch/candidates?${qs}`)
+  if (!res.ok) await throwApiError(res, 'serverUnavailable')
+  return res.json()
+}
+
+export async function fetchDexArena(): Promise<DexArenaSnapshot> {
+  const res = await fetch(`${API_BASE}/launch/dex-arena`)
+  if (!res.ok) await throwApiError(res, 'serverUnavailable')
+  return res.json()
+}
+
+export type SessionClockHour = {
+  hour_utc: number
+  session?: string
+  buys?: number
+  sells?: number
+  creates?: number
+  usd?: number
+  activity?: number
+  avg_log_return?: number
+  n?: number
+}
+
+export type SessionClockSnapshot = {
+  ok?: boolean
+  enabled?: boolean
+  brand?: string
+  priority?: string
+  at?: string
+  now_hour_utc?: number
+  now_session?: string
+  now_session_label?: string
+  active_lanes?: string[]
+  hot_lane?: string | null
+  heatmap?: {
+    hours?: SessionClockHour[]
+    hot_hours?: SessionClockHour[]
+    session_activity?: Record<string, number>
+    hottest_session?: string
+  }
+  macro_bias?: {
+    sessions?: {
+      session: string
+      label?: string
+      avg_log_return?: number
+      n?: number
+      bias?: string
+    }[]
+    strongest_session?: string | null
+    lookback_days?: number
+  }
+  month_overlay?: { month?: number; regions?: Record<string, unknown> }
+  note?: string
+  reason?: string
+}
+
+export async function fetchSessionClock(): Promise<SessionClockSnapshot> {
+  const res = await fetch(`${API_BASE}/launch/session-clock`)
   if (!res.ok) await throwApiError(res, 'serverUnavailable')
   return res.json()
 }

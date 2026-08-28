@@ -169,7 +169,12 @@ async def replace_candidates(rows: list[dict]) -> None:
         await db.commit()
 
 
-async def list_candidates(tier: str | None = None, limit: int = 50) -> list[dict]:
+async def list_candidates(
+    tier: str | None = None,
+    limit: int = 50,
+    *,
+    dex: str | None = None,
+) -> list[dict]:
     q = """
         SELECT candidate_id, mint, symbol, name, chain, dex_id, pair_address,
                market_cap, liq_usd, pair_created_ms, age_hours, tier, score,
@@ -177,11 +182,16 @@ async def list_candidates(tier: str | None = None, limit: int = 50) -> list[dict
         FROM launch_candidates
     """
     params: list = []
+    where: list[str] = []
     if tier and tier != "all":
-        q += " WHERE tier = ?"
+        where.append("tier = ?")
         params.append(tier)
+    if where:
+        q += " WHERE " + " AND ".join(where)
+    # Fetch extra when dex filter applied client-side after ensure_urls
+    fetch_limit = max(1, min(200, limit if not dex else min(200, limit * 4)))
     q += " ORDER BY (market_cap IS NULL), market_cap ASC, score DESC LIMIT ?"
-    params.append(max(1, min(200, limit)))
+    params.append(fetch_limit)
     async with db_session() as db:
         cur = await db.execute(q, tuple(params))
         rows = await cur.fetchall()
@@ -308,6 +318,19 @@ async def replace_traders(traders: list[dict]) -> None:
     async with db_session() as db:
         await db.execute("DELETE FROM launch_traders")
         for t in traders:
+            raw = dict(t.get("raw") or {})
+            if t.get("mints") is not None:
+                raw["mints"] = t.get("mints")
+            if t.get("open_bags") is not None:
+                raw["open_bags"] = t.get("open_bags")
+            if t.get("last_side") is not None:
+                raw["last_side"] = t.get("last_side")
+            if t.get("bags") is not None:
+                raw["bags"] = t.get("bags")
+            if t.get("holdings") is not None:
+                raw["holdings"] = t.get("holdings")
+            if t.get("sells") is not None:
+                raw["sells"] = t.get("sells")
             await db.execute(
                 """
                 INSERT INTO launch_traders(wallet, rank, score, buys, source, updated_at, raw_json)
@@ -320,7 +343,7 @@ async def replace_traders(traders: list[dict]) -> None:
                     int(t.get("buys") or 0),
                     t.get("source") or "pump_public",
                     now,
-                    json.dumps(t.get("raw") or {}, ensure_ascii=False)[:4000],
+                    json.dumps(raw, ensure_ascii=False)[:8000],
                 ),
             )
         await db.commit()
@@ -330,7 +353,7 @@ async def list_traders(limit: int = 30) -> list[dict]:
     async with db_session() as db:
         cur = await db.execute(
             """
-            SELECT wallet, rank, score, buys, source, updated_at
+            SELECT wallet, rank, score, buys, source, updated_at, raw_json
             FROM launch_traders
             ORDER BY rank ASC
             LIMIT ?
@@ -338,23 +361,40 @@ async def list_traders(limit: int = 30) -> list[dict]:
             (max(1, min(50, limit)),),
         )
         rows = await cur.fetchall()
-    return [
-        {
-            "wallet": r[0],
-            "rank": r[1],
-            "score": r[2],
-            "buys": r[3],
-            "source": r[4],
-            "updated_at": r[5],
-        }
-        for r in rows
-    ]
+    out: list[dict] = []
+    for r in rows:
+        raw: dict = {}
+        try:
+            raw = json.loads(r[6] or "{}") if r[6] else {}
+        except (TypeError, json.JSONDecodeError):
+            raw = {}
+        if not isinstance(raw, dict):
+            raw = {}
+        out.append(
+            {
+                "wallet": r[0],
+                "rank": r[1],
+                "score": r[2],
+                "buys": r[3],
+                "sells": int(raw.get("sells") or 0),
+                "source": r[4],
+                "updated_at": r[5],
+                "mints": list(raw.get("mints") or [])[:12],
+                "open_bags": int(raw.get("open_bags") or 0),
+                "last_side": raw.get("last_side"),
+                "bags": list(raw.get("bags") or [])[:8],
+                "holdings": list(raw.get("holdings") or [])[:8],
+            }
+        )
+    return out
 
 
 async def replace_trader_events(events: list[dict]) -> None:
+    """Upsert events without wiping history (bags need buy+sell window)."""
+    if not events:
+        return
     now = datetime.now(timezone.utc).isoformat()
     async with db_session() as db:
-        await db.execute("DELETE FROM launch_trader_events")
         for e in events:
             await db.execute(
                 """
@@ -364,7 +404,9 @@ async def replace_trader_events(events: list[dict]) -> None:
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(event_id) DO UPDATE SET
                     usd_amount = excluded.usd_amount,
-                    ts_unix = excluded.ts_unix
+                    ts_unix = excluded.ts_unix,
+                    action = excluded.action,
+                    symbol = excluded.symbol
                 """,
                 (
                     e["event_id"],
@@ -380,6 +422,17 @@ async def replace_trader_events(events: list[dict]) -> None:
                     json.dumps(e.get("raw") or {}, ensure_ascii=False)[:2000],
                 ),
             )
+        # Cap table size — keep newest ~4000
+        await db.execute(
+            """
+            DELETE FROM launch_trader_events
+            WHERE event_id NOT IN (
+                SELECT event_id FROM launch_trader_events
+                ORDER BY ts_unix DESC
+                LIMIT 4000
+            )
+            """
+        )
         await db.commit()
 
 

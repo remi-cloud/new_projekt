@@ -89,6 +89,9 @@ async def set_state(key: str, value: str) -> None:
 
 
 async def replace_pulse(rows: list[dict]) -> None:
+    # Keep last good snapshot if a tick returns empty (API blip / auth fail).
+    if not rows:
+        return
     now = datetime.now(timezone.utc).isoformat()
     async with db_session() as db:
         await db.execute("DELETE FROM axiom_pulse")
@@ -160,6 +163,9 @@ async def list_pulse(limit: int = 80) -> list[dict]:
 
 
 async def replace_positions(rows: list[dict]) -> None:
+    # Do not wipe open bags when collection fails empty.
+    if not rows:
+        return
     now = datetime.now(timezone.utc).isoformat()
     async with db_session() as db:
         await db.execute("DELETE FROM axiom_positions")

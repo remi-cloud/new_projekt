@@ -371,3 +371,122 @@ def test_coin_image_resolver():
     assert btc and "btc.png" in btc
     assert resolve_coin_image_url("AAPL", "stock") is None
 
+
+def test_wallet_scout_bags_buy_sell():
+    from app.launch_scout.wallet_scout import reconstruct_wallet_bags_from_events
+
+    bags = reconstruct_wallet_bags_from_events(
+        [
+            {
+                "wallet": "WalletAAAAAAAAAAAAAAAAaaaaaa",
+                "action": "buy",
+                "mint": "Mint111111111111111111111111111111111111111",
+                "symbol": "DEMO",
+                "chain": "solana",
+                "usd_amount": 100,
+                "ts_unix": 1000,
+            },
+            {
+                "wallet": "WalletAAAAAAAAAAAAAAAAaaaaaa",
+                "action": "sell",
+                "mint": "Mint111111111111111111111111111111111111111",
+                "symbol": "DEMO",
+                "chain": "solana",
+                "usd_amount": 40,
+                "ts_unix": 1100,
+            },
+        ]
+    )
+    assert len(bags) == 1
+    assert bags[0]["net_usd"] == 60
+    assert bags[0]["status"] == "open"
+    assert bags[0]["last_action"] == "sell"
+    assert bags[0]["url"] and "chain=sol" in bags[0]["url"]
+
+
+def test_pump_ingest_records_sells():
+    from collections import defaultdict
+
+    from app.launch_scout.client_pump_traders import _ingest_trades
+
+    stats = defaultdict(lambda: {"buys": 0, "sells": 0, "volume": 0.0, "mints": set(), "events": []})
+    _ingest_trades(
+        stats,
+        [
+            {"user": "WalletBBBBBBBBBBBBBBBBBBbbbbbb", "is_buy": True, "amountUsd": 50, "mint": "M1"},
+            {"user": "WalletBBBBBBBBBBBBBBBBBBbbbbbb", "is_buy": False, "amountUsd": 20, "mint": "M1"},
+        ],
+        prefer_buy=False,
+        mint="M1",
+        symbol="X",
+    )
+    st = stats["WalletBBBBBBBBBBBBBBBBBBbbbbbb"]
+    assert st["buys"] == 1
+    assert st["sells"] == 1
+    assert {e["action"] for e in st["events"]} == {"buy", "sell"}
+
+
+def test_dex_home_url_and_lanes():
+    from app.launch_scout.terminal_url import dex_home_url, normalize_dex_lane
+
+    assert normalize_dex_lane("pumpswap") == "pumpfun"
+    assert normalize_dex_lane("flapsh") == "flap"
+    assert dex_home_url("raydium", "solana") == "https://raydium.io/swap/"
+    assert dex_home_url("pumpfun") == "https://pump.fun"
+    assert "pancakeswap.finance" in dex_home_url("pancakeswap", "bsc")
+
+
+def test_dex_arena_whale_boost_sort():
+    from app.launch_scout.dex_arena import rank_dex_arena
+
+    mint_w = "MintWhale11111111111111111111111111111111"
+    mint_x = "MintQuiet11111111111111111111111111111111"
+    arena = rank_dex_arena(
+        [
+            {
+                "candidate_id": "solana:" + mint_x,
+                "mint": mint_x,
+                "symbol": "QUIET",
+                "chain": "solana",
+                "dex_id": "raydium",
+                "tier": "fresh",
+                "score": 50,
+                "market_cap": 10_000,
+                "tags": [],
+            },
+            {
+                "candidate_id": "solana:" + mint_w,
+                "mint": mint_w,
+                "symbol": "WHALE",
+                "chain": "solana",
+                "dex_id": "raydium",
+                "tier": "seed",
+                "score": 40,
+                "market_cap": 1_500,
+                "tags": ["pump_trader"],
+            },
+        ],
+        traders=[
+            {
+                "wallet": "W" * 32,
+                "rank": 1,
+                "score": 100,
+                "buys": 5,
+                "bags": [
+                    {
+                        "mint": mint_w,
+                        "status": "open",
+                        "net_usd": 200,
+                    }
+                ],
+                "mints": [mint_w],
+            }
+        ],
+        lanes=["raydium"],
+        top_n=5,
+    )
+    board = arena["boards"][0]
+    assert board["best"][0]["symbol"] == "WHALE"
+    assert board["best"][0]["whale_boost"] > 0
+    assert board["home_url"]
+

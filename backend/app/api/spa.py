@@ -7,31 +7,11 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.www_redirects import WWW_REDIRECTS
+
 logger = logging.getLogger(__name__)
 
 STATIC_DIR = Path(__file__).resolve().parent.parent.parent / "static"
-
-# English / legacy URL aliases (hard refresh & direct links)
-WWW_REDIRECTS: dict[str, str] = {
-    "business": "/biznes",
-    "partners": "/partnerzy",
-    "calculator": "/kalkulator",
-    "roi": "/kalkulator",
-    "markets": "/rynki",
-    "alerts": "/powiadomienia",
-    "about": "/o-nas",
-    "portfolio": "/portfel",
-    "cycles": "/cykle",
-    "opportunities": "/okazje",
-    "ai": "/agent",
-    "panel": "/dashboard",
-    "home": "/",
-    "start": "/",
-    "telegram": "/biznes",
-    "discord": "/biznes",
-    "channels": "/biznes",
-    "kanaly": "/biznes",
-}
 
 
 def mount_static(app: FastAPI) -> None:

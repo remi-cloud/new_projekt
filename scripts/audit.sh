@@ -112,6 +112,12 @@ check /api/portfolio/binance-sync 200
 check /api/ai/status 200
 check /api/news/macro 200
 check "/api/news/calendar?year=$(date +%Y)&month=$(date +%-m 2>/dev/null || date +%m)" 200
+check_json_field "/api/news/macro?limit=20" \
+  'import sys,json;d=json.load(sys.stdin);bad=sum(1 for i in (d.get("items") or []) if "news.google.com" in (i.get("url") or "") and "/articles/" in (i.get("url") or ""));print("ok" if bad==0 else "")' \
+  "news.macro_urls"
+check_json_field "/api/news/calendar?year=$(date +%Y)&month=$(date +%-m 2>/dev/null || date +%m)" \
+  'import sys,json;d=json.load(sys.stdin);bad=sum(1 for i in (d.get("news") or []) if "news.google.com" in (i.get("url") or "") and "/articles/" in (i.get("url") or ""));print("ok" if bad==0 else "")' \
+  "news.calendar_urls"
 
 HEALTH_RAW=$(curl -sf --max-time 30 "$BASE/api/health" || true)
 STATUS=$(printf '%s' "$HEALTH_RAW" | python3 -c 'import sys,json;d=json.load(sys.stdin);print(d.get("status",""))' 2>/dev/null || true)
@@ -169,8 +175,46 @@ if [[ -n "$PAPER_RAW" ]]; then
 fi
 
 check_json_field /api/coordinator/health \
-  'import sys,json;d=json.load(sys.stdin);lg=((d.get("desks") or {}).get("launch") or {}).get("link_guard") or {};print("ok" if lg.get("bad_4meme",0)==0 and lg.get("missing_chain_axiom",0)==0 else "")' \
+  'import sys,json;d=json.load(sys.stdin);lg=((d.get("desks") or {}).get("launch") or {}).get("link_guard") or {};bad=int(lg.get("bad_4meme") or 0)+int(lg.get("missing_chain_axiom") or 0)+int(lg.get("axiom_missing_chain") or 0)+int(lg.get("axiom_bad_4meme") or 0);print("ok" if bad==0 else "")' \
   "coordinator.link_guard"
+
+check /launch 200
+check /axiom 200
+check /cykle 200
+check /fomo 200
+
+check_json_field /api/launch/session-clock \
+  'import sys,json;d=json.load(sys.stdin);ok=bool(d.get("now_session")) and len((d.get("heatmap") or {}).get("hours") or [])==24;print("ok" if ok else "")' \
+  "launch.session_clock"
+
+check_json_field /api/launch/dex-arena \
+  'import sys,json;d=json.load(sys.stdin);ok=isinstance(d.get("boards"), list);print("ok" if ok else "")' \
+  "launch.dex_arena"
+
+check_json_field /api/launch/wallet-scout \
+  'import sys,json;d=json.load(sys.stdin);ok=isinstance(d.get("traders"), list);print("ok" if ok else "")' \
+  "launch.wallet_scout"
+
+check_json_field /api/coordinator/health \
+  'import sys,json;d=json.load(sys.stdin);ok=bool((d.get("wallet_scout") or {}).get("ok"));print("ok" if ok else "")' \
+  "coordinator.wallet_scout"
+
+PULSE_RAW=$(curl -sf --max-time 30 "$BASE/api/axiom/pulse?limit=10" || true)
+if [[ -n "$PULSE_RAW" ]]; then
+  AXIOM_BAD=$(printf '%s' "$PULSE_RAW" | python3 -c '
+import sys,json
+data=json.load(sys.stdin)
+markets=data.get("markets") or []
+bad=sum(1 for m in markets if "axiom.trade/meme/" in (m.get("url") or m.get("terminal_url") or "") and "chain=" not in (m.get("url") or m.get("terminal_url") or ""))
+print(bad)
+' 2>/dev/null || echo 1)
+  if [[ "$AXIOM_BAD" == "0" ]]; then
+    echo "OK   axiom.pulse_urls bad=0"
+  else
+    echo "FAIL axiom.pulse_urls bad=$AXIOM_BAD"
+    fail=1
+  fi
+fi
 
 LAUNCH_RAW=$(curl -sf --max-time 30 "$BASE/api/launch/candidates?tier=seed&limit=5" || true)
 if [[ -n "$LAUNCH_RAW" ]]; then

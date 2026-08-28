@@ -89,7 +89,14 @@ async def get_fomo_status() -> dict[str, Any]:
     needs_key = not bool(key) and mode not in ("degraded", "live") and traders_count == 0
     last_tick = await fomo_db.get_state("last_tick_at")
     last_error = await fomo_db.get_state("last_error") or ""
-    if last_error and is_cope_unreachable(last_error):
+    degraded_reason = await fomo_db.get_state("last_degraded_reason") or ""
+    if mode == "degraded":
+        if not degraded_reason and last_error:
+            degraded_reason = (
+                humanize_cope_error(last_error) if is_cope_unreachable(last_error) else last_error
+            )
+        last_error = ""
+    elif last_error and is_cope_unreachable(last_error):
         last_error = humanize_cope_error(last_error)
     poll_since = await fomo_db.get_state("poll_since")
     usage: dict = {}
@@ -113,6 +120,8 @@ async def get_fomo_status() -> dict[str, Any]:
         "interval_seconds": int(getattr(settings, "fomo_interval_seconds", 60) or 60),
         "last_tick_at": last_tick,
         "last_error": last_error or None,
+        "degraded": mode == "degraded",
+        "degraded_reason": (degraded_reason or None) if mode == "degraded" else None,
         "poll_since": int(poll_since) if poll_since and str(poll_since).isdigit() else None,
         "traders_count": traders_count,
         "events_count": await fomo_db.events_count(),
@@ -205,7 +214,8 @@ async def run_degraded_tick(*, reason: str = "") -> dict[str, Any]:
         "Cope Capital API offline — degraded ghost buffer active."
     )
     await fomo_db.set_state("mode", "degraded")
-    await fomo_db.set_state("last_error", hint)
+    await fomo_db.set_state("last_degraded_reason", hint)
+    await fomo_db.set_state("last_error", "")
     await fomo_db.set_state("last_tick_at", now_iso)
 
     payload = {

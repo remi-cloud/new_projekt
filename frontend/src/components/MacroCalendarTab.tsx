@@ -7,6 +7,7 @@ import { useLocale } from '../context/LocaleContext'
 import { useLiveFeed } from '../hooks/useLiveFeed'
 import type { TranslationPath } from '../i18n'
 import { MacroCalendarEvent, MacroCalendarMonth, MacroNewsItem } from '../types'
+import { newsOutboundUrl, newsShareUrl } from '../lib/newsUrl'
 
 const CATEGORY_DOT: Record<string, string> = {
   fed: 'fed',
@@ -194,8 +195,8 @@ function DayDetail({
                 {news.map((item) => (
                   <li key={item.id} className="macro-cal-news-item">
                     <div className="macro-cal-news-row">
-                      {item.url ? (
-                        <a href={item.url} target="_blank" rel="noopener noreferrer" className="macro-cal-news-link">
+                      {item.id ? (
+                        <a href={newsOutboundUrl(item.id)} target="_blank" rel="noopener noreferrer" className="macro-cal-news-link">
                           <span className={`macro-news-cat macro-news-cat-${item.category}`}>
                             {t(`macro.category.${item.category}`)}
                           </span>
@@ -217,7 +218,7 @@ function DayDetail({
                     <div className="macro-news-agent-row">
                       <AskAgentButton mode="news" item={item} compact />
                     </div>
-                    <ShareMenu title={item.title} url={item.url} source={item.source} inline />
+                    <ShareMenu title={item.title} url={item.id ? newsShareUrl(item.id) : item.url} source={item.source} inline />
                   </li>
                 ))}
               </ul>

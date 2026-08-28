@@ -85,9 +85,33 @@ async def lifespan(app: FastAPI):
         except Exception as exc:
             logger.warning("Initial pearl hunt failed (will retry on schedule): %s", exc)
 
+    async def _initial_axiom() -> None:
+        try:
+            from app.axiom.service import run_axiom_tick
+            from app.config import settings as cfg
+
+            if not getattr(cfg, "axiom_enabled", True):
+                return
+            await run_axiom_tick()
+        except Exception as exc:
+            logger.warning("Initial Axiom tick failed (will retry on schedule): %s", exc)
+
+    async def _initial_launch_scout() -> None:
+        try:
+            from app.config import settings as cfg
+            from app.launch_scout.service import run_launch_scout_tick
+
+            if not getattr(cfg, "launch_scout_enabled", True):
+                return
+            await run_launch_scout_tick()
+        except Exception as exc:
+            logger.warning("Initial Launch Scout tick failed (will retry on schedule): %s", exc)
+
     asyncio.create_task(_initial_scan())
     asyncio.create_task(initial_news())
     asyncio.create_task(_initial_pearl())
+    asyncio.create_task(_initial_axiom())
+    asyncio.create_task(_initial_launch_scout())
     yield
     stop_scheduler()
 

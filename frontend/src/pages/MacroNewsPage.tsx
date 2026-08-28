@@ -10,6 +10,7 @@ import { useLocale } from '../context/LocaleContext'
 import { useLiveFeed } from '../hooks/useLiveFeed'
 import type { TranslationPath } from '../i18n'
 import { MacroNewsCategory, MacroNewsFeed, MacroNewsItem } from '../types'
+import { newsOutboundUrl, newsShareUrl } from '../lib/newsUrl'
 
 type ViewMode = 'news' | 'calendar'
 type TabId = 'all' | MacroNewsCategory
@@ -80,8 +81,8 @@ function NewsCard({
 
   return (
     <article className={cardClass} style={style}>
-      {item.url ? (
-        <a href={item.url} target="_blank" rel="noopener noreferrer" className="macro-news-card-link tap-target">
+      {item.id ? (
+        <a href={newsOutboundUrl(item.id)} target="_blank" rel="noopener noreferrer" className="macro-news-card-link tap-target">
           {body}
         </a>
       ) : (
@@ -96,7 +97,7 @@ function NewsCard({
       <div className="macro-news-agent-row">
         <AskAgentButton mode="news" item={item} />
       </div>
-      <ShareMenu title={item.title} url={item.url} source={item.source} inline />
+      <ShareMenu title={item.title} url={item.id ? newsShareUrl(item.id) : item.url} source={item.source} inline />
     </article>
   )
 }
@@ -136,13 +137,32 @@ export function MacroNewsPage() {
   useEffect(() => {
     if (view !== 'news') return
     setLoading(true)
-    void load(tab)
-  }, [tab, load, view])
+    let cancelled = false
+    ;(async () => {
+      try {
+        // Force wire refresh on first paint so feed is never stale ideology cache.
+        const data = await refreshMacroNews(locale)
+        if (!cancelled) {
+          setFeed(data)
+          setError(null)
+        }
+      } catch {
+        if (!cancelled) await load(tab)
+        return
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+      if (!cancelled) await load(tab, true)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [tab, load, view, locale])
 
   useEffect(() => {
     if (view !== 'news') return
     if (connected) return
-    const pollMs = (feed?.poll_interval_seconds ?? 120) * 1000
+    const pollMs = (feed?.poll_interval_seconds ?? 60) * 1000
     const id = window.setInterval(() => void load(tabRef.current, true), pollMs)
     return () => window.clearInterval(id)
   }, [load, feed?.poll_interval_seconds, view, connected])
@@ -162,7 +182,7 @@ export function MacroNewsPage() {
   }
 
   const counts = feed?.counts ?? {}
-  const pollSec = feed?.poll_interval_seconds ?? 120
+  const pollSec = feed?.poll_interval_seconds ?? 60
 
   if (view === 'news' && loading && !feed) {
     return <div className="page-loading macro-page-loading">{t('macro.loadingNews')}</div>
@@ -193,9 +213,16 @@ export function MacroNewsPage() {
           <span className="macro-news-live-dot" />
           {connected ? t('macro.live') : t('macro.connecting')}
         </span>
-        {view === 'news' && feed && feed.fresh_count_1h > 0 && (
+        {view === 'news' && feed && (
           <span className="macro-news-fresh-badge">
-            {t('macro.freshLastHour', { count: feed.fresh_count_1h })}
+            {t('macro.freshLastHour', { count: feed.fresh_count_1h ?? 0 })}
+          </span>
+        )}
+        {view === 'news' && feed?.fetched_at && (
+          <span className="macro-news-poll-hint">
+            {t('macro.fetchedAt', {
+              date: new Date(feed.fetched_at).toLocaleString(dateLocale),
+            })}
           </span>
         )}
         <span className="macro-news-poll-hint">{t('macro.refreshEvery', { sec: pollSec })}</span>

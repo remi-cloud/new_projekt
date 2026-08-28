@@ -49,3 +49,7 @@ Without Axiom cookies the desk stays useful via DexScreener Pulse + FOMO Family 
 - Educational desk — not custody, not live Axiom trading.
 - Family bags are **net buy−sell USD** heuristics from activity, not on-chain exact balances.
 - Deep links force Axiom chain context: `?chain=sol&pulseChains=sol` (also `bnb`, `eth`, `robinhood`) so Solana memes open even when your Axiom session had BNB selected.
+- **UI rebuilds links** via `memeTerminalUrl` (mint + chain) — never rely on a stale/empty `url` field alone.
+- **Empty wipe guard:** if a tick returns zero Pulse or zero positions, SQLite keeps the last good snapshot.
+- Startup runs one Axiom tick so `/axiom` is not empty for ~90s.
+- LinkGuard also samples Axiom Pulse/positions for missing `chain=` on meme URLs.

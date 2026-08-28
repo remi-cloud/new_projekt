@@ -16,7 +16,7 @@ from app.config import settings
 from app.models.schemas import MacroCalendarMonthResponse, MacroNewsCategory, MacroNewsFeed, MacroNewsItem
 from app.news.calendar_ai import enrich_calendar_events
 from app.news.google_news_urls import resolve_item_urls
-from app.news.ideology_lens import curated_desk_briefings, sort_by_alignment
+from app.news.ideology_lens import sort_by_alignment
 from app.news.image_agent import enrich_items, generate_missing
 from app.news.image_sources import extract_image_from_rss_description
 from app.news.macro_calendar import get_calendar_month, get_upcoming_calendar
@@ -32,41 +32,41 @@ HTTP_HEADERS = {
 # (url, source label, default category)
 RSS_SOURCES: list[tuple[str, str, MacroNewsCategory]] = [
     # ── Elon Musk & companies (priority) ───────────────────────────
-    ("https://news.google.com/rss/search?q=Elon+Musk+when:3h&hl=en-US&gl=US&ceid=US:en", "Elon Musk", "musk"),
-    ("https://news.google.com/rss/search?q=Tesla+stock+OR+Tesla+earnings+when:3h&hl=en-US&gl=US&ceid=US:en", "Tesla", "musk"),
-    ("https://news.google.com/rss/search?q=SpaceX+Starship+OR+Starlink+when:3h&hl=en-US&gl=US&ceid=US:en", "SpaceX", "musk"),
-    ("https://news.google.com/rss/search?q=xAI+OR+Grok+when:3h&hl=en-US&gl=US&ceid=US:en", "xAI · Grok", "musk"),
-    ("https://news.google.com/rss/search?q=Neuralink+when:3h&hl=en-US&gl=US&ceid=US:en", "Neuralink", "musk"),
-    ("https://news.google.com/rss/search?q=Elon+Musk+(Robotaxi+OR+Optimus+OR+%22free+speech%22+OR+Starship)+when:3h&hl=en-US&gl=US&ceid=US:en", "Musk · Growth", "musk"),
-    ("https://news.google.com/rss/search?q=Musk+DOGE+OR+%22Department+of+Government+Efficiency%22+OR+Trump+Musk+when:3h&hl=en-US&gl=US&ceid=US:en", "Musk · DOGE", "musk"),
+    ("https://news.google.com/rss/search?q=Elon+Musk+when:1h&hl=en-US&gl=US&ceid=US:en", "Elon Musk", "musk"),
+    ("https://news.google.com/rss/search?q=Tesla+stock+OR+Tesla+earnings+when:1h&hl=en-US&gl=US&ceid=US:en", "Tesla", "musk"),
+    ("https://news.google.com/rss/search?q=SpaceX+Starship+OR+Starlink+when:1h&hl=en-US&gl=US&ceid=US:en", "SpaceX", "musk"),
+    ("https://news.google.com/rss/search?q=xAI+OR+Grok+when:1h&hl=en-US&gl=US&ceid=US:en", "xAI · Grok", "musk"),
+    ("https://news.google.com/rss/search?q=Neuralink+when:1h&hl=en-US&gl=US&ceid=US:en", "Neuralink", "musk"),
+    ("https://news.google.com/rss/search?q=Elon+Musk+(Robotaxi+OR+Optimus+OR+%22free+speech%22+OR+Starship)+when:1h&hl=en-US&gl=US&ceid=US:en", "Musk · Growth", "musk"),
+    ("https://news.google.com/rss/search?q=Musk+DOGE+OR+%22Department+of+Government+Efficiency%22+OR+Trump+Musk+when:1h&hl=en-US&gl=US&ceid=US:en", "Musk · DOGE", "musk"),
     ("https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10000161", "CNBC · Tesla", "musk"),
     ("https://electrek.co/feed/", "Electrek", "musk"),
     ("https://www.teslarati.com/feed/", "Teslarati", "musk"),
     ("https://www.space.com/feeds/all", "Space.com", "musk"),
 
     # ── Trump / USA — pro-growth & policy (priority) ───────────────
-    ("https://news.google.com/rss/search?q=Donald+Trump+(economy+OR+tariff+OR+deregulation+OR+%22America+First%22)+when:3h&hl=en-US&gl=US&ceid=US:en", "Trump · Economy", "usa"),
-    ("https://news.google.com/rss/search?q=Trump+(energy+OR+drill+OR+%22energy+dominance%22+OR+border)+when:3h&hl=en-US&gl=US&ceid=US:en", "Trump · Energy", "usa"),
-    ("https://news.google.com/rss/search?q=Trump+White+House+OR+executive+order+when:3h&hl=en-US&gl=US&ceid=US:en", "Trump · WH", "usa"),
+    ("https://news.google.com/rss/search?q=Donald+Trump+(economy+OR+tariff+OR+deregulation+OR+%22America+First%22)+when:1h&hl=en-US&gl=US&ceid=US:en", "Trump · Economy", "usa"),
+    ("https://news.google.com/rss/search?q=Trump+(energy+OR+drill+OR+%22energy+dominance%22+OR+border)+when:1h&hl=en-US&gl=US&ceid=US:en", "Trump · Energy", "usa"),
+    ("https://news.google.com/rss/search?q=Trump+White+House+OR+executive+order+when:1h&hl=en-US&gl=US&ceid=US:en", "Trump · WH", "usa"),
     ("https://moxie.foxnews.com/google-publisher/politics.xml", "Fox News · Politics", "usa"),
     ("https://moxie.foxbusiness.com/google-publisher/politics.xml", "Fox Business · Politics", "usa"),
     ("https://nypost.com/politics/feed/", "NY Post · Politics", "usa"),
     ("https://www.washingtonexaminer.com/news/feed/", "Washington Examiner", "usa"),
 
     # ── Stagflation / Fed / cost-of-living (Trump–Musk macro frame) ─
-    ("https://news.google.com/rss/search?q=stagflation+OR+%22sticky+inflation%22+OR+%22cost+of+living%22+Fed+when:3h&hl=en-US&gl=US&ceid=US:en", "Stagflation · Fed", "macro"),
-    ("https://news.google.com/rss/search?q=stagflation+(energy+OR+tariff+OR+spending+OR+Trump)+when:3h&hl=en-US&gl=US&ceid=US:en", "Stagflation · Policy", "macro"),
-    ("https://news.google.com/rss/search?q=site:zerohedge.com+when:3h&hl=en-US&gl=US&ceid=US:en", "ZeroHedge", "macro"),
+    ("https://news.google.com/rss/search?q=stagflation+OR+%22sticky+inflation%22+OR+%22cost+of+living%22+Fed+when:1h&hl=en-US&gl=US&ceid=US:en", "Stagflation · Fed", "macro"),
+    ("https://news.google.com/rss/search?q=stagflation+(energy+OR+tariff+OR+spending+OR+Trump)+when:1h&hl=en-US&gl=US&ceid=US:en", "Stagflation · Policy", "macro"),
+    ("https://news.google.com/rss/search?q=site:zerohedge.com+when:1h&hl=en-US&gl=US&ceid=US:en", "ZeroHedge", "macro"),
 
-    # ── Google News — tylko agregaty bez własnego RSS (when:3h = świeże) ──
-    ("https://news.google.com/rss/search?q=site:reuters.com+when:3h&hl=en-US&gl=US&ceid=US:en", "Reuters", "global"),
-    ("https://news.google.com/rss/search?q=site:bloomberg.com+when:3h&hl=en-US&gl=US&ceid=US:en", "Bloomberg", "macro"),
-    ("https://news.google.com/rss/search?q=Europe+markets+economy+when:3h&hl=en-US&gl=US&ceid=US:en", "Google · Europe", "global"),
-    ("https://news.google.com/rss/search?q=China+Japan+Asia+markets+when:3h&hl=en-US&gl=US&ceid=US:en", "Google · Asia", "global"),
-    ("https://news.google.com/rss/search?q=OPEC+oil+energy+prices+when:3h&hl=en-US&gl=US&ceid=US:en", "Google · Energy", "global"),
-    ("https://news.google.com/rss/search?q=stock+market+breaking+when:3h&hl=en-US&gl=US&ceid=US:en", "Google · Markets", "macro"),
-    ("https://news.google.com/rss/search?q=Federal+Reserve+OR+FOMC+when:3h&hl=en-US&gl=US&ceid=US:en", "Google · Fed", "fed"),
-    ("https://news.google.com/rss/search?q=Donald+Trump+OR+US+politics+when:3h&hl=en-US&gl=US&ceid=US:en", "Google · USA", "usa"),
+    # ── Google News — tylko agregaty bez własnego RSS (when:1h = świeże) ──
+    ("https://news.google.com/rss/search?q=site:reuters.com+when:1h&hl=en-US&gl=US&ceid=US:en", "Reuters", "global"),
+    ("https://news.google.com/rss/search?q=site:bloomberg.com+when:1h&hl=en-US&gl=US&ceid=US:en", "Bloomberg", "macro"),
+    ("https://news.google.com/rss/search?q=Europe+markets+economy+when:1h&hl=en-US&gl=US&ceid=US:en", "Google · Europe", "global"),
+    ("https://news.google.com/rss/search?q=China+Japan+Asia+markets+when:1h&hl=en-US&gl=US&ceid=US:en", "Google · Asia", "global"),
+    ("https://news.google.com/rss/search?q=OPEC+oil+energy+prices+when:1h&hl=en-US&gl=US&ceid=US:en", "Google · Energy", "global"),
+    ("https://news.google.com/rss/search?q=stock+market+breaking+when:1h&hl=en-US&gl=US&ceid=US:en", "Google · Markets", "macro"),
+    ("https://news.google.com/rss/search?q=Federal+Reserve+OR+FOMC+when:1h&hl=en-US&gl=US&ceid=US:en", "Google · Fed", "fed"),
+    ("https://news.google.com/rss/search?q=Donald+Trump+OR+US+politics+when:1h&hl=en-US&gl=US&ceid=US:en", "Google · USA", "usa"),
 
     # ── USA — Fed ─────────────────────────────────────────────────
     ("https://www.federalreserve.gov/feeds/press_all.xml", "Federal Reserve", "fed"),
@@ -116,13 +116,13 @@ RSS_SOURCES: list[tuple[str, str, MacroNewsCategory]] = [
     ("https://decrypt.co/feed", "Decrypt", "crypto"),
     ("https://www.theblock.co/rss.xml", "The Block", "crypto"),
     ("https://blog.blockchain.com/rss/", "Blockchain.com", "crypto"),
-    ("https://news.google.com/rss/search?q=site:bitcoinmagazine.com+when:3h&hl=en-US&gl=US&ceid=US:en", "Bitcoin Magazine", "crypto"),
-    ("https://news.google.com/rss/search?q=site:cryptoslate.com+when:3h&hl=en-US&gl=US&ceid=US:en", "CryptoSlate", "crypto"),
-    ("https://news.google.com/rss/search?q=Bitcoin+OR+BTC+when:3h&hl=en-US&gl=US&ceid=US:en", "Google · Bitcoin", "crypto"),
-    ("https://news.google.com/rss/search?q=Ethereum+OR+ETH+when:3h&hl=en-US&gl=US&ceid=US:en", "Google · Ethereum", "crypto"),
-    ("https://news.google.com/rss/search?q=(crypto+ETF+OR+Bitcoin+ETF+OR+Ethereum+ETF)+OR+(SEC+crypto)+when:3h&hl=en-US&gl=US&ceid=US:en", "Google · Crypto ETF", "crypto"),
-    ("https://news.google.com/rss/search?q=Binance+OR+Coinbase+when:3h&hl=en-US&gl=US&ceid=US:en", "Google · Exchanges", "crypto"),
-    ("https://news.google.com/rss/search?q=blockchain+OR+DeFi+OR+stablecoin+when:3h&hl=en-US&gl=US&ceid=US:en", "Google · DeFi", "crypto"),
+    ("https://news.google.com/rss/search?q=site:bitcoinmagazine.com+when:1h&hl=en-US&gl=US&ceid=US:en", "Bitcoin Magazine", "crypto"),
+    ("https://news.google.com/rss/search?q=site:cryptoslate.com+when:1h&hl=en-US&gl=US&ceid=US:en", "CryptoSlate", "crypto"),
+    ("https://news.google.com/rss/search?q=Bitcoin+OR+BTC+when:1h&hl=en-US&gl=US&ceid=US:en", "Google · Bitcoin", "crypto"),
+    ("https://news.google.com/rss/search?q=Ethereum+OR+ETH+when:1h&hl=en-US&gl=US&ceid=US:en", "Google · Ethereum", "crypto"),
+    ("https://news.google.com/rss/search?q=(crypto+ETF+OR+Bitcoin+ETF+OR+Ethereum+ETF)+OR+(SEC+crypto)+when:1h&hl=en-US&gl=US&ceid=US:en", "Google · Crypto ETF", "crypto"),
+    ("https://news.google.com/rss/search?q=Binance+OR+Coinbase+when:1h&hl=en-US&gl=US&ceid=US:en", "Google · Exchanges", "crypto"),
+    ("https://news.google.com/rss/search?q=blockchain+OR+DeFi+OR+stablecoin+when:1h&hl=en-US&gl=US&ceid=US:en", "Google · DeFi", "crypto"),
 ]
 
 _MUSK_SOURCE_LABELS = frozenset({
@@ -381,6 +381,27 @@ def _is_stale_article(
     if url_day is not None and (now.date() - url_day).days > max_days:
         return True
     return False
+
+
+def _title_fingerprint(title: str) -> str:
+    """Normalize title for near-duplicate detection."""
+    raw = (title or "").lower()
+    raw = re.sub(r"[^a-z0-9\s]", " ", raw)
+    raw = re.sub(r"\s+", " ", raw).strip()
+    return raw[:80]
+
+
+def _dedupe_by_title(items: list[MacroNewsItem]) -> list[MacroNewsItem]:
+    """Keep newest item per title fingerprint."""
+    seen: set[str] = set()
+    out: list[MacroNewsItem] = []
+    for item in sorted(items, key=lambda n: n.published_at, reverse=True):
+        fp = _title_fingerprint(item.title)
+        if not fp or fp in seen:
+            continue
+        seen.add(fp)
+        out.append(item)
+    return out
 
 
 def _local_name(tag: str) -> str:
@@ -649,6 +670,7 @@ async def _fresh_display(
         # Shrink next batch target
         batch_limit = max(limit - len(picked) + 10, 20)
 
+    picked = _dedupe_by_title(picked)
     if settings.news_ideology_boost:
         picked = sort_by_alignment(picked)
     else:
@@ -715,15 +737,17 @@ async def refresh_macro_news() -> tuple[MacroNewsFeed, list[MacroNewsItem]]:
             )
         )
 
-    if settings.news_ideology_boost:
-        for brief in curated_desk_briefings(now):
-            if brief.id not in seen_keys:
-                seen_keys.add(brief.id)
-                news.append(brief)
-
+    # Live wire only — curated desk essays stay out of the public feed.
+    news = _dedupe_by_title(news)
     news.sort(key=lambda n: n.published_at, reverse=True)
     news = news[: settings.news_pool_limit]
+    # Recompute age from refresh time (never trust stale age_minutes)
+    for i, item in enumerate(news):
+        age = int((now - item.published_at).total_seconds() / 60)
+        if item.age_minutes != age:
+            news[i] = item.model_copy(update={"age_minutes": max(0, age)})
     news = enrich_items(news)
+    news = await resolve_item_urls(news)
 
     counts = _category_counts(news)
     # Resolve + drop resurfaced old URLs (Google often stamps old March pieces as "now")
@@ -824,6 +848,7 @@ async def get_macro_calendar_month(year: int, month: int, locale: str | None = "
         for item in pool
         if start <= item.published_at.date() <= end
     ]
+    news = await resolve_item_urls(news)
 
     return MacroCalendarMonthResponse(
         year=year,
@@ -833,6 +858,16 @@ async def get_macro_calendar_month(year: int, month: int, locale: str | None = "
         fetched_at=cached.fetched_at,
         poll_interval_seconds=cached.poll_interval_seconds,
     )
+
+
+async def get_news_item_by_id(news_id: str) -> MacroNewsItem | None:
+    """Lookup a cached news item by stable id."""
+    async with _cache_lock:
+        pool = list(_pool)
+    for item in pool:
+        if item.id == news_id:
+            return item
+    return None
 
 
 async def patch_cached_image(news_id: str, image_url: str) -> None:

@@ -9,7 +9,12 @@ from typing import Any
 from app.axiom import client as axiom_client
 from app.axiom import db as axiom_db
 from app.config import settings
-from app.launch_scout.terminal_url import axiom_meme_url
+from app.launch_scout.terminal_url import (
+    axiom_meme_url,
+    is_plausible_address,
+    sanitize_address,
+    terminal_url,
+)
 from app.realtime.broadcaster import broadcaster
 
 logger = logging.getLogger(__name__)
@@ -77,8 +82,13 @@ async def _collect_positions(*, include_closed: bool) -> list[dict]:
         if not include_closed and status != "open":
             continue
         handle = str(b.get("handle") or "")
-        mint = str(b.get("mint") or "")
+        mint = sanitize_address(str(b.get("mint") or ""))
         bag_chain = str(b.get("chain") or "solana")
+        if not mint or not is_plausible_address(mint, bag_chain):
+            continue
+        term = terminal_url(mint=mint, symbol=str(b.get("symbol") or ""), chain=bag_chain) or axiom_meme_url(
+            mint, bag_chain
+        )
         positions.append(
             {
                 "position_id": f"fomo:{handle}:{mint}",
@@ -91,7 +101,7 @@ async def _collect_positions(*, include_closed: bool) -> list[dict]:
                 "usd_size": b.get("net_usd"),
                 "amount": None,
                 "last_ts": b.get("last_ts"),
-                "url": axiom_meme_url(mint, bag_chain) if mint else None,
+                "url": term or None,
                 "image_url": None,
                 "raw": {"buys": b.get("buys"), "sells": b.get("sells"), "source": "fomo_family"},
             }
@@ -102,7 +112,10 @@ async def _collect_positions(*, include_closed: bool) -> list[dict]:
         kind = axiom_client.wallet_owner_kind(wallet)
         label = axiom_client.wallet_owner_label(wallet)
         for acc in accounts:
-            mint = acc["mint"]
+            mint = sanitize_address(str(acc.get("mint") or ""))
+            if not mint or not is_plausible_address(mint, "solana"):
+                continue
+            term = terminal_url(mint=mint, symbol=mint[:6], chain="solana") or axiom_meme_url(mint, "solana")
             positions.append(
                 {
                     "position_id": f"{kind}:{wallet}:{mint}",
@@ -115,7 +128,7 @@ async def _collect_positions(*, include_closed: bool) -> list[dict]:
                     "usd_size": None,
                     "amount": acc.get("amount"),
                     "last_ts": None,
-                    "url": axiom_meme_url(mint, "solana"),
+                    "url": term or None,
                     "image_url": None,
                     "raw": {
                         "decimals": acc.get("decimals"),

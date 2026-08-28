@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from datetime import datetime, timezone
 from typing import Any
@@ -34,6 +35,21 @@ from app.realtime.broadcaster import broadcaster
 
 logger = logging.getLogger(__name__)
 
+_CORE_ERROR_PREFIXES = frozenset({"pump_traders", "wallet_scout"})
+
+
+def _split_tick_errors(errors: list[str]) -> tuple[list[str], list[str]]:
+    core: list[str] = []
+    warnings: list[str] = []
+    for err in errors:
+        prefix = err.split(":", 1)[0]
+        if prefix in _CORE_ERROR_PREFIXES:
+            core.append(err)
+        else:
+            warnings.append(err)
+    return core, warnings
+
+
 _DEFAULT_CHAINS = (
     "solana,base,ethereum,bsc,arbitrum,polygon,avalanche,optimism,blast,tron,sui,bitcoin,robinhood"
 )
@@ -64,6 +80,14 @@ async def get_launch_status() -> dict[str, Any]:
     await launch_db.init_launch_scout_db()
     last_tick = await launch_db.get_state("last_tick_at")
     last_error = await launch_db.get_state("last_error") or ""
+    last_warnings = await launch_db.get_state("last_warnings") or ""
+    ws_raw = await launch_db.get_state("wallet_scout_json") or ""
+    wallet_scout: dict[str, Any] = {}
+    if ws_raw:
+        try:
+            wallet_scout = json.loads(ws_raw)
+        except json.JSONDecodeError:
+            wallet_scout = {}
     counts = {
         "all": await launch_db.candidates_count(),
         "seed": await launch_db.candidates_count("seed"),
@@ -82,15 +106,20 @@ async def get_launch_status() -> dict[str, Any]:
         "chains": sorted(_allowed_chains()),
         "last_tick_at": last_tick,
         "last_error": last_error or None,
+        "last_warnings": last_warnings or None,
+        "wallet_scout": wallet_scout or None,
         "counts": counts,
         "whispers_count": await launch_db.whispers_count(),
         "whispers_enabled": whispers_enabled(),
         "traders_count": await launch_db.traders_count(),
+        "wallet_scout_top_n": int(getattr(settings, "wallet_scout_top_n", 15) or 15),
         "sources": [
             "dexscreener",
             "geckoterminal",
             "pump.fun",
             "pump_traders",
+            "wallet_scout",
+            "dex_arena",
             "4meme",
             "flap",
             "pancakeswap",
@@ -104,15 +133,29 @@ async def get_launch_status() -> dict[str, Any]:
             "Desk filter: post-migration DEX pairs with DexScreener paid visibility "
             "(boost/profile/token info). Bonding 4meme/Pump PUBLISH is excluded. "
             "Broken mint:4meme DexScreener links are sanitized. "
+            "Wallet Scout (P0): buy/sell + open bags under Pump top wallets. "
+            "Dex Arena (P1): per-DEX boards + whale_boost. "
             f"Max MC ${int(_thresholds()['max_mc']):,}."
         ),
+        "dex_arena_enabled": bool(getattr(settings, "dex_arena_enabled", True)),
     }
 
 
-async def list_launch_candidates(tier: str | None = None, limit: int = 50) -> list[dict]:
+async def list_launch_candidates(
+    tier: str | None = None,
+    limit: int = 50,
+    *,
+    dex: str | None = None,
+) -> list[dict]:
     await launch_db.init_launch_scout_db()
-    rows = await launch_db.list_candidates(tier=tier, limit=limit)
-    return [ensure_candidate_urls(dict(r)) for r in rows]
+    rows = await launch_db.list_candidates(tier=tier, limit=limit, dex=dex)
+    out = [ensure_candidate_urls(dict(r)) for r in rows]
+    if dex and dex.lower() not in ("all", "universe", ""):
+        from app.launch_scout.dex_arena import candidate_matches_dex_filter
+
+        out = [c for c in out if candidate_matches_dex_filter(c, dex)]
+        out = out[: max(1, min(200, limit))]
+    return out
 
 
 async def list_meme_whispers(limit: int = 20) -> list[dict]:
@@ -169,6 +212,17 @@ async def run_launch_scout_tick() -> dict[str, Any]:
 
     now_iso = datetime.now(timezone.utc).isoformat()
     thresholds = _thresholds()
+    # Soft Session Clock context for scorer (from last snapshot if any)
+    try:
+        from app.cycles.session_clock import get_session_clock_snapshot
+
+        clock_prev = await get_session_clock_snapshot()
+        if clock_prev.get("ok"):
+            thresholds["session_hottest"] = clock_prev.get("hot_lane") or ""
+            macro = clock_prev.get("macro_bias") or {}
+            thresholds["session_macro_strongest"] = macro.get("strongest_session") or ""
+    except Exception:
+        pass
     chains = _allowed_chains()
     errors: list[str] = []
     stubs: list[dict] = []
@@ -207,17 +261,37 @@ async def run_launch_scout_tick() -> dict[str, Any]:
             errors.append(f"whisper_persist: {exc}")
 
     # --- Pump top-30 traders (best-effort) ---
+    wallet_scout_meta: dict[str, Any] = {}
     try:
-        traders, tevents, pump_trader_mints = await fetch_top_traders_and_events(top_n=30, events_limit=40)
-        if traders:
-            await launch_db.replace_traders(traders)
-            traders_n = len(traders)
+        traders, tevents, pump_trader_mints = await fetch_top_traders_and_events(top_n=30, events_limit=80)
         if tevents:
             await launch_db.replace_trader_events(tevents)
             trader_events_n = len(tevents)
             for e in tevents:
-                if e.get("mint"):
+                if e.get("mint") and e.get("action") == "buy":
                     pump_trader_mints.add(str(e["mint"]).lower())
+        if traders:
+            try:
+                from app.launch_scout.wallet_scout import run_wallet_scout
+
+                ws = await run_wallet_scout(traders=traders)
+                wallet_scout_meta = {
+                    "open_bags": ws.get("open_bags"),
+                    "wallets_scanned": ws.get("wallets_scanned"),
+                    "top_n": ws.get("top_n"),
+                }
+                enriched_traders = {str(t.get("wallet")): t for t in (ws.get("traders") or [])}
+                merged: list[dict] = []
+                for t in traders:
+                    w = str(t.get("wallet") or "")
+                    e = enriched_traders.get(w) or t
+                    merged.append(e)
+                traders = merged
+            except Exception as exc:
+                errors.append(f"wallet_scout: {exc}")
+                logger.warning("Wallet Scout failed: %s", exc)
+            await launch_db.replace_traders(traders)
+            traders_n = len(traders)
     except Exception as exc:
         errors.append(f"pump_traders: {exc}")
         logger.warning("Pump traders failed: %s", exc)
@@ -500,9 +574,48 @@ async def run_launch_scout_tick() -> dict[str, Any]:
     link_audit = audit_terminal_urls(rows)
     await launch_db.replace_candidates(rows)
 
-    err_msg = "; ".join(errors)[:500] if errors else ""
+    dex_arena_meta: dict[str, Any] = {}
+    try:
+        from app.launch_scout.dex_arena import run_dex_arena
+
+        traders_for_arena = await launch_db.list_traders(limit=30)
+        arena = await run_dex_arena(candidates=rows, traders=traders_for_arena)
+        dex_arena_meta = {
+            "boards": len(arena.get("boards") or []),
+            "whale_mints_tracked": arena.get("whale_mints_tracked"),
+            "ok": arena.get("ok"),
+        }
+    except Exception as exc:
+        errors.append(f"dex_arena: {exc}")
+        logger.warning("Dex Arena failed: %s", exc)
+
+    session_clock_meta: dict[str, Any] = {}
+    try:
+        from app.cycles.session_clock import run_session_clock
+
+        tevents = await launch_db.list_trader_events(limit=500)
+        clock = await run_session_clock(events=tevents, candidates=rows)
+        session_clock_meta = {
+            "ok": clock.get("ok"),
+            "now_session": clock.get("now_session"),
+            "hot_lane": clock.get("hot_lane"),
+        }
+    except Exception as exc:
+        errors.append(f"session_clock: {exc}")
+        logger.warning("Session Clock failed: %s", exc)
+
+    if wallet_scout_meta:
+        try:
+            await launch_db.set_state("wallet_scout_json", json.dumps(wallet_scout_meta))
+        except Exception:
+            pass
+
+    core_errors, source_warnings = _split_tick_errors(errors)
+    err_msg = "; ".join(core_errors)[:500] if core_errors else ""
+    warn_msg = "; ".join(source_warnings)[:500] if source_warnings else ""
     await launch_db.set_state("last_tick_at", now_iso)
     await launch_db.set_state("last_error", err_msg)
+    await launch_db.set_state("last_warnings", warn_msg)
 
     counts = {
         "all": len(rows),
@@ -515,6 +628,9 @@ async def run_launch_scout_tick() -> dict[str, Any]:
         "counts": counts,
         "whispers": whisper_n,
         "traders": traders_n,
+        "wallet_scout": wallet_scout_meta,
+        "dex_arena": dex_arena_meta,
+        "session_clock": session_clock_meta,
         "seed_sample": [
             {
                 "symbol": r.get("symbol"),
@@ -527,7 +643,8 @@ async def run_launch_scout_tick() -> dict[str, Any]:
             if r.get("tier") == "seed"
         ][:12],
         "at": now_iso,
-        "errors": errors[:5],
+        "errors": core_errors[:5],
+        "warnings": source_warnings[:5],
         "link_guard": link_audit,
     }
     try:
@@ -536,7 +653,7 @@ async def run_launch_scout_tick() -> dict[str, Any]:
         logger.debug("launch_scout_tick publish failed: %s", exc)
 
     logger.info(
-        "Meme Universe tick: total=%d seed=%d fresh=%d pump=%d 4meme=%d flap=%d pancake=%d traders=%d rh=%d errors=%d bad_urls=%d missing_chain=%d",
+        "Meme Universe tick: total=%d seed=%d fresh=%d pump=%d 4meme=%d flap=%d pancake=%d traders=%d rh=%d core_err=%d warn=%d bad_urls=%d missing_chain=%d",
         counts["all"],
         counts["seed"],
         counts["fresh"],
@@ -546,7 +663,8 @@ async def run_launch_scout_tick() -> dict[str, Any]:
         pancake_count,
         traders_n,
         rh_count,
-        len(errors),
+        len(core_errors),
+        len(source_warnings),
         link_audit.get("bad_4meme", 0),
         link_audit.get("missing_chain_axiom", 0),
     )
@@ -564,6 +682,10 @@ async def run_launch_scout_tick() -> dict[str, Any]:
         "whispers_upserted": whisper_n,
         "traders": traders_n,
         "trader_events": trader_events_n,
+        "wallet_scout": wallet_scout_meta,
+        "dex_arena": dex_arena_meta,
+        "session_clock": session_clock_meta,
         "enriched": len(enriched),
-        "errors": errors,
+        "errors": core_errors,
+        "warnings": source_warnings,
     }

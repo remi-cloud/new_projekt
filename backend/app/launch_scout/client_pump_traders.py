@@ -79,7 +79,7 @@ async def _from_pump_public(
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], set[str]]:
     coins = await fetch_recent_coins(limit=24)
     wallet_stats: dict[str, dict[str, Any]] = defaultdict(
-        lambda: {"buys": 0, "volume": 0.0, "mints": set(), "events": []}
+        lambda: {"buys": 0, "sells": 0, "volume": 0.0, "mints": set(), "events": []}
     )
     headers = {"Accept": "application/json", "User-Agent": UA}
     async with httpx.AsyncClient(timeout=HTTP_TIMEOUT, follow_redirects=True) as client:
@@ -106,7 +106,7 @@ async def _from_pump_public(
                 _ingest_trades(
                     wallet_stats,
                     _as_trade_rows(r.json()),
-                    prefer_buy=True,
+                    prefer_buy=False,
                     mint=mint,
                     symbol=symbol,
                 )
@@ -115,7 +115,7 @@ async def _from_pump_public(
 
     ranked = sorted(
         wallet_stats.items(),
-        key=lambda kv: (kv[1]["buys"], kv[1]["volume"]),
+        key=lambda kv: (kv[1]["buys"] + kv[1]["sells"], kv[1]["volume"]),
         reverse=True,
     )[:top_n]
     traders: list[dict[str, Any]] = []
@@ -129,13 +129,18 @@ async def _from_pump_public(
                 "rank": i + 1,
                 "score": float(st["volume"]),
                 "buys": int(st["buys"]),
+                "sells": int(st["sells"]),
                 "source": "pump_public",
-                "raw": {"mints": list(st["mints"])[:12]},
+                "raw": {
+                    "mints": list(st["mints"])[:12],
+                    "buys": int(st["buys"]),
+                    "sells": int(st["sells"]),
+                },
             }
         )
-        for ev in st["events"][:3]:
+        for ev in st["events"][:6]:
             events.append(ev)
-            if ev.get("mint"):
+            if ev.get("mint") and ev.get("action") == "buy":
                 buy_mints.add(str(ev["mint"]).lower())
     events.sort(key=lambda e: int(e.get("ts_unix") or 0), reverse=True)
     events = events[:events_limit]
@@ -169,6 +174,8 @@ def _ingest_trades(
         if is_buy is None:
             side = str(t.get("side") or t.get("type") or "").lower()
             is_buy = side in ("buy", "b", "1", "true")
+            if side in ("sell", "s", "0", "false"):
+                is_buy = False
         if prefer_buy and not is_buy:
             continue
         wallet = str(
@@ -203,16 +210,20 @@ def _ingest_trades(
         vol = usd if usd > 0 else sol_amt * 150.0  # rough SOL→USD for ranking only
         ts = t.get("timestamp") or t.get("created_timestamp") or t.get("block_time")
         ts_i = _trade_ts(ts)
+        action = "buy" if is_buy else "sell"
         st = wallet_stats[wallet]
-        st["buys"] += 1
+        if is_buy:
+            st["buys"] += 1
+        else:
+            st["sells"] = int(st.get("sells") or 0) + 1
         st["volume"] += vol
         if mint_u:
             st["mints"].add(mint_u.lower())
         st["events"].append(
             {
-                "event_id": f"pump-{wallet[:8]}-{mint_u[:12]}-{ts_i}",
+                "event_id": f"pump-{wallet[:8]}-{mint_u[:12]}-{action}-{ts_i}",
                 "wallet": wallet,
-                "action": "buy",
+                "action": action,
                 "mint": mint_u,
                 "symbol": sym,
                 "chain": "solana",

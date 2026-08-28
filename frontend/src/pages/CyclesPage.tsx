@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useState } from 'react'
 import { CycleCardBitcoin } from '../components/CycleCardBitcoin'
 import { CycleCardPresidential } from '../components/CycleCardPresidential'
 import { CycleCardRegional } from '../components/CycleCardRegional'
@@ -6,10 +7,24 @@ import { InstrumentSeasonalitySearch } from '../components/InstrumentSeasonality
 import { ErrorState, Loading } from '../components/Loading'
 import { useDashboardContext } from '../context/DashboardContext'
 import { useLocale } from '../context/LocaleContext'
+import { fetchSessionClock, type SessionClockSnapshot } from '../api'
 
 export function CyclesPage() {
   const { data, error, reload, loading } = useDashboardContext()
   const { t, tArray } = useLocale()
+  const [clock, setClock] = useState<SessionClockSnapshot | null>(null)
+
+  const loadClock = useCallback(async () => {
+    try {
+      setClock(await fetchSessionClock())
+    } catch {
+      setClock(null)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadClock()
+  }, [loadClock])
 
   if (error && !data) return <ErrorState message={error} onRetry={reload} />
   if (loading && !data) return <Loading message={t('layout.loading')} />
@@ -26,6 +41,16 @@ export function CyclesPage() {
         <h2>{t('cycles.infoTitle')}</h2>
         <p>{t('cycles.infoBody')}</p>
       </div>
+
+      {clock?.ok ? (
+        <p className="pres-next-term-note session-clock-cycles-strip">
+          {t('cycles.sessionClockStrip', {
+            session: clock.now_session_label || clock.now_session || '—',
+            hot: clock.hot_lane || '—',
+            macro: clock.macro_bias?.strongest_session || '—',
+          })}
+        </p>
+      ) : null}
 
       <InstrumentSeasonalitySearch />
 

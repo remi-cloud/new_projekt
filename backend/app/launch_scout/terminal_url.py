@@ -48,10 +48,13 @@ _AXIOM_CHAIN_CODE = {
 
 def axiom_meme_url(mint: str, chain: str = "solana") -> str:
     """Chain-aware Axiom meme terminal deep link."""
+    clean = sanitize_address(mint)
+    if not clean:
+        return ""
     ch = _norm_chain(chain)
     axiom_chain = _AXIOM_CHAIN_CODE.get(ch, "sol")
     q = urlencode({"chain": axiom_chain, "pulseChains": axiom_chain})
-    return f"https://axiom.trade/meme/{mint}?{q}"
+    return f"https://axiom.trade/meme/{clean}?{q}"
 
 
 def _uses_axiom_terminal(chain: str) -> bool:
@@ -150,4 +153,69 @@ def ensure_candidate_urls(c: dict) -> dict:
             c["launchpad_url"] = f"https://four.meme/token/{mint}"
         elif mint and ("pump" in src or "pump" in tags):
             c["launchpad_url"] = f"https://pump.fun/{mint}"
+    home = dex_home_url(str(c.get("dex_id") or c.get("source") or ""), str(c.get("chain") or ""))
+    if home:
+        c["dex_home_url"] = home
     return c
+
+
+_DEX_ALIASES = {
+    "pumpswap": "pumpfun",
+    "pump.fun": "pumpfun",
+    "pump_fun": "pumpfun",
+    "pump": "pumpfun",
+    "flapsh": "flap",
+    "flap.fun": "flap",
+    "pancake": "pancakeswap",
+    "pancakeswap_v2": "pancakeswap",
+    "pancakeswap_v3": "pancakeswap",
+    "four": "4meme",
+    "fourmeme": "4meme",
+}
+
+
+def normalize_dex_lane(dex_id: str | None, source: str | None = None) -> str:
+    """Map raw dex_id/source to a stable Dex Arena lane key."""
+    raw = (dex_id or source or "").lower().strip()
+    if not raw:
+        return "other"
+    if raw in _DEX_ALIASES:
+        return _DEX_ALIASES[raw]
+    if "pump" in raw:
+        return "pumpfun"
+    if "pancake" in raw:
+        return "pancakeswap"
+    if "flap" in raw:
+        return "flap"
+    if "4meme" in raw or "four" in raw:
+        return "4meme"
+    if "raydium" in raw:
+        return "raydium"
+    if "orca" in raw:
+        return "orca"
+    if "meteora" in raw:
+        return "meteora"
+    if raw in ("dex", "gecko", "geckoterminal", "profile", "boost"):
+        return "other"
+    return raw.replace(" ", "")[:32] or "other"
+
+
+def dex_home_url(dex_id: str | None = None, chain: str | None = None) -> str:
+    """Homepage / discovery link for a whole DEX (not a single token pair)."""
+    lane = normalize_dex_lane(dex_id)
+    ch = _norm_chain(chain)
+    homes = {
+        "pumpfun": "https://pump.fun",
+        "raydium": "https://raydium.io/swap/",
+        "pancakeswap": "https://pancakeswap.finance",
+        "flap": "https://dexscreener.com/bsc?dexIds=flapsh",
+        "4meme": "https://four.meme",
+        "orca": "https://www.orca.so",
+        "meteora": "https://app.meteora.ag",
+    }
+    if lane in homes:
+        return homes[lane]
+    if lane == "other":
+        return f"https://dexscreener.com/{ch}"
+    # Unknown dex_id — DexScreener filtered by dex when possible
+    return f"https://dexscreener.com/{ch}?dexIds={lane}"

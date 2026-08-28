@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  dexHomeUrl,
   memeDexScreenerUrl,
   memeLaunchpadUrl,
   memeTerminalUrl,
+  normalizeDexLane,
   sanitizeAddress,
 } from './memeTerminalUrl'
 
@@ -54,5 +56,11 @@ describe('memeTerminalUrl', () => {
     expect(memeLaunchpadUrl({ mint: '0x1234567890123456789012345678901234567890', chain: 'bsc', source: '4meme' })).toBe(
       'https://four.meme/token/0x1234567890123456789012345678901234567890',
     )
+  })
+
+  it('dexHomeUrl maps venues to whole-DEX pages', () => {
+    expect(dexHomeUrl('raydium')).toBe('https://raydium.io/swap/')
+    expect(dexHomeUrl('pumpswap')).toBe('https://pump.fun')
+    expect(normalizeDexLane('flapsh')).toBe('flap')
   })
 })

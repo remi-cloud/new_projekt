@@ -40,6 +40,7 @@ const NAV_KEYS: Record<string, TranslationPath> = {
   '/portfel': 'nav.portfolio',
   '/perly': 'nav.pearls',
   '/fomo': 'nav.fomo',
+  '/axiom': 'nav.axiom',
   '/launch': 'nav.launch',
 }
 

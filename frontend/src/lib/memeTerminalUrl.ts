@@ -140,3 +140,51 @@ export function memeLaunchpadUrl(t: MemeTerminalTarget): string | null {
   }
   return null
 }
+
+const DEX_ALIASES: Record<string, string> = {
+  pumpswap: 'pumpfun',
+  'pump.fun': 'pumpfun',
+  pump_fun: 'pumpfun',
+  pump: 'pumpfun',
+  flapsh: 'flap',
+  'flap.fun': 'flap',
+  pancake: 'pancakeswap',
+  pancakeswap_v2: 'pancakeswap',
+  pancakeswap_v3: 'pancakeswap',
+  four: '4meme',
+  fourmeme: '4meme',
+}
+
+/** Stable Dex Arena lane key from dex_id / source. */
+export function normalizeDexLane(dexId?: string | null, source?: string | null): string {
+  let raw = (dexId || source || '').toLowerCase().trim()
+  if (!raw) return 'other'
+  if (DEX_ALIASES[raw]) return DEX_ALIASES[raw]
+  if (raw.includes('pump')) return 'pumpfun'
+  if (raw.includes('pancake')) return 'pancakeswap'
+  if (raw.includes('flap')) return 'flap'
+  if (raw.includes('4meme') || raw.includes('four')) return '4meme'
+  if (raw.includes('raydium')) return 'raydium'
+  if (raw.includes('orca')) return 'orca'
+  if (raw.includes('meteora')) return 'meteora'
+  if (['dex', 'gecko', 'geckoterminal', 'profile', 'boost'].includes(raw)) return 'other'
+  return raw.replace(/\s+/g, '').slice(0, 32) || 'other'
+}
+
+/** Homepage / discovery for a whole DEX (not a token pair). */
+export function dexHomeUrl(dexId?: string | null, chain?: string | null): string {
+  const lane = normalizeDexLane(dexId)
+  const ch = normChain(chain)
+  const homes: Record<string, string> = {
+    pumpfun: 'https://pump.fun',
+    raydium: 'https://raydium.io/swap/',
+    pancakeswap: 'https://pancakeswap.finance',
+    flap: 'https://dexscreener.com/bsc?dexIds=flapsh',
+    '4meme': 'https://four.meme',
+    orca: 'https://www.orca.so',
+    meteora: 'https://app.meteora.ag',
+  }
+  if (homes[lane]) return homes[lane]
+  if (lane === 'other') return `https://dexscreener.com/${ch}`
+  return `https://dexscreener.com/${ch}?dexIds=${encodeURIComponent(lane)}`
+}

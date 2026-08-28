@@ -14,6 +14,7 @@ import { ErrorState, Loading } from '../components/Loading'
 import { useLocale } from '../context/LocaleContext'
 import { useLiveFeed } from '../hooks/useLiveFeed'
 import { formatThrownError } from '../i18n/utils'
+import { memeDexScreenerUrl, memeTerminalUrl } from '../lib/memeTerminalUrl'
 
 function shortMint(mint: string): string {
   if (!mint || mint.length < 12) return mint
@@ -215,13 +216,22 @@ export function AxiomPage() {
                           : '—'}
                     </td>
                     <td>
-                      {pos.url ? (
-                        <a href={pos.url} target="_blank" rel="noreferrer">
-                          {shortMint(pos.mint)}
-                        </a>
-                      ) : (
-                        <code>{shortMint(pos.mint)}</code>
-                      )}
+                      {(() => {
+                        const href =
+                          memeTerminalUrl({
+                            mint: pos.mint,
+                            symbol: pos.symbol,
+                            chain: pos.chain,
+                            url: pos.url,
+                          }) || memeDexScreenerUrl({ mint: pos.mint, symbol: pos.symbol, chain: pos.chain })
+                        return href ? (
+                          <a href={href} target="_blank" rel="noreferrer">
+                            {shortMint(pos.mint)}
+                          </a>
+                        ) : (
+                          <code>{shortMint(pos.mint)}</code>
+                        )
+                      })()}
                     </td>
                   </tr>
                 ))}
@@ -257,13 +267,30 @@ export function AxiomPage() {
                     <td>
                       <span className="launch-symbol-cell">
                         <CoinAvatar symbol={m.symbol} imageUrl={m.image_url} size={22} />
-                        {m.url ? (
-                          <a href={m.url} target="_blank" rel="noreferrer">
-                            {m.symbol}
-                          </a>
-                        ) : (
-                          m.symbol
-                        )}
+                        {(() => {
+                          const href =
+                            memeTerminalUrl({
+                              mint: m.mint,
+                              symbol: m.symbol,
+                              chain: m.chain,
+                              pairAddress: m.pair_address,
+                              url: m.url,
+                              source: m.source,
+                            }) ||
+                            memeDexScreenerUrl({
+                              mint: m.mint,
+                              symbol: m.symbol,
+                              chain: m.chain,
+                              pairAddress: m.pair_address,
+                            })
+                          return href ? (
+                            <a href={href} target="_blank" rel="noreferrer">
+                              {m.symbol}
+                            </a>
+                          ) : (
+                            m.symbol
+                          )
+                        })()}
                       </span>
                     </td>
                     <td>{m.chain}</td>

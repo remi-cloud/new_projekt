@@ -3,16 +3,18 @@ import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 
 from app.news.image_agent import has_image as news_has_image, image_file_path, purge_legacy_images
 from app.news.macro_news import (
     get_macro_calendar_month,
     get_macro_news,
+    get_news_item_by_id,
     patch_cached_image,
     refresh_macro_news,
     schedule_news_images,
 )
+from app.news.google_news_urls import ensure_clickable_url, is_unsafe_news_url, search_url_for_title
 from app.news.news_alerts import news_alert_engine
 from app.notifications.news_dispatcher import dispatch_news_alerts
 from app.models.schemas import MacroCalendarMonthResponse, MacroNewsFeed
@@ -86,6 +88,19 @@ async def macro_news_refresh(lang: str | None = None):
         logger.warning("Social desk queue failed: %s", exc)
     asyncio.create_task(kick_news_images(feed.items))
     return await get_macro_news(limit=100, locale=lang)
+
+
+@router.get("/api/news/out/{news_id}")
+async def news_outbound(news_id: str):
+    if not news_id or ".." in news_id or "/" in news_id:
+        raise HTTPException(status_code=400, detail="Invalid news id")
+    item = await get_news_item_by_id(news_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="News item not found")
+    url = await ensure_clickable_url(item.url, item.title)
+    if is_unsafe_news_url(url):
+        url = search_url_for_title(item.title or "markets")
+    return RedirectResponse(url=url, status_code=307)
 
 
 @router.get("/api/news/images/{news_id}")

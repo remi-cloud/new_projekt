@@ -8,7 +8,12 @@ from typing import Any
 import httpx
 
 from app.config import settings
-from app.launch_scout.terminal_url import axiom_meme_url, terminal_url
+from app.launch_scout.terminal_url import (
+    axiom_meme_url,
+    is_plausible_address,
+    sanitize_address,
+    terminal_url,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -106,24 +111,30 @@ async def fetch_axiom_trending(time_period: str = "1h") -> list[dict]:
     for row in rows:
         if not isinstance(row, dict):
             continue
-        mint = str(
-            row.get("tokenAddress")
-            or row.get("token_address")
-            or row.get("mint")
-            or row.get("address")
-            or ""
-        ).strip()
-        if not mint:
+        mint = sanitize_address(
+            str(
+                row.get("tokenAddress")
+                or row.get("token_address")
+                or row.get("mint")
+                or row.get("address")
+                or ""
+            )
+        )
+        if not mint or not is_plausible_address(mint, "solana"):
             continue
         symbol = str(row.get("tokenTicker") or row.get("symbol") or row.get("ticker") or "?").strip()
         name = str(row.get("tokenName") or row.get("name") or symbol).strip()
+        term = terminal_url(mint=mint, symbol=symbol, chain="solana") or axiom_meme_url(mint, "solana")
         out.append(
             {
                 "mint": mint,
                 "symbol": symbol[:32],
                 "name": name[:80],
                 "chain": "solana",
-                "pair_address": str(row.get("pairAddress") or row.get("pair_address") or "") or None,
+                "pair_address": sanitize_address(
+                    str(row.get("pairAddress") or row.get("pair_address") or "")
+                )
+                or None,
                 "price_usd": _fnum(row.get("priceUsd") or row.get("price_usd")),
                 "liquidity_usd": _fnum(row.get("liquidityUsd") or row.get("liquidity_usd")),
                 "market_cap_usd": _fnum(row.get("marketCapUsd") or row.get("market_cap_usd")),
@@ -131,7 +142,7 @@ async def fetch_axiom_trending(time_period: str = "1h") -> list[dict]:
                 "change_1h": _fnum(row.get("priceChange1h") or row.get("priceChange1H")),
                 "change_24h": _fnum(row.get("priceChange24h") or row.get("priceChange24H")),
                 "image_url": str(row.get("imageUrl") or row.get("image_url") or "") or None,
-                "url": axiom_meme_url(mint, "solana"),
+                "url": term,
                 "source": "axiom",
                 "raw": row,
             }
@@ -148,7 +159,7 @@ async def fetch_dex_pulse(limit: int = 60) -> list[dict]:
 
     async def _add_pair(pair: dict, source: str) -> None:
         base = pair.get("baseToken") if isinstance(pair.get("baseToken"), dict) else {}
-        mint = str(base.get("address") or pair.get("tokenAddress") or "").strip()
+        mint = sanitize_address(str(base.get("address") or pair.get("tokenAddress") or ""))
         if not mint or mint in seen:
             return
         chain = str(pair.get("chainId") or "solana").lower()
@@ -164,7 +175,9 @@ async def fetch_dex_pulse(limit: int = 60) -> list[dict]:
         if isinstance(info.get("imageUrl"), str):
             image = info["imageUrl"]
         norm_chain = chain if chain != "sol" else "solana"
-        pair_addr = str(pair.get("pairAddress") or "") or None
+        if not is_plausible_address(mint, norm_chain):
+            return
+        pair_addr = sanitize_address(str(pair.get("pairAddress") or "")) or None
         term = terminal_url(
             mint=mint,
             symbol=symbol,
@@ -205,20 +218,22 @@ async def fetch_dex_pulse(limit: int = 60) -> list[dict]:
         boosts = await ds.fetch_latest_boosts(limit=40)
         for b in boosts:
             chain = str(b.get("chainId") or "").lower()
-            token = str(b.get("tokenAddress") or "").strip()
+            token = sanitize_address(str(b.get("tokenAddress") or ""))
             if not token:
                 continue
             pairs = await ds.fetch_token_pairs(chain or "solana", token)
             if pairs:
                 await _add_pair(pairs[0], "dex_boost")
-            elif token not in seen:
+            elif token not in seen and is_plausible_address(token, chain or "solana"):
                 seen.add(token)
+                ch = chain or "solana"
+                term = terminal_url(mint=token, chain=ch) or axiom_meme_url(token, ch)
                 out.append(
                     {
                         "mint": token,
                         "symbol": str(b.get("description") or "?")[:32],
                         "name": str(b.get("description") or token)[:80],
-                        "chain": chain or "solana",
+                        "chain": ch,
                         "pair_address": None,
                         "price_usd": None,
                         "liquidity_usd": None,
@@ -227,7 +242,7 @@ async def fetch_dex_pulse(limit: int = 60) -> list[dict]:
                         "change_1h": None,
                         "change_24h": None,
                         "image_url": str(b.get("icon") or "") or None,
-                        "url": axiom_meme_url(token, chain or "solana"),
+                        "url": term,
                         "source": "dex_boost",
                         "raw": b,
                     }

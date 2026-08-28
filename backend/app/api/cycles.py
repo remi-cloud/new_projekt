@@ -116,3 +116,11 @@ async def calendar_search(
 ):
     """Symbol/name search for seasonality info window."""
     return {"query": q, "results": search_catalog(q, limit=limit)}
+
+
+@router.get("/api/cycles/session-clock")
+async def session_clock():
+    """Asia/EU/US UTC session map + meme heatmap + BTC/SOL log-return bias."""
+    from app.cycles.session_clock import get_session_clock_snapshot
+
+    return await get_session_clock_snapshot()

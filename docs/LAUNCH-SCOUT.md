@@ -24,7 +24,10 @@ Liquidity floor domyślnie **$1k**; **Seed / Pump bonding** mogą przejść bez 
 1. **DexScreener** — profiles, boosts, meme/ultra-early search (`new`, `launch`, `bonding`, …) across many chains.
 2. **GeckoTerminal** — new pools (best-effort).
 3. **Pump.fun** — ultra-early Solana coins (prefer Seed-band MC).
-4. **Pump top-30 traders** — agregacja early buyers z public trades (+ opcjonalnie Solana Tracker PnL gdy `CYCLICAL_SOLANA_TRACKER_API_KEY`). Tag `pump_trader`.
+4. **Pump top-30 traders** — agregacja early **buy + sell** z public trades (+ opcjonalnie Solana Tracker PnL gdy `CYCLICAL_SOLANA_TRACKER_API_KEY`). Tag `pump_trader`.
+4b. **Wallet Scout (P0)** — pod każdym top walletem: token, kierunek BUY/SELL, **open bags** (net buy−sell) + opcjonalne holdings RPC (`CYCLICAL_WALLET_SCOUT_TOP_N`, default 15). Linki Axiom `?chain=sol` + DexScreener.
+4c. **Dex Arena (P1)** — tablice per DEX (Pump / Raydium / Pancake / Flap / 4meme / other): top okazje z `whale_boost` z Wallet Scout + tag `pump_trader`. Link **Whole DEX** (`dex_home_url`) obok tokenowych Axiom/Dex.
+4d. **Session Clock (P2)** — sesje UTC Asia→EU→US, heatmapa eventów meme, bias **log-return** BTC/SOL; miękki `session_boost` w score (bez zmiany filtrów Seed). Zob. `docs/SESSION-CLOCK.md`.
 5. **BNB Chain · 4meme** — public token search API (`four.meme`) — bonding → Pancake graduation. Tags `4meme`, `bsc`, `bonding` / `pancake`.
 6. **BNB Chain · Flap** — DexScreener `flapsh` pairs on BSC. Tags `flap`, `bsc`.
 7. **BNB Chain · PancakeSwap** — DexScreener BSC pancake pairs (early tape). Tag `pancake`.
@@ -49,6 +52,10 @@ CYCLICAL_LAUNCH_SCOUT_MIN_LIQ_USD=1000
 CYCLICAL_LAUNCH_SCOUT_CHAINS=solana,base,ethereum,bsc,arbitrum,polygon,avalanche,optimism,blast,tron,sui,bitcoin,robinhood
 CYCLICAL_MEME_WHISPERS_ENABLED=true
 CYCLICAL_MEME_WHISPERS_X_ENABLED=true
+CYCLICAL_WALLET_SCOUT_TOP_N=15
+CYCLICAL_DEX_ARENA_ENABLED=true
+CYCLICAL_DEX_ARENA_TOP_N=8
+CYCLICAL_DEX_ARENA_LANES=pumpfun,raydium,pancakeswap,flap,4meme,other
 # CYCLICAL_SOLANA_TRACKER_API_KEY=
 ```
 
@@ -57,13 +64,16 @@ CYCLICAL_MEME_WHISPERS_X_ENABLED=true
 | Endpoint | Opis |
 |----------|------|
 | `GET /api/launch/status` | flagship status, Seed counts, traders |
-| `GET /api/launch/candidates?tier=seed` | lista (Seed first, MC asc) |
-| `GET /api/launch/traders` | Pump top-30 wallets |
-| `GET /api/launch/trader-events` | ostatnie ruchy top traderów |
+| `GET /api/launch/candidates?tier=seed&dex=raydium` | lista (tier + opcjonalny filtr DEX/lane) |
+| `GET /api/launch/dex-arena` | Dex Arena boards (whale-weighted) |
+| `GET /api/launch/traders` | Pump top-30 wallets (+ bags summary) |
+| `GET /api/launch/traders/{wallet}/bags` | open/closed bags + RPC holdings |
+| `GET /api/launch/wallet-scout` | Wallet Scout snapshot (P0) |
+| `GET /api/launch/trader-events` | ostatnie ruchy top traderów (buy **i** sell) |
 | `GET /api/launch/whispers` | Elon/CZ / Binance radar tape |
 | `POST /api/launch/run` | ręczny tick |
 
-SSE: `launch_scout_tick`. Finance Agent tool: `get_launch_scout` (default tier `seed`).
+SSE: `launch_scout_tick`. Finance Agent tools: `get_launch_scout`, `get_wallet_scout`, `get_dex_arena`.
 
 ## Terminal links (chain-aware Axiom + fallbacks)
 

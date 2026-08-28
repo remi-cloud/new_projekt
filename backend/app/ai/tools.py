@@ -236,6 +236,47 @@ TOOL_DEFINITIONS = [
     {
         "type": "function",
         "function": {
+            "name": "get_session_clock",
+            "description": (
+                "Session Clock: Asia/EU/US UTC timetable for meme activity heatmap + BTC/SOL "
+                "hourly log-return bias. Use when user asks about timezone pumps, global schedule, "
+                "session hot lanes. Educational — not a ticker prediction."
+            ),
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_dex_arena",
+            "description": (
+                "Dex Arena (P1): best Launch Scout picks per DEX (Pump, Raydium, Pancake, Flap, 4meme) "
+                "with whale_boost from Wallet Scout bags. Use for per-venue opportunity ranking. "
+                "Educational — not advice."
+            ),
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_wallet_scout",
+            "description": (
+                "Wallet Scout (P0): Pump top wallets with token, buy/sell direction, and open bags "
+                "(net buy−sell) + optional RPC holdings. Use when user asks what big wallets hold. "
+                "Educational — not advice."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "limit": {"type": "integer", "description": "Max wallets (default 15)"},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "get_binance_portfolio_sync",
             "description": (
                 "Binance AI BOT portfolio bridge: paper crypto positions vs Binance spot balances, "
@@ -941,6 +982,20 @@ async def run_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
                 "recent_bag_buys": buys,
                 "note": "Buy = token landed in bag; not always a brand-new position.",
             }
+        if name == "get_session_clock":
+            from app.cycles.session_clock import get_session_clock_snapshot
+
+            return await get_session_clock_snapshot()
+        if name == "get_dex_arena":
+            from app.launch_scout.dex_arena import get_dex_arena_snapshot
+
+            return await get_dex_arena_snapshot()
+        if name == "get_wallet_scout":
+            from app.launch_scout.wallet_scout import get_wallet_scout_snapshot
+
+            lim = int(arguments.get("limit") or 15)
+            lim = max(1, min(30, lim))
+            return await get_wallet_scout_snapshot(limit=lim)
         if name == "get_launch_scout":
             from app.launch_scout.service import (
                 get_launch_status,
@@ -1216,6 +1271,73 @@ async def auto_tools_for_question(
             {
                 "tool": "get_launch_scout",
                 "result": await run_tool("get_launch_scout", {"tier": "seed", "limit": 15}),
+            }
+        )
+
+    if any(
+        k in low
+        for k in (
+            "wallet scout",
+            "open bags",
+            "top wallet",
+            "big wallet",
+            "pump trader",
+            "co trzyma",
+            "portfel pump",
+            "otwarte bagi",
+        )
+    ):
+        results.append(
+            {
+                "tool": "get_wallet_scout",
+                "result": await run_tool("get_wallet_scout", {"limit": 15}),
+            }
+        )
+
+    if any(
+        k in low
+        for k in (
+            "session clock",
+            "timezone",
+            "time zone",
+            "asia open",
+            "london session",
+            "ny session",
+            "plan jazdy",
+            "strefa czasowa",
+            "log return",
+            "log-return",
+            "sesja asia",
+            "sesja us",
+        )
+    ):
+        results.append(
+            {
+                "tool": "get_session_clock",
+                "result": await run_tool("get_session_clock", {}),
+            }
+        )
+
+    if any(
+        k in low
+        for k in (
+            "dex arena",
+            "raydium",
+            "pancakeswap",
+            "pancake",
+            "per dex",
+            "per-dex",
+            "cały dex",
+            "caly dex",
+            "whole dex",
+            "flap",
+            "4meme",
+        )
+    ):
+        results.append(
+            {
+                "tool": "get_dex_arena",
+                "result": await run_tool("get_dex_arena", {}),
             }
         )
 
