@@ -24,8 +24,11 @@ def test_bitcoin_bear_phase():
 
 
 def test_bitcoin_bull_phase_early():
-    ath_date = date.today() - timedelta(days=400)
-    result = analyze_bitcoin_cycle(ath_date, 100_000, 90_000)
+    # Pin the calendar month. Live "today" in a weak bull-early month
+    # (seasonality <= -0.3%) downgrades BUY to WATCH.
+    as_of = date(2026, 10, 15)
+    ath_date = as_of - timedelta(days=400)
+    result = analyze_bitcoin_cycle(ath_date, 100_000, 90_000, as_of=as_of)
     assert result.phase == CyclePhase.BULL
     assert result.signal == SignalAction.BUY
 
