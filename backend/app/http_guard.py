@@ -16,8 +16,9 @@ _HITS: dict[str, deque[float]] = defaultdict(deque)
 
 _CSP = (
     "default-src 'self'; "
-    "script-src 'self' 'unsafe-inline'; "
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+    "script-src 'self'; "
+    "style-src 'self' https://fonts.googleapis.com; "
+    "style-src-attr 'unsafe-inline'; "
     "font-src 'self' https://fonts.gstatic.com data:; "
     "img-src 'self' data: blob: https:; "
     "connect-src 'self' ws: wss:; "

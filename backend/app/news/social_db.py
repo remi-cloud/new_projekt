@@ -130,19 +130,6 @@ async def get_post(post_id: int) -> dict[str, Any] | None:
     return _row(row)
 
 
-async def promote_ready_posts(platforms: list[str]) -> None:
-    """Move leftover dry-run rows onto the publish queue for the active platforms."""
-    if not platforms:
-        return
-    marks = ",".join("?" for _ in platforms)
-    async with db_session() as db:
-        await db.execute(
-            f"UPDATE social_posts SET status='ready' WHERE status='dry_run' AND platform IN ({marks})",
-            tuple(platforms),
-        )
-        await db.commit()
-
-
 async def list_posts(limit: int = 40) -> list[dict[str, Any]]:
     async with db_session() as db:
         cur = await db.execute(

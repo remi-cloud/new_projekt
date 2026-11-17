@@ -322,9 +322,9 @@ async def get_telemetry_series(range_key: str = "30d") -> dict[str, Any]:
         "metric": "paper_portfolio_vs_spx",
         "baseline_started_at": _BASELINE.get("started_at") or _load_baseline_file().get("started_at"),
         "disclaimer": (
-            "Real paper portfolio mark-to-market vs live ^GSPC. "
-            "Both rebased to 100 at the persisted baseline tick. "
-            "No fabricated or backfilled fake outperformance."
+            "Prawdziwy portfel papierowy liczony wobec żywego indeksu ^GSPC. "
+            "Obie linie zaczynają się od 100 w zapisanym punkcie bazowym. "
+            "Bez dopisanej wstecz sztucznej przewagi."
         ),
         "live": live,
     }
