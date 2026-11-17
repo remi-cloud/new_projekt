@@ -52,6 +52,7 @@ const AstraMathPage = lazy(() => import('./pages/AstraMathPage'))
 const AgentsPage = lazy(() => import('./pages/AgentsPage'))
 const LaunchScoutPage = lazy(() => import('./pages/LaunchScoutPage').then((m) => ({ default: m.LaunchScoutPage })))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })))
+const DeskLoginPage = lazy(() => import('./pages/DeskLoginPage').then((m) => ({ default: m.DeskLoginPage })))
 
 function PageSuspense() {
   const { t } = useLocale()
@@ -130,6 +131,7 @@ export default function App() {
                 <Route path="o-nas" element={<AboutPage />} />
                 <Route path="o-nas/:slug" element={<AboutDetailPage />} />
                 <Route path="powiadomienia" element={<AlertsPage />} />
+                <Route path="logowanie" element={<DeskLoginPage />} />
               </Route>
               <Route path="o-aplikacji" element={<Navigate to="/o-nas" replace />} />
               {ALIAS_REDIRECTS.map(({ from, to }) => (

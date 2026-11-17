@@ -28,6 +28,7 @@ const KNOWN: Record<string, TranslationPath> = {
   '/fomo': 'nav.fomo',
   '/axiom': 'nav.axiom',
   '/launch': 'nav.launch',
+  '/logowanie': 'layout.loginTitle',
 }
 
 export function symbolFromDeskPath(pathname: string): string | null {

@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import register_routers
+from app.desk_auth import DeskAuthMiddleware
 from app.http_guard import PostRateLimitMiddleware, SecurityHeadersMiddleware, cors_origin_list, is_dev
 from app.api.news import initial_news
 from app.db.database import init_db
@@ -128,6 +129,7 @@ app = FastAPI(
     openapi_url="/openapi.json" if DOCS_ENABLED else None,
 )
 
+app.add_middleware(DeskAuthMiddleware)
 app.add_middleware(PostRateLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,

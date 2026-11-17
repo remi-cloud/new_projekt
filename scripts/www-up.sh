@@ -46,14 +46,34 @@ PY=python3
 if command -v python3.12 >/dev/null 2>&1; then PY=python3.12
 elif command -v python3.11 >/dev/null 2>&1; then PY=python3.11
 fi
+req_hash() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  else
+    shasum -a 256 "$1" | awk '{print $1}'
+  fi
+}
+REQ_FILE="$ROOT/backend/requirements.txt"
+REQ_HASH_FILE="$RUN_DIR/requirements.sha256"
+NEED_INSTALL=0
 if [[ ! -x .venv/bin/uvicorn ]]; then
   info "Tworzę venv ($PY)…"
   rm -rf .venv
   "$PY" -m venv .venv
+  NEED_INSTALL=1
+fi
+NEW_HASH="$(req_hash "$REQ_FILE")"
+OLD_HASH=""
+if [[ -f "$REQ_HASH_FILE" ]]; then
+  OLD_HASH="$(tr -d '[:space:]' < "$REQ_HASH_FILE")"
+fi
+if [[ "$NEED_INSTALL" -eq 1 || "$NEW_HASH" != "$OLD_HASH" ]]; then
+  info "Instaluję zależności z requirements.txt…"
   # shellcheck disable=SC1091
   source .venv/bin/activate
   pip install -q --upgrade pip
   pip install -q -r requirements.txt
+  printf '%s\n' "$NEW_HASH" > "$REQ_HASH_FILE"
 fi
 UVICORN="$ROOT/backend/.venv/bin/uvicorn"
 [[ -x "$UVICORN" ]] || fail "Brak $UVICORN"
@@ -133,5 +153,13 @@ CODE="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "http://127.0.0.1:${
 [[ "$CODE" == "200" ]] || fail "/ -> HTTP $CODE"
 
 ok "WWW: http://127.0.0.1:${PORT} (pid $(cat "$PIDFILE"))"
-LAN="$(ipconfig getifaddr en0 2>/dev/null || true)"
-[[ -n "$LAN" ]] && ok "LAN: http://${LAN}:${PORT}"
+LAN=""
+if command -v ipconfig >/dev/null 2>&1; then
+  LAN="$(ipconfig getifaddr en0 2>/dev/null || true)"
+fi
+if [[ -z "$LAN" ]] && command -v hostname >/dev/null 2>&1; then
+  LAN="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
+fi
+if [[ -n "${LAN:-}" ]]; then
+  ok "LAN: http://${LAN}:${PORT}"
+fi

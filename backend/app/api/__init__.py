@@ -9,6 +9,7 @@ from app.api import (
     coordinator,
     cycles,
     dashboard,
+    desk,
     execution,
     fomo,
     growth,
@@ -32,6 +33,7 @@ from app.api import (
 
 def register_routers(app: FastAPI) -> None:
     app.include_router(health.router)
+    app.include_router(desk.router)
     app.include_router(dashboard.router)
     app.include_router(markets.router)
     app.include_router(roi.router)
