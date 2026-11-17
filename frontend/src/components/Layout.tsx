@@ -118,7 +118,7 @@ export function Layout({ scannerRunning, scanInProgress, liveMode, liveConnected
 
       <aside className="desktop-sidebar">
         <Link to="/" className="sidebar-brand tap-target card-nav-link">
-          <KarDigitalLogo size={64} />
+          <KarDigitalLogo size={40} showText={false} />
           <span className="sidebar-product">{t('layout.brand')}</span>
         </Link>
 
@@ -133,24 +133,14 @@ export function Layout({ scannerRunning, scanInProgress, liveMode, liveConnected
 
         <div className="sidebar-footer">
           <div className={`sidebar-status ${scannerRunning ? 'online' : ''}`}>{statusLabel}</div>
-          {onScan && (
-            <button
-              type="button"
-              className="sidebar-scan-btn tap-target"
-              onClick={handleScan}
-              disabled={scanning}
-            >
-              {scanning ? t('layout.scanning') : t('layout.scan')}
-            </button>
-          )}
         </div>
       </aside>
 
       <div className="app-main">
         <header className={`app-header ${isHome ? 'home-header-hidden' : ''}`}>
           <Link to="/" className="mobile-header-left tap-target card-nav-link">
-            <KarDigitalLogo size={36} compact />
-            <div>
+            <KarDigitalLogo size={28} showText={false} compact />
+            <div className="mobile-header-titles">
               <div className="mobile-title">{pageTitle}</div>
               <div className="mobile-subtitle">{statusLabel}</div>
             </div>
@@ -165,7 +155,6 @@ export function Layout({ scannerRunning, scanInProgress, liveMode, liveConnected
             >
               {menuOpen ? t('layout.menuClose') : t('layout.menu')}
             </button>
-            <LanguageSwitcher compact />
             {onScan && (
               <button
                 type="button"
@@ -183,7 +172,6 @@ export function Layout({ scannerRunning, scanInProgress, liveMode, liveConnected
         <header className={`desktop-header ${isHome ? 'home-header-hidden' : ''}`}>
           <div>
             <h1 className="desktop-page-title">{pageTitle}</h1>
-            <p className="desktop-page-subtitle">{statusLabel}</p>
           </div>
           <div className="desktop-header-actions">
             {onScan && (
@@ -205,6 +193,9 @@ export function Layout({ scannerRunning, scanInProgress, liveMode, liveConnected
           aria-label={t('layout.menu')}
           hidden={!menuOpen}
         >
+          <div className="mobile-drawer-lang">
+            <LanguageSwitcher />
+          </div>
           <NavSections onNavigate={() => setMenuOpen(false)} />
         </nav>
 
@@ -241,7 +232,7 @@ export function Layout({ scannerRunning, scanInProgress, liveMode, liveConnected
           aria-controls="mobile-drawer"
           onClick={() => setMenuOpen((open) => !open)}
         >
-          <span className="bottom-nav-label">{menuOpen ? t('layout.menuClose') : t('layout.menu')}</span>
+          <span className="bottom-nav-label">{t('layout.menu')}</span>
         </button>
       </nav>
     </div>

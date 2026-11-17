@@ -13,6 +13,8 @@
   --text-lg: 1.25rem;
   --text-xl: 1.5rem;
   --content-max: 1180px;
+  --sidebar-width: 336px;
+  --mobile-header-height: 64px;
 }
 
 .app-main,
@@ -44,6 +46,117 @@
   .app-main {
     min-width: 0;
   }
+}
+
+.sidebar-brand {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  overflow: visible;
+  width: 100%;
+  padding: 2px 0 16px 6px;
+}
+
+.sidebar-brand .kar-logo,
+.sidebar-brand .kar-globe-mark {
+  overflow: visible;
+  flex-shrink: 0;
+}
+
+.sidebar-brand .kar-globe-mark {
+  margin: 10px 6px;
+}
+
+.sidebar-product {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.78rem;
+  line-height: 1.2;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.sidebar-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  margin: 0 4px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+}
+
+.sidebar-status::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+@media (max-width: 1023px) {
+  .app-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+    z-index: 40;
+    height: var(--mobile-header-height);
+    min-height: var(--mobile-header-height);
+    padding: 0 12px;
+    background: #000;
+    overflow: visible;
+  }
+}
+
+.mobile-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  min-width: 0;
+  flex: 1;
+  overflow: visible;
+}
+
+.mobile-header-left .kar-logo {
+  overflow: visible;
+  flex-shrink: 0;
+}
+
+.mobile-header-left .kar-globe-mark {
+  margin: 0 14px 0 4px;
+  flex-shrink: 0;
+}
+
+.mobile-header-titles {
+  min-width: 0;
+  padding-left: 2px;
+}
+
+.mobile-title,
+.mobile-subtitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.15;
+}
+
+.mobile-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+}
+
+.mobile-drawer-lang {
+  margin-bottom: var(--space-4);
 }
 
 .nav-section {
@@ -148,7 +261,10 @@
   display: block;
   position: fixed;
   z-index: 30;
-  inset: var(--header-height) 0 var(--nav-height) 0;
+  top: var(--mobile-header-height);
+  right: 0;
+  bottom: var(--nav-height);
+  left: 0;
   overflow: auto;
   padding: var(--space-4);
   background: var(--bg-primary);
