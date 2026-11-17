@@ -86,23 +86,6 @@ export function LivePage() {
           )}
         </section>
 
-        <section className="growth-card">
-          <h3>{t('growth.usaNow')}</h3>
-          {data.presidential_cycle ? (
-            <>
-              <p className="growth-big">
-                {data.presidential_cycle.president} · Y{data.presidential_cycle.year_number}
-              </p>
-              <p className="growth-meta">
-                {data.presidential_cycle.signal} · expect ~
-                {data.presidential_cycle.current_year_expected_return_pct}%
-              </p>
-              <p className="growth-body">{data.presidential_cycle.rationale}</p>
-            </>
-          ) : (
-            <p className="growth-body">{t('growth.scanWait')}</p>
-          )}
-        </section>
       </div>
 
       <section className="growth-section">

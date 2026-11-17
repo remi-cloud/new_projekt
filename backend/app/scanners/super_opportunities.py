@@ -36,18 +36,6 @@ def _phase_label_for_asset(asset_class: AssetClass) -> tuple[str, SignalAction, 
             "bitcoin",
             f"Pozycja katalogowa · Cykl Bitcoin ({a.phase.value}): {a.rationale}",
         )
-    if scanner.presidential_cycle:
-        b = scanner.presidential_cycle
-        conf = 58.0 if b.signal == SignalAction.WATCH else 62.0
-        if b.signal == SignalAction.HOLD:
-            conf = 45.0
-        return (
-            b.current_year.value,
-            b.signal,
-            conf,
-            "presidential",
-            f"Pozycja katalogowa · Cykl prezydencki (rok {b.year_number}): {b.rationale}",
-        )
     return (
         "neutral",
         SignalAction.WATCH,
@@ -214,7 +202,7 @@ def score_super_opportunity(
     score = opp.confidence * 0.35
     model = {
         "bitcoin": "Cykl Bitcoin",
-        "presidential": "Cykl prezydencki",
+        "us_neutral": "USA neutralnie",
         "alpha": "Cykl Bitcoin",
         "beta": "Cykl prezydencki",
     }.get(opp.cycle_source, opp.cycle_source or "cykl")

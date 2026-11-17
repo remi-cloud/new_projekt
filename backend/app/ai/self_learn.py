@@ -47,24 +47,6 @@ async def _collect_context() -> str:
         logger.debug("Self-learn news context failed: %s", exc)
 
     try:
-        from app.news.macro_calendar import get_upcoming_calendar
-        from app.news.calendar_ai import enrich_calendar_events
-
-        events = await enrich_calendar_events(get_upcoming_calendar(locale="pl")[:6], locale="pl")
-        cal_lines = []
-        for e in events:
-            line = f"{e.event_date} {e.title} bias={e.ai_bias}"
-            if e.current_state:
-                line += f" | state: {e.current_state[:140]}"
-            if e.expectations:
-                line += f" | expect: {e.expectations[:140]}"
-            cal_lines.append(line)
-        if cal_lines:
-            bits.append("CALENDAR:\n" + "\n".join(cal_lines))
-    except Exception as exc:
-        logger.debug("Self-learn calendar context failed: %s", exc)
-
-    try:
         from app.scanners.opportunity_scanner import scanner
 
         opps = sorted(

@@ -5,7 +5,13 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 
 from app.news import social_db
-from app.notifications.social_dispatcher import public_x_record, publish_post, social_platforms, social_status
+from app.notifications.social_dispatcher import (
+    DryRunPublicationBlocked,
+    public_x_record,
+    publish_post,
+    social_platforms,
+    social_status,
+)
 
 router = APIRouter(tags=["social"])
 
@@ -40,9 +46,19 @@ async def social_decisions(limit: int = 40):
 
 @router.post("/api/social/posts/{post_id}/publish")
 async def publish_social_post(post_id: int):
-    """Force-publish a queued/dry-run post (bypasses dry_run flag once)."""
+    """Publish a queued post. Refused with 409 while DRY-RUN is on."""
+    if social_status()["dry_run"]:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Publikacja zablokowana: tryb próbny (DRY-RUN). "
+                "Ustaw CYCLICAL_SOCIAL_DRY_RUN=false, aby wysłać post."
+            ),
+        )
     try:
-        post = await publish_post(post_id, force=True)
+        post = await publish_post(post_id, force=False)
+    except DryRunPublicationBlocked as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
     except ValueError:
         raise HTTPException(status_code=404, detail="Post not found") from None
     except RuntimeError as exc:

@@ -12,12 +12,6 @@ from app.cycles.bitcoin_seasonality import (
     month_bias as btc_month_bias,
     resolve_month_avg,
 )
-from app.cycles.presidential_seasonality import (
-    calendar_season as us_calendar_season,
-    month_bias as us_month_bias,
-    seasonality_overlay_delta,
-    symbol_month_avg,
-)
 from app.cycles.price_cycle import analyze_price_cycle
 from app.cycles.regional_macro import analyze_regional_macro, macro_weight_for_region
 from app.data.assets import lookup_asset
@@ -28,8 +22,6 @@ from app.models.schemas import (
     BitcoinCycleStatus,
     CyclePhase,
     InstrumentSeasonality,
-    PresidentialYear,
-    PresidentialCycleStatus,
     SignalAction,
 )
 
@@ -175,10 +167,6 @@ def _class_modifier(asset_class: AssetClass, macro: MacroCycleResult) -> float:
     if asset_class in (AssetClass.STOCK, AssetClass.ETF, AssetClass.TOKENIZED):
         return 0.95
     if asset_class == AssetClass.BOND:
-        if macro.cycle_id == "presidential_cycle":
-            year_hint = macro.phase
-            bond_map = {"year_1": 0.9, "year_2": 1.2, "year_3": 0.6, "year_4": 0.8}
-            return bond_map.get(year_hint, 0.85)
         return 0.90
     if asset_class == AssetClass.COMMODITY:
         return 0.92
@@ -196,15 +184,6 @@ def _apply_traditional_adjustments(
     price_conf: float,
 ) -> tuple[SignalAction, float, SignalAction, float]:
     """Asset-specific tweaks before signal combination."""
-    if quote.asset_class == AssetClass.BOND and macro.cycle_id == "presidential_cycle":
-        if macro.phase == "year_2":
-            macro_sig = SignalAction.BUY
-            macro_conf += 12
-
-    if quote.asset_class in (AssetClass.INDEX, AssetClass.STOCK, AssetClass.ETF, AssetClass.TOKENIZED):
-        if macro.cycle_id == "presidential_cycle" and macro.phase == "year_3":
-            macro_conf += 10
-
     if quote.change_pct_7d is not None:
         if quote.change_pct_7d < -8 and price_sig == SignalAction.BUY:
             price_conf += 6
@@ -229,7 +208,6 @@ class AssetAnalyzer:
         quotes: list[AssetQuote],
         asset_meta: dict[str, dict],
         bitcoin_cycle: BitcoinCycleStatus,
-        presidential_cycle: PresidentialCycleStatus,
         price_stats: dict[str, dict],
     ) -> list[AssetCycleAssessment]:
         now = datetime.now(timezone.utc)
@@ -381,7 +359,7 @@ class AssetAnalyzer:
         )
 
         cycle_label = {
-            "presidential_cycle": "Cykl prez. USA",
+            "us_neutral": "USA neutralnie",
             "polish_cycle": "Cykl PL",
             "europe_cycle": "Cykl EU",
             "asia_cycle": "Cykl Azja",
@@ -400,33 +378,6 @@ class AssetAnalyzer:
             source="unavailable",
             reason=f"no_matrix_for_region_{region}",
         )
-        if region == "us":
-            try:
-                py = PresidentialYear(macro_phase) if macro_phase.startswith("year_") else PresidentialYear.YEAR_2
-            except ValueError:
-                py = PresidentialYear.YEAR_2
-            delta, season_note = seasonality_overlay_delta(
-                quote.symbol,
-                py,
-                now.date(),
-                asset_class=quote.asset_class.value,
-            )
-            final_conf = min(95.0, max(35.0, final_conf + delta))
-            month_avg = symbol_month_avg(
-                quote.symbol, py, now.date().month, quote.asset_class.value
-            )
-            if month_avg <= -0.3 and final_sig == SignalAction.BUY:
-                final_sig = SignalAction.WATCH
-            rationale += f" [{season_note}]"
-            seasonality = InstrumentSeasonality(
-                available=True,
-                bias=us_month_bias(month_avg),
-                avg_pct=round(month_avg, 2),
-                source="symbol_class_universe",
-                n=None,
-                calendar_season=us_calendar_season(now.date().month),
-            )
-
         return AssetCycleAssessment(
             symbol=quote.symbol,
             name=quote.name,

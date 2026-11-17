@@ -14,7 +14,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.cycles.bitcoin_cycle import analyze_bitcoin_cycle
-from app.cycles.presidential_cycle import analyze_presidential_cycle
 from app.cycles.regional_macro import build_regional_cycles_snapshot
 from app.data.assets import MONITORED_ASSETS
 from app.data.fast_quotes import fetch_fast_quotes
@@ -51,7 +50,6 @@ async def run_benchmarks(runs: int = 2) -> None:
     ath_date, ath_price, btc_price = btc_data
     t0 = time.perf_counter()
     bitcoin_cycle = analyze_bitcoin_cycle(ath_date, ath_price, btc_price)
-    presidential_cycle = analyze_presidential_cycle()
     build_regional_cycles_snapshot()
     t_cycles = time.perf_counter() - t0
     print(f"  CoinGecko BTC ATH .............. {t_btc_ath:6.2f}s")
@@ -73,7 +71,7 @@ async def run_benchmarks(runs: int = 2) -> None:
 
         t0 = time.perf_counter()
         assessments = analyzer.assess_all(
-            quotes, ASSET_MAP, bitcoin_cycle, presidential_cycle, price_stats
+            quotes, ASSET_MAP, bitcoin_cycle, price_stats
         )
         build_market_summary(assessments)
         reassess_times.append(time.perf_counter() - t0)

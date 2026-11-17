@@ -3,7 +3,6 @@ import logging
 from datetime import datetime, timezone
 
 from app.cycles.bitcoin_cycle import analyze_bitcoin_cycle
-from app.cycles.presidential_cycle import analyze_presidential_cycle
 from app.cycles.regional_macro import REGION_LABELS, build_regional_cycles_snapshot
 from app.data.assets import MONITORED_ASSETS
 from app.data.fast_quotes import fetch_fast_quotes
@@ -15,7 +14,6 @@ from app.models.schemas import (
     BitcoinCycleStatus,
     MarketSummary,
     Opportunity,
-    PresidentialCycleStatus,
     RegionalCycleSnapshot,
 )
 from app.scanners.asset_analyzer import analyzer, build_market_summary
@@ -34,7 +32,6 @@ class OpportunityScanner:
         self.market_assessments: list[AssetCycleAssessment] = []
         self.market_summary: MarketSummary | None = None
         self.bitcoin_cycle: BitcoinCycleStatus | None = None
-        self.presidential_cycle: PresidentialCycleStatus | None = None
         self.regional_cycles: list[RegionalCycleSnapshot] = []
         self.quotes: list[AssetQuote] = []
         self._price_stats: dict[str, dict] = {}
@@ -50,7 +47,6 @@ class OpportunityScanner:
                 not force
                 and self.market_assessments
                 and self.bitcoin_cycle
-                and self.presidential_cycle
             ):
                 return self.opportunities
 
@@ -64,7 +60,6 @@ class OpportunityScanner:
         logger.info("Starting full market scan (%d assets)...", len(MONITORED_ASSETS))
         ath_date, ath_price, btc_price = await fetch_bitcoin_ath()
         self.bitcoin_cycle = analyze_bitcoin_cycle(ath_date, ath_price, btc_price)
-        self.presidential_cycle = analyze_presidential_cycle()
         snapshot = build_regional_cycles_snapshot()
         self.regional_cycles = [
             RegionalCycleSnapshot(
@@ -113,14 +108,13 @@ class OpportunityScanner:
         return {"updated": updated, "full_scan": False}
 
     def _reassess(self) -> None:
-        if not self.bitcoin_cycle or not self.presidential_cycle:
+        if not self.bitcoin_cycle:
             return
 
         self.market_assessments = analyzer.assess_all(
             self.quotes,
             ASSET_MAP,
             self.bitcoin_cycle,
-            self.presidential_cycle,
             self._price_stats,
         )
         summary_dict = build_market_summary(self.market_assessments)

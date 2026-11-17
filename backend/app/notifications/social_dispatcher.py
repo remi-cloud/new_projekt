@@ -86,17 +86,23 @@ async def _publish_live(platform: str, body: str) -> dict:
     raise RuntimeError(f"Unknown platform {platform}")
 
 
+class DryRunPublicationBlocked(RuntimeError):
+    """Manual publish while CYCLICAL_SOCIAL_DRY_RUN is on. force cannot bypass it."""
+
+
 async def publish_post(post_id: int, *, force: bool = False) -> dict:
-    """Publish a stored post. force=True bypasses dry_run (manual UI button)."""
+    """Publish a stored post. `force` is ignored while social_dry_run is true."""
+    del force  # kept for callers; never overrides dry-run
+    if settings.social_dry_run:
+        raise DryRunPublicationBlocked(
+            "Publikacja zablokowana: tryb próbny (DRY-RUN). "
+            "Ustaw CYCLICAL_SOCIAL_DRY_RUN=false, aby wysłać post."
+        )
     post = await social_db.get_post(post_id)
     if not post:
         raise ValueError("Post not found")
     if post["status"] == "posted":
         return post
-
-    if settings.social_dry_run and not force:
-        await social_db.update_post_status(post_id, status="dry_run", error=None)
-        return {**(await social_db.get_post(post_id) or post), "dry_run": True}
 
     try:
         assert_post_has_source(post.get("body") or "", post.get("source_name"), post.get("url"))

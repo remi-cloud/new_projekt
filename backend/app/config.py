@@ -14,14 +14,6 @@ class Settings(BaseSettings):
     btc_bear_phase_days: int = 364
     btc_bull_phase_days: int = 1064
 
-    presidential_terms: list[dict] = [
-        {"start": "2009-01-20", "end": "2013-01-20", "president": "Obama I"},
-        {"start": "2013-01-20", "end": "2017-01-20", "president": "Obama II"},
-        {"start": "2017-01-20", "end": "2021-01-20", "president": "Trump I"},
-        {"start": "2021-01-20", "end": "2025-01-20", "president": "Biden"},
-        {"start": "2025-01-20", "end": "2029-01-20", "president": "Trump II"},
-    ]
-
     # Notifications
     notifications_enabled: bool = True
     alert_min_confidence: float = 60.0
@@ -56,7 +48,6 @@ class Settings(BaseSettings):
     news_crypto_feed_slots: int = 8
     news_ideology_boost: bool = False
     news_pool_limit: int = 360
-    news_calendar_ai_enabled: bool = True
     pexels_api_key: str = ""
 
     # AI Finance Agent
@@ -137,7 +128,7 @@ class Settings(BaseSettings):
 
     # Social desk — news → X first (manual publish). LinkedIn stays off until listed.
     social_enabled: bool = True
-    social_dry_run: bool = False
+    social_dry_run: bool = True
     social_auto_post: bool = False
     social_platforms: str = "x"
     social_cooldown_minutes: int = 60

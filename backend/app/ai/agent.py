@@ -45,13 +45,7 @@ RULES:
 - Paper portfolio (if injected) is the live simulated desk from portfolio.db — do not invent holdings.
 - Prefer multi-timeframe confluence + cyclical scanner + risk_snapshot; use whale / Superokazja / macro cycles / paper equity when present in tools.
 - For Binance listing/CZ/meme radar context, call get_binance_ai_support (radar + whale bias).
-- US seasonality (from get_macro_cycles → presidential.seasonality / month_returns / month_matrices):
-  - Year of term 1–4 + current calendar month tell historically where strength/weakness clusters (US equal-weight universe, not just S&P).
-  - month_matrices covers ALL years 1–4 for the current term (calendar years mapped); do not discuss only year 2.
-  - next_term_outlook = same historical pattern on the term after Trump II (2029–2033) — continuation, not election forecasting.
-  - Best Six Months = Nov–Apr (historically stronger); May–Oct = softer — prefer confirmation / smaller size unless tools disagree.
-  - In Thesis and Liquidity & power, say what to expect NOW (month bias up/down) and which months in this year were historically strongest/weakest when relevant.
-  - For non-US assets, do not force presidential month seasonality.
+- There is no US presidential-term forecast. Do not cite Trump, term year, or next-term outlook.
 - BTC seasonality (from get_macro_cycles → bitcoin.seasonality / month_returns / spx_comparison):
   - Primary clock remains ATH phase 364/1064; month bias is additive.
   - Cite current_month_bias + strongest/weakest months; mention spx_comparison.verdict and regime (equity_beta | mixed | crypto_idiosyncratic).
@@ -60,7 +54,7 @@ RULES:
 - Global cycle order book (from get_macro_cycles → global_cycle_book):
   - Same rules (calendar month, week-of-month W1–W4, Best Six) compared across us/eu/asia/em/pl/crypto.
   - Prefer adopted slots that reproduce on ≥4 markets; cite side (bid/ask), markets, reproduction_score.
-  - For EU/Asia/EM/PL use this book instead of forcing US presidential month seasonality.
+  - For EU/Asia/EM/PL use this book. Do not invent a presidential-term overlay.
 - Calendar pumps (from get_macro_cycles → calendar_pumps):
   - Which instruments historically rise/fall in the current calendar month across the full catalog
     (commodities, utility/sector ETFs, bonds, crypto, forex). Cite top pumped/drained with avg_pct.
@@ -461,8 +455,6 @@ def _compose_fallback(message: str, tool_context: str, focus: str | None = None)
             f"MTF/trend: {mtf.get('summary') or trend.get('summary') or 'brak pełnej konfluencji'}."
         )
     btc = (cycles.get("bitcoin") or {}) if isinstance(cycles, dict) else {}
-    pres = (cycles.get("presidential") or {}) if isinstance(cycles, dict) else {}
-    season = (pres.get("seasonality") or {}) if isinstance(pres, dict) else {}
     btc_season = (btc.get("seasonality") or {}) if isinstance(btc, dict) else {}
     spx = (btc.get("spx_comparison") or {}) if isinstance(btc, dict) else {}
     liq_bits = [
@@ -472,13 +464,6 @@ def _compose_fallback(message: str, tool_context: str, focus: str | None = None)
         (
             f"btc_vs_spx={spx.get('verdict')} regime={spx.get('regime')}"
             if isinstance(spx, dict) and (spx.get("verdict") or spx.get("regime"))
-            else None
-        ),
-        (pres.get("rationale") if isinstance(pres, dict) else None),
-        (season.get("expect_now") if isinstance(season, dict) else None),
-        (
-            f"calendar={pres.get('calendar_season')} month_bias={pres.get('current_month_bias')}"
-            if isinstance(pres, dict) and (pres.get("calendar_season") or pres.get("current_month_bias"))
             else None
         ),
         f"macro_phase={mkt.get('macro_phase')}" if mkt.get("macro_phase") else None,

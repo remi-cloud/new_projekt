@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
 import { CycleCardBitcoin } from '../components/CycleCardBitcoin'
-import { CycleCardPresidential } from '../components/CycleCardPresidential'
 import { CycleCardRegional } from '../components/CycleCardRegional'
 import { CycleOrderBook } from '../components/CycleOrderBook'
 import { InstrumentSeasonalitySearch } from '../components/InstrumentSeasonalitySearch'
@@ -31,7 +30,6 @@ export function CyclesPage() {
   if (!data) return null
 
   const methodBtcItems = tArray('cycles.methodBtcItems')
-  const methodPresItems = tArray('cycles.methodPresItems')
   const methodLocalItems = tArray('cycles.methodLocalItems')
   const methodMiniItems = tArray('cycles.methodMiniItems')
 
@@ -56,7 +54,6 @@ export function CyclesPage() {
 
       <div className="cycles-grid">
         <CycleCardBitcoin cycle={data.bitcoin_cycle} />
-        <CycleCardPresidential cycle={data.presidential_cycle} />
       </div>
 
       {data.regional_cycles?.length > 0 && (
@@ -81,15 +78,6 @@ export function CyclesPage() {
             ))}
           </ol>
           <p>{t('cycles.methodBtcNote')}</p>
-        </article>
-        <article className="method-card">
-          <h3>{t('cycles.methodPresTitle')}</h3>
-          <ol>
-            {methodPresItems.map((item, i) => (
-              <li key={i}>{item}</li>
-            ))}
-          </ol>
-          <p>{t('cycles.methodPresNote')}</p>
         </article>
         <article className="method-card">
           <h3>{t('cycles.methodLocalTitle')}</h3>

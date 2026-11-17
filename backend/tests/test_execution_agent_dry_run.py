@@ -16,7 +16,7 @@ def _opp(symbol: str = "AAPL", confidence: float = 85.0) -> Opportunity:
         asset_class=AssetClass.STOCK,
         action=SignalAction.BUY,
         confidence=confidence,
-        cycle_source="presidential",
+        cycle_source="us_neutral",
         phase="year_1",
         price=180.0,
         rationale="Test buy",

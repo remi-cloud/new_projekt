@@ -93,7 +93,6 @@ export interface Translations {
     fetchedAt: string
     refreshEvery: string
     tabNews: string
-    tabCalendar: string
     tabs: Record<'all' | 'musk' | 'fed' | 'usa' | 'macro' | 'global' | 'crypto', string>
     tabDesc: Record<'all' | 'musk' | 'fed' | 'usa' | 'macro' | 'global' | 'crypto', string>
     category: Record<'fed' | 'usa' | 'macro' | 'global' | 'musk' | 'crypto', string>
@@ -101,7 +100,6 @@ export interface Translations {
     highImpact: string
     refresh: string
     loadingNews: string
-    loadingCalendar: string
     noNews: string
     sourcesMeta: string
     disclaimer: string
@@ -365,7 +363,6 @@ export interface Translations {
     ctaLive: string
     ctaEmbed: string
     btcNow: string
-    usaNow: string
     topOpps: string
     liveNews: string
     watchlist: string

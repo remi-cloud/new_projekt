@@ -71,79 +71,6 @@ class BitcoinCycleStatus(BaseModel):
     spx_comparison: BtcSpxComparison | None = None
 
 
-class PresidentialYear(str, Enum):
-    YEAR_1 = "year_1"
-    YEAR_2 = "year_2"
-    YEAR_3 = "year_3"
-    YEAR_4 = "year_4"
-
-
-class PresidentialYearReturn(BaseModel):
-    year: PresidentialYear
-    year_number: int
-    label: str
-    avg_return_pct: float
-    vs_cycle_avg_pct: float
-    bias: str
-    tone: str
-    is_current: bool = False
-
-
-class PresidentialMonthReturn(BaseModel):
-    month: int
-    avg_return_pct: float
-    bias: str  # up | down
-    is_current: bool = False
-
-
-class PresidentialYearMonthRow(BaseModel):
-    """One presidential year (1–4) with 12 monthly averages."""
-
-    year: PresidentialYear
-    year_number: int
-    label: str
-    calendar_year: int | None = None  # e.g. 2026 for Trump II Y2
-    is_current: bool = False
-    months: list[PresidentialMonthReturn] = Field(default_factory=list)
-
-
-class PresidentialNextTermOutlook(BaseModel):
-    """Historical seasonality projected onto the term after the current one."""
-
-    term_start: date
-    term_end: date
-    label: str
-    note: str
-    year_rows: list[PresidentialYearMonthRow] = Field(default_factory=list)
-
-
-class PresidentialCycleStatus(BaseModel):
-    term_start: date
-    term_end: date
-    president: str
-    current_year: PresidentialYear
-    year_number: int
-    days_into_year: int
-    days_remaining_in_year: int
-    year_progress_pct: float
-    historical_bias: str
-    signal: SignalAction
-    rationale: str
-    benchmark: str = "S&P 500"
-    benchmark_note: str = "Średni roczny zwrot w latach cyklu (1949–2024, Stock Trader's Almanac)"
-    cycle_avg_return_pct: float = 8.5
-    year_returns: list[PresidentialYearReturn] = Field(default_factory=list)
-    current_year_expected_return_pct: float = 0.0
-    month_returns: list[PresidentialMonthReturn] = Field(default_factory=list)
-    month_matrices: list[PresidentialYearMonthRow] = Field(default_factory=list)
-    current_month_avg_return_pct: float = 0.0
-    current_month_bias: str = "up"
-    calendar_season: str = "best_six"  # best_six | worst_six
-    seasonality_universe_size: int = 0
-    buy_weight: float | None = None
-    next_term_outlook: PresidentialNextTermOutlook | None = None
-
-
 class AssetQuote(BaseModel):
     symbol: str
     name: str
@@ -308,37 +235,8 @@ class MacroNewsItem(BaseModel):
     age_minutes: int | None = None
 
 
-class MacroCalendarEvent(BaseModel):
-    id: str
-    title: str
-    event_date: date
-    days_until: int
-    category: str
-    impact: str = "high"
-    time_utc: str = "13:30"
-    region: str = "US"
-    kind: str | None = None
-    # AI desk assessment — current tape vs event expectations
-    current_state: str | None = None
-    expectations: str | None = None
-    ai_bias: str | None = None  # hawkish | dovish | neutral | risk_on | risk_off
-    ai_confidence: int | None = None
-    ai_assessed_at: datetime | None = None
-    ai_source: str | None = None  # "openai" | "heuristic"
-
-
-class MacroCalendarMonthResponse(BaseModel):
-    year: int
-    month: int
-    events: list[MacroCalendarEvent]
-    news: list[MacroNewsItem] = Field(default_factory=list)
-    fetched_at: datetime
-    poll_interval_seconds: int = 120
-
-
 class MacroNewsFeed(BaseModel):
     items: list[MacroNewsItem]
-    calendar_events: list[MacroCalendarEvent] = Field(default_factory=list)
     fetched_at: datetime
     counts: dict[str, int] = Field(default_factory=dict)
     sources_count: int = 0
@@ -348,7 +246,6 @@ class MacroNewsFeed(BaseModel):
 
 class DashboardResponse(BaseModel):
     bitcoin_cycle: BitcoinCycleStatus
-    presidential_cycle: PresidentialCycleStatus
     regional_cycles: list[RegionalCycleSnapshot]
     opportunities: list[Opportunity]
     monitored_assets: list[AssetQuote]
@@ -782,7 +679,7 @@ class BetaPhase(str, Enum):
 
 
 class BetaModelStatus(BaseModel):
-    """Adapter shape for Singularity scouts (maps from presidential cycle)."""
+    """Singularity beta scout. Neutral while the presidential cycle is off."""
 
     period_start: date
     period_end: date

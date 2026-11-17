@@ -75,9 +75,6 @@ check /api/cycles/bitcoin 200
 check_json_field /api/cycles/bitcoin \
   'import sys,json;d=json.load(sys.stdin);ok=len(d.get("month_returns") or [])==12 and d.get("spx_comparison");print("ok" if ok else "")' \
   "bitcoin.month_returns+spx_comparison"
-check_json_field /api/cycles/presidential \
-  'import sys,json;d=json.load(sys.stdin);ok=len(d.get("month_matrices") or [])==4 and d.get("next_term_outlook");print("ok" if ok else "")' \
-  "presidential.month_matrices+next_term"
 check /api/cycles/seasonality-health 200
 check_json_field "/api/cycles/intramonth?month=8&universe=us" \
   'import sys,json;d=json.load(sys.stdin);ok=len(d.get("days") or [])==31 and len(d.get("weeks") or [])==4;print("ok" if ok else "")' \
@@ -111,13 +108,9 @@ check /api/coordinator/health 200
 check /api/portfolio/binance-sync 200
 check /api/ai/status 200
 check /api/news/macro 200
-check "/api/news/calendar?year=$(date +%Y)&month=$(date +%-m 2>/dev/null || date +%m)" 200
 check_json_field "/api/news/macro?limit=20" \
   'import sys,json;d=json.load(sys.stdin);bad=sum(1 for i in (d.get("items") or []) if "news.google.com" in (i.get("url") or "") and "/articles/" in (i.get("url") or ""));print("ok" if bad==0 else "")' \
   "news.macro_urls"
-check_json_field "/api/news/calendar?year=$(date +%Y)&month=$(date +%-m 2>/dev/null || date +%m)" \
-  'import sys,json;d=json.load(sys.stdin);bad=sum(1 for i in (d.get("news") or []) if "news.google.com" in (i.get("url") or "") and "/articles/" in (i.get("url") or ""));print("ok" if bad==0 else "")' \
-  "news.calendar_urls"
 
 HEALTH_RAW=$(curl -sf --max-time 30 "$BASE/api/health" || true)
 STATUS=$(printf '%s' "$HEALTH_RAW" | python3 -c 'import sys,json;d=json.load(sys.stdin);print(d.get("status",""))' 2>/dev/null || true)

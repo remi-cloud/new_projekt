@@ -38,8 +38,6 @@ async def test_refresh_does_not_inject_desk_ideology(monkeypatch):
         patch.object(mn, "_fetch_one_feed", side_effect=fake_fetch_one),
         patch.object(mn, "resolve_item_urls", new=AsyncMock(side_effect=lambda items: items)),
         patch.object(mn, "enrich_items", side_effect=lambda items: items),
-        patch.object(mn, "enrich_calendar_events", new=AsyncMock(return_value=[])),
-        patch.object(mn, "get_upcoming_calendar", return_value=[]),
     ):
         feed, pool = await mn.refresh_macro_news()
 

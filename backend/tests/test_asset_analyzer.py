@@ -28,10 +28,11 @@ def test_pl_stock_at_highs_not_always_buy():
     assert result.signal in (SignalAction.WATCH, SignalAction.HOLD, SignalAction.SELL)
 
 
-def test_us_stock_uses_presidential():
+def test_us_stock_is_neutral():
     analyzer = AssetAnalyzer()
     quote = _quote("AAPL", "us", AssetClass.STOCK, 200.0)
     stats = {"high_52w": 220.0, "low_52w": 150.0}
 
     result = analyzer._assess_traditional(quote, "us", stats, datetime.now(timezone.utc))
-    assert result.macro_cycle == "presidential_cycle"
+    assert result.macro_cycle == "us_neutral"
+    assert "prezydenc" not in result.rationale.lower()

@@ -41,68 +41,6 @@ export interface BitcoinCycleStatus {
   spx_comparison?: BtcSpxComparison | null
 }
 
-export interface PresidentialYearReturn {
-  year: string
-  year_number: number
-  label: string
-  avg_return_pct: number
-  vs_cycle_avg_pct: number
-  bias: string
-  tone: 'weak' | 'moderate' | 'strong' | 'best'
-  is_current: boolean
-}
-
-export interface PresidentialMonthReturn {
-  month: number
-  avg_return_pct: number
-  bias: 'up' | 'down' | string
-  is_current: boolean
-}
-
-export interface PresidentialYearMonthRow {
-  year: string
-  year_number: number
-  label: string
-  calendar_year?: number | null
-  is_current: boolean
-  months: PresidentialMonthReturn[]
-}
-
-export interface PresidentialNextTermOutlook {
-  term_start: string
-  term_end: string
-  label: string
-  note: string
-  year_rows: PresidentialYearMonthRow[]
-}
-
-export interface PresidentialCycleStatus {
-  term_start: string
-  term_end: string
-  president: string
-  current_year: string
-  year_number: number
-  days_into_year: number
-  days_remaining_in_year: number
-  year_progress_pct: number
-  historical_bias: string
-  signal: SignalAction
-  rationale: string
-  benchmark?: string
-  benchmark_note?: string
-  cycle_avg_return_pct?: number
-  year_returns?: PresidentialYearReturn[]
-  current_year_expected_return_pct?: number
-  month_returns?: PresidentialMonthReturn[]
-  month_matrices?: PresidentialYearMonthRow[]
-  current_month_avg_return_pct?: number
-  current_month_bias?: string
-  calendar_season?: 'best_six' | 'worst_six' | string
-  seasonality_universe_size?: number
-  buy_weight?: number
-  next_term_outlook?: PresidentialNextTermOutlook | null
-}
-
 export interface AssetQuote {
   symbol: string
   name: string
@@ -323,36 +261,8 @@ export interface MacroNewsItem {
   age_minutes?: number | null
 }
 
-export interface MacroCalendarEvent {
-  id: string
-  title: string
-  event_date: string
-  days_until: number
-  category: string
-  impact: string
-  time_utc: string
-  region: string
-  kind?: string | null
-  current_state?: string | null
-  expectations?: string | null
-  ai_bias?: string | null
-  ai_confidence?: number | null
-  ai_assessed_at?: string | null
-  ai_source?: string | null
-}
-
-export interface MacroCalendarMonth {
-  year: number
-  month: number
-  events: MacroCalendarEvent[]
-  news: MacroNewsItem[]
-  fetched_at: string
-  poll_interval_seconds: number
-}
-
 export interface MacroNewsFeed {
   items: MacroNewsItem[]
-  calendar_events: MacroCalendarEvent[]
   fetched_at: string
   counts: Record<string, number>
   sources_count: number
@@ -362,7 +272,6 @@ export interface MacroNewsFeed {
 
 export interface DashboardResponse {
   bitcoin_cycle: BitcoinCycleStatus
-  presidential_cycle: PresidentialCycleStatus
   regional_cycles: RegionalCycleSnapshot[]
   opportunities: Opportunity[]
   monitored_assets: AssetQuote[]

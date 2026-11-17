@@ -24,13 +24,6 @@ async def bitcoin_cycle():
     return scanner.bitcoin_cycle
 
 
-@router.get("/api/cycles/presidential")
-async def presidential_cycle():
-    if not scanner.presidential_cycle:
-        await scanner.scan()
-    return scanner.presidential_cycle
-
-
 @router.get("/api/cycles/regional", response_model=list[RegionalCycleSnapshot])
 async def regional_cycles():
     if not scanner.regional_cycles:
@@ -40,7 +33,7 @@ async def regional_cycles():
 
 @router.get("/api/cycles/seasonality-health")
 async def seasonality_health(refresh: bool = False):
-    """Drift status for presidential/BTC seasonality matrices."""
+    """Drift status for the BTC seasonality matrix."""
     if refresh or not get_health().get("last_run"):
         return run_seasonality_monitor(persist=True)
     return get_health()

@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 from app.models.schemas import (
     AlphaModelStatus,
     BetaModelStatus,
     BetaPhase,
     BitcoinCycleStatus,
-    PresidentialCycleStatus,
+    SignalAction,
 )
 
 
@@ -27,17 +29,18 @@ def bitcoin_as_alpha(btc: BitcoinCycleStatus) -> AlphaModelStatus:
     )
 
 
-def presidential_as_beta(pres: PresidentialCycleStatus) -> BetaModelStatus:
-    year_n = max(1, min(4, int(pres.year_number)))
+def neutral_beta(as_of: date | None = None) -> BetaModelStatus:
+    """Beta scout with no presidential tilt (phase 4 + HOLD adds no score)."""
+    today = as_of or date.today()
     return BetaModelStatus(
-        period_start=pres.term_start,
-        period_end=pres.term_end,
-        current_phase=BetaPhase(f"phase_{year_n}"),
-        phase_number=year_n,
-        days_into_phase=pres.days_into_year,
-        days_remaining_in_phase=pres.days_remaining_in_year,
-        phase_progress_pct=pres.year_progress_pct,
-        historical_bias=pres.historical_bias,
-        signal=pres.signal,
-        rationale=pres.rationale,
+        period_start=today,
+        period_end=today,
+        current_phase=BetaPhase.PHASE_4,
+        phase_number=4,
+        days_into_phase=0,
+        days_remaining_in_phase=0,
+        phase_progress_pct=0.0,
+        historical_bias="Brak wpływu",
+        signal=SignalAction.HOLD,
+        rationale="Cykl prezydencki wyłączony. Beta nie zmienia oceny.",
     )

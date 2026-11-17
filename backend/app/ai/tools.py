@@ -318,8 +318,8 @@ TOOL_DEFINITIONS = [
             "name": "get_macro_cycles",
             "description": (
                 "Bitcoin ATH cycle (364/1064) with BTC monthly seasonality + vs-SPX verdict/regime, "
-                "and US presidential cycle with year×month seasonality (Best Six Nov–Apr). "
-                "Use for crypto timing and US equities/ETFs/indexes when discussing when to expect strength or weakness."
+                "plus the global cycle book and calendar-month pumps. "
+                "No US presidential-term forecast. Use for crypto timing and regional seasonality."
             ),
             "parameters": {"type": "object", "properties": {}},
         },
@@ -690,70 +690,10 @@ async def run_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
             return {"knowledge": hits, "lessons_learned": notes}
         if name == "get_macro_cycles":
             from app.cycles.bitcoin_seasonality import btc_seasonality_desk_brief
-            from app.cycles.presidential_cycle import analyze_presidential_cycle
-            from app.cycles.presidential_seasonality import seasonality_desk_brief
 
             if not scanner.bitcoin_cycle:
                 await scanner.scan()
             btc = scanner.bitcoin_cycle
-            # Fresh presidential snapshot so seasonality fields are always current
-            pres = analyze_presidential_cycle()
-            scanner.presidential_cycle = pres
-            season = seasonality_desk_brief(pres.current_year)
-            month_strip = [
-                {
-                    "month": m.month,
-                    "avg_pct": m.avg_return_pct,
-                    "bias": m.bias,
-                    "is_current": m.is_current,
-                }
-                for m in (pres.month_returns or [])
-            ]
-            month_matrices = [
-                {
-                    "year": row.year.value,
-                    "year_number": row.year_number,
-                    "label": row.label,
-                    "calendar_year": row.calendar_year,
-                    "is_current": row.is_current,
-                    "months": [
-                        {
-                            "month": m.month,
-                            "avg_pct": m.avg_return_pct,
-                            "bias": m.bias,
-                            "is_current": m.is_current,
-                        }
-                        for m in row.months
-                    ],
-                }
-                for row in (pres.month_matrices or [])
-            ]
-            next_term = None
-            if pres.next_term_outlook:
-                nt = pres.next_term_outlook
-                next_term = {
-                    "term_start": nt.term_start.isoformat(),
-                    "term_end": nt.term_end.isoformat(),
-                    "label": nt.label,
-                    "note": nt.note,
-                    "year_rows": [
-                        {
-                            "year": row.year.value,
-                            "year_number": row.year_number,
-                            "label": row.label,
-                            "calendar_year": row.calendar_year,
-                            "months": [
-                                {
-                                    "month": m.month,
-                                    "avg_pct": m.avg_return_pct,
-                                    "bias": m.bias,
-                                }
-                                for m in row.months
-                            ],
-                        }
-                        for row in nt.year_rows
-                    ],
-                }
             btc_payload: dict = {
                 "phase": btc.phase.value if btc else None,
                 "signal": btc.signal.value if btc else None,
@@ -834,31 +774,7 @@ async def run_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
             ]
             return {
                 "bitcoin": btc_payload,
-                "presidential": {
-                    "president": pres.president,
-                    "year": pres.current_year.value,
-                    "year_number": pres.year_number,
-                    "signal": pres.signal.value,
-                    "buy_weight": pres.buy_weight,
-                    "rationale": pres.rationale,
-                    "calendar_season": pres.calendar_season,
-                    "current_month_avg_pct": pres.current_month_avg_return_pct,
-                    "current_month_bias": pres.current_month_bias,
-                    "seasonality_universe_size": pres.seasonality_universe_size,
-                    "month_returns": month_strip,
-                    "month_matrices": month_matrices,
-                    "next_term_outlook": next_term,
-                    "seasonality": season,
-                    "seasonality_health": season_health,
-                    "how_to_use": (
-                        "For region=us instruments: cite year_of_term + current month bias + "
-                        "best_six/worst_six. month_matrices has all years 1–4 (not only current). "
-                        "next_term_outlook projects the same historical pattern onto 2029–2033 "
-                        "after Trump II — not a prediction of who wins 2028. "
-                        "If seasonality_health.drift_alert, overlay is softened — mention uncertainty. "
-                        "Do not invent monthly stats — use this payload only."
-                    ),
-                },
+                "seasonality_health": season_health,
                 "global_cycle_book": {
                     "meta": gbook.get("meta"),
                     "adopted": adopted_brief,
@@ -867,7 +783,7 @@ async def run_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
                     "how_to_use": (
                         "Field scouts: same month/week/Best-Six rules on us/eu/asia/em/pl/crypto. "
                         "Cite adopted slots (bid↑/ask↓) + markets + reproduction_score. "
-                        "For non-US assets prefer global_cycle_book over US presidential months."
+                        "Use the global cycle book for month and week seasonality. There is no presidential-term model."
                     ),
                 },
                 "calendar_pumps": {
