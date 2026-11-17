@@ -440,7 +440,7 @@ export const pl: Translations = {
     momentum: 'Momentum: {{n}}',
     telemetryTitle: 'Portfel paper vs S&P 500 (real)',
     telemetryLead:
-      'Prawdziwy mark-to-market Twojego paper booka (baza_portfela) vs live ^GSPC — obie linie od 100 od tego samego baseline. Δ to realne punkty NAV. Bez fałszywych średnich cen sygnałów BUY.',
+      'Rzeczywista wycena portfela papierowego wobec żywego indeksu ^GSPC. Obie linie startują od 100 w tym samym punkcie bazowym. Różnica to realne punkty wartości. Bez fałszywych średnich cen sygnałów kupna.',
     telemetryWarmup: 'Zbieranie punktów telemetrii — poczekaj na kolejne skany rynku.',
     telemetryLongs: 'Long {{n}}',
     telemetryVsSpx: 'Δ vs SPX {{delta}}%',

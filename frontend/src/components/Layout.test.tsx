@@ -27,6 +27,7 @@ describe('Layout navigation', () => {
   it('names the desk symbol and a missing page, not the home title', () => {
     renderAt('/pozycja/BTC-USD')
     expect(screen.getAllByRole('heading', { name: 'BTC-USD' }).length).toBeGreaterThan(0)
+    expect(document.title).toContain('BTC-USD')
     expect(screen.queryByRole('heading', { name: 'Start' })).toBeNull()
   })
 

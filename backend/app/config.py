@@ -1,7 +1,8 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="CYCLICAL_")
     # Full analysis scan (52w stats + signals)
     scan_interval_minutes: int = 5
     # Lightweight price refresh (batch quotes) — co minutę
@@ -215,9 +216,6 @@ class Settings(BaseSettings):
     binance_ai_bot_dry_run: bool = True
     binance_ai_bot_mirror_paper: bool = True
     binance_drift_alert_pct: float = 15.0
-
-    class Config:
-        env_prefix = "CYCLICAL_"
 
 
 settings = Settings()

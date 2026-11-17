@@ -62,6 +62,11 @@ export function Layout({ scannerRunning, scanInProgress, liveMode, liveConnected
     setMenuOpen(false)
   }, [location.pathname])
 
+  useEffect(() => {
+    const brand = t('layout.brand')
+    document.title = pageTitle === brand || isHome ? brand : `${pageTitle} · ${brand}`
+  }, [pageTitle, isHome, t])
+
   const handleScan = async () => {
     if (!onScan || scanning) return
     try {

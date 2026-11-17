@@ -11,7 +11,10 @@ def test_security_headers_and_hsts_when_https(client: TestClient):
     assert response.status_code == 200
     assert response.headers["x-content-type-options"] == "nosniff"
     assert response.headers["x-frame-options"] == "DENY"
-    assert "default-src 'self'" in response.headers["content-security-policy"]
+    policy = response.headers["content-security-policy"]
+    assert "default-src 'self'" in policy
+    assert "script-src 'self'" in policy
+    assert "unsafe-inline" not in policy.split("style-src-attr")[0]
     assert "max-age=" in response.headers["strict-transport-security"]
 
 

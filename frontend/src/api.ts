@@ -270,44 +270,8 @@ export interface SocialDeskStatus {
   auto_max_per_day?: number
 }
 
-export interface SocialDecision {
-  id: number
-  news_id: string
-  title: string
-  source: string
-  action: string
-  reason: string
-  score: number
-  created_at: string
-}
-
-export interface SocialPost {
-  id: number
-  platform: string
-  news_id: string
-  url: string | null
-  title: string
-  body: string
-  media_path: string | null
-  status: string
-  error: string | null
-  external_id: string | null
-  created_at: string
-  posted_at: string | null
-}
-
 export async function fetchSocialStatus(): Promise<SocialDeskStatus> {
   const res = await fetch(`${API_BASE}/social/status`)
-  if (!res.ok) await throwApiError(res, 'serverUnavailable')
-  return res.json()
-}
-
-export async function fetchSocialPosts(limit = 20): Promise<{
-  count: number
-  posts: SocialPost[]
-  status: SocialDeskStatus
-}> {
-  const res = await fetch(`${API_BASE}/social/posts?limit=${limit}`)
   if (!res.ok) await throwApiError(res, 'serverUnavailable')
   return res.json()
 }
@@ -317,18 +281,6 @@ export async function fetchSocialPublished(limit = 20): Promise<{
 }> {
   const res = await fetch(`${API_BASE}/social/published?limit=${limit}`)
   if (!res.ok) await throwApiError(res, 'serverUnavailable')
-  return res.json()
-}
-
-export async function fetchSocialDecisions(limit = 30): Promise<{ decisions: SocialDecision[] }> {
-  const res = await fetch(`${API_BASE}/social/decisions?limit=${limit}`)
-  if (!res.ok) await throwApiError(res, 'serverUnavailable')
-  return res.json()
-}
-
-export async function publishSocialPost(postId: number): Promise<{ ok: boolean; post: SocialPost }> {
-  const res = await fetch(`${API_BASE}/social/posts/${postId}/publish`, { method: 'POST' })
-  if (!res.ok) await throwApiError(res, 'badRequest')
   return res.json()
 }
 
