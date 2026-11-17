@@ -32,12 +32,12 @@ apply_key() {
   chmod 600 "$ROOT/backend/data/cope_api_key.txt" 2>/dev/null || true
 
   # Inject into running Docker volume so next tick picks it up without rebuild
-  if docker ps --format '{{.Names}}' 2>/dev/null | grep -qx 'cyclical-trader-www'; then
-    docker exec cyclical-trader-www sh -c "printf '%s\n' '$KEY' > /app/data/cope_api_key.txt && chmod 600 /app/data/cope_api_key.txt" \
+  if docker ps --format '{{.Names}}' 2>/dev/null | grep -qx 'cyclical-trader-backend'; then
+    docker exec cyclical-trader-backend sh -c "printf '%s\n' '$KEY' > /app/data/cope_api_key.txt && chmod 600 /app/data/cope_api_key.txt" \
       && log "Injected key into Docker /app/data/cope_api_key.txt" \
       || log "Docker inject failed (will rely on .env recreate)"
     # Recreate with env so CYCLICAL_COPE_API_KEY is in process env too
-    (cd "$ROOT" && docker compose up -d --force-recreate www) >>"$LOG" 2>&1 || true
+    (cd "$ROOT" && docker compose up -d --force-recreate backend) >>"$LOG" 2>&1 || true
   fi
 }
 

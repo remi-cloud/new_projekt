@@ -1,6 +1,6 @@
 # Docker — Cyclical Trader · Kar Digital
 
-Jeden kontener = API + WWW na porcie **8080**. Portfel i trader DB na volume (przeżywają restart).
+Dwa kontenery: **frontend** (strona na porcie **8080**) i **backend** (API). Baza, dziennik decyzji i cache są na wolumenach (przeżywają restart). Auto-publikacja na X jest wyłączona, dopóki `CYCLICAL_SOCIAL_AUTO_POST=true`.
 
 ## Wymagania
 
@@ -28,7 +28,7 @@ Nie trzymaj drugiej kopii `Docker.app` na Desktopie — używaj `/Applications/D
 |---|---|
 | Aplikacja | http://127.0.0.1:8080 |
 | Health | http://127.0.0.1:8080/api/health |
-| Logi | `docker compose logs -f www` |
+| Logi | `docker compose logs -f backend frontend` |
 | Stop | `docker compose down` |
 | Stop + kasuj dane | `docker compose down -v` |
 
@@ -36,12 +36,13 @@ Smoke: `./scripts/audit.sh http://127.0.0.1:8080`
 
 ## Volume’y (pamięć)
 
-| Volume / mount | Ścieżka w kontenerze | Co trzyma |
-|----------------|----------------------|-----------|
-| `trader-data` | `/app/data` | `trader.db` (AI, alerty, news) |
-| bind-mount `./backend/data/baza_portfela` | `/app/data/baza_portfela` | paper `portfolio.db`, snapshot, **ledger/** |
+| Volume | Ścieżka w kontenerze | Co trzyma |
+|--------|----------------------|-----------|
+| `trader-db` | `/data/db` | `trader.db` — alerty, newsy i **dziennik decyzji** (`social_decisions`) |
+| `portfolio-data` | `/data/portfolio` | paper `portfolio.db`, snapshot, **ledger/** |
+| `app-cache` | `/app/data` | cache notowań, grafiki newsów |
 
-**Portfel = ten folder na Macu.** Lokalny uvicorn i Docker czytają tę samą ścieżkę `backend/data/baza_portfela/` (w tym `ledger/trades.jsonl` — biblia transakcji). Dzięki temu przełączenie lokal↔Docker nie wygląda jak „reset” portfela. Po restarcie agent ledger uzgadnia / odtwarza SQLite z pliku na dysku.
+Wolumeny są w Dockerze (Mac i serwer tak samo). Lokalny uvicorn bez Dockera nadal trzyma portfel w `backend/data/baza_portfela/`.
 
 ## Produkcja — domena .ph (zalecane na Mac + Docker)
 

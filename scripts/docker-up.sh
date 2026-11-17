@@ -48,7 +48,7 @@ cd "$ROOT"
 
 # Free port if a non-docker process holds it
 if lsof -nP -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
-  if ! docker compose ps --status running 2>/dev/null | grep -q www; then
+  if ! docker compose ps --status running 2>/dev/null | grep -q frontend; then
     info "Zwalniam port :$PORT (inny proces)…"
     lsof -nP -iTCP:"$PORT" -sTCP:LISTEN -t | xargs kill 2>/dev/null || true
     sleep 1
@@ -68,5 +68,5 @@ for i in $(seq 1 45); do
   sleep 2
 done
 
-docker compose logs --tail=40 www || true
-fail "Kontener wystartował, ale health nie odpowiada — sprawdź: docker compose logs -f www"
+docker compose logs --tail=40 backend frontend || true
+fail "Kontenery wystartowały, ale health nie odpowiada — sprawdź: docker compose logs -f backend"

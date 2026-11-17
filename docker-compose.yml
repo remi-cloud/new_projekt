@@ -1,88 +1,50 @@
+# Cykliczny Trader · Kar Digital
+# Strona: http://localhost:8080  (frontend proxy → backend /api)
+# Sekrety tylko z pliku .env. Auto-publikacja na X jest wyłączona,
+# dopóki CYCLICAL_SOCIAL_AUTO_POST nie zostanie ustawione na true.
+
 services:
-  www:
+  backend:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
-    image: cyclical-trader-kar-digital:latest
-    container_name: cyclical-trader-www
+    image: cyclical-trader-backend:latest
+    container_name: cyclical-trader-backend
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      PORT: "8000"
+      CYCLICAL_DATABASE_PATH: /data/db/trader.db
+      CYCLICAL_PORTFOLIO_DATABASE_PATH: /data/portfolio/portfolio.db
+      CYCLICAL_PORTFOLIO_RESTORE_BACKUP: "false"
+      # Domyślnie wyłączone także wtedy, gdy .env nie ustawia tej zmiennej.
+      CYCLICAL_SOCIAL_AUTO_POST: "${CYCLICAL_SOCIAL_AUTO_POST:-false}"
+    volumes:
+      # Baza SQLite: alerty, newsy i dziennik decyzji (tabela social_decisions).
+      - trader-db:/data/db
+      # Portfel papierowy, snapshot i ledger.
+      - portfolio-data:/data/portfolio
+      # Cache notowań, grafiki newsów i pliki pomocnicze.
+      - app-cache:/app/data
+    expose:
+      - "8000"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: cyclical-trader-frontend:latest
+    container_name: cyclical-trader-frontend
     ports:
       - "${PORT:-8080}:8080"
-    environment:
-      PORT: "8080"
-      CYCLICAL_DATABASE_PATH: /app/data/trader.db
-      CYCLICAL_PORTFOLIO_DATABASE_PATH: /app/data/baza_portfela/portfolio.db
-      CYCLICAL_PORTFOLIO_RESTORE_BACKUP: "false"
-      CYCLICAL_SCAN_INTERVAL_MINUTES: "${CYCLICAL_SCAN_INTERVAL_MINUTES:-5}"
-      CYCLICAL_PRICE_POLL_INTERVAL_SECONDS: "${CYCLICAL_PRICE_POLL_INTERVAL_SECONDS:-30}"
-      CYCLICAL_ALERT_PHONE_NUMBER: "${CYCLICAL_ALERT_PHONE_NUMBER:-}"
-      CYCLICAL_AI_ENABLED: "${CYCLICAL_AI_ENABLED:-true}"
-      CYCLICAL_AI_PROVIDER: "${CYCLICAL_AI_PROVIDER:-auto}"
-      CYCLICAL_SOCIAL_ENABLED: "${CYCLICAL_SOCIAL_ENABLED:-true}"
-      CYCLICAL_SOCIAL_DRY_RUN: "${CYCLICAL_SOCIAL_DRY_RUN:-true}"
-      CYCLICAL_SOCIAL_AUTO_POST: "${CYCLICAL_SOCIAL_AUTO_POST:-false}"
-      CYCLICAL_PUBLIC_BASE_URL: "${CYCLICAL_PUBLIC_BASE_URL:-}"
-      CYCLICAL_X_API_KEY: "${CYCLICAL_X_API_KEY:-}"
-      CYCLICAL_X_API_SECRET: "${CYCLICAL_X_API_SECRET:-}"
-      CYCLICAL_X_ACCESS_TOKEN: "${CYCLICAL_X_ACCESS_TOKEN:-}"
-      CYCLICAL_X_ACCESS_TOKEN_SECRET: "${CYCLICAL_X_ACCESS_TOKEN_SECRET:-}"
-      CYCLICAL_LINKEDIN_ACCESS_TOKEN: "${CYCLICAL_LINKEDIN_ACCESS_TOKEN:-}"
-      CYCLICAL_LINKEDIN_AUTHOR_URN: "${CYCLICAL_LINKEDIN_AUTHOR_URN:-}"
-      CYCLICAL_TELEGRAM_PREDATOR_ENABLED: "${CYCLICAL_TELEGRAM_PREDATOR_ENABLED:-true}"
-      CYCLICAL_TELEGRAM_BOT_TOKEN: "${CYCLICAL_TELEGRAM_BOT_TOKEN:-}"
-      CYCLICAL_TELEGRAM_PREDATOR_CHAT_ID: "${CYCLICAL_TELEGRAM_PREDATOR_CHAT_ID:-}"
-      CYCLICAL_TELEGRAM_PREDATOR_NOTIFY: "${CYCLICAL_TELEGRAM_PREDATOR_NOTIFY:-true}"
-      CYCLICAL_TELEGRAM_PREDATOR_INTERVAL_SECONDS: "${CYCLICAL_TELEGRAM_PREDATOR_INTERVAL_SECONDS:-60}"
-      CYCLICAL_COPE_API_KEY: "${CYCLICAL_COPE_API_KEY:-}"
-      CYCLICAL_FOMO_ENABLED: "${CYCLICAL_FOMO_ENABLED:-true}"
-      CYCLICAL_FOMO_TOP_N: "${CYCLICAL_FOMO_TOP_N:-30}"
-      CYCLICAL_FOMO_INTERVAL_SECONDS: "${CYCLICAL_FOMO_INTERVAL_SECONDS:-60}"
-      CYCLICAL_LAUNCH_SCOUT_ENABLED: "${CYCLICAL_LAUNCH_SCOUT_ENABLED:-true}"
-      CYCLICAL_LAUNCH_SCOUT_INTERVAL_SECONDS: "${CYCLICAL_LAUNCH_SCOUT_INTERVAL_SECONDS:-60}"
-      CYCLICAL_LAUNCH_SCOUT_MAX_MC: "${CYCLICAL_LAUNCH_SCOUT_MAX_MC:-1000000}"
-      CYCLICAL_LAUNCH_SCOUT_SEED_MC: "${CYCLICAL_LAUNCH_SCOUT_SEED_MC:-2000}"
-      CYCLICAL_LAUNCH_SCOUT_FRESH_MC: "${CYCLICAL_LAUNCH_SCOUT_FRESH_MC:-100000}"
-      CYCLICAL_LAUNCH_SCOUT_EARLY_MC: "${CYCLICAL_LAUNCH_SCOUT_EARLY_MC:-500000}"
-      CYCLICAL_LAUNCH_SCOUT_MIN_LIQ_USD: "${CYCLICAL_LAUNCH_SCOUT_MIN_LIQ_USD:-1000}"
-      CYCLICAL_LAUNCH_SCOUT_CHAINS: "${CYCLICAL_LAUNCH_SCOUT_CHAINS:-solana,base,ethereum,bsc,arbitrum,polygon,avalanche,optimism,blast,tron,sui,bitcoin,robinhood}"
-      CYCLICAL_WALLET_SCOUT_TOP_N: "${CYCLICAL_WALLET_SCOUT_TOP_N:-15}"
-      CYCLICAL_DEX_ARENA_ENABLED: "${CYCLICAL_DEX_ARENA_ENABLED:-true}"
-      CYCLICAL_DEX_ARENA_TOP_N: "${CYCLICAL_DEX_ARENA_TOP_N:-8}"
-      CYCLICAL_DEX_ARENA_LANES: "${CYCLICAL_DEX_ARENA_LANES:-pumpfun,raydium,pancakeswap,flap,4meme,other}"
-      CYCLICAL_SESSION_CLOCK_ENABLED: "${CYCLICAL_SESSION_CLOCK_ENABLED:-true}"
-      CYCLICAL_SESSION_CLOCK_LOOKBACK_DAYS: "${CYCLICAL_SESSION_CLOCK_LOOKBACK_DAYS:-14}"
-      CYCLICAL_MEME_WHISPERS_ENABLED: "${CYCLICAL_MEME_WHISPERS_ENABLED:-true}"
-      CYCLICAL_MEME_WHISPERS_X_ENABLED: "${CYCLICAL_MEME_WHISPERS_X_ENABLED:-true}"
-      CYCLICAL_SOLANA_TRACKER_API_KEY: "${CYCLICAL_SOLANA_TRACKER_API_KEY:-}"
-      CYCLICAL_AXIOM_ENABLED: "${CYCLICAL_AXIOM_ENABLED:-true}"
-      CYCLICAL_AXIOM_INTERVAL_SECONDS: "${CYCLICAL_AXIOM_INTERVAL_SECONDS:-90}"
-      CYCLICAL_AXIOM_TRENDING_PERIOD: "${CYCLICAL_AXIOM_TRENDING_PERIOD:-1h}"
-      CYCLICAL_AXIOM_INCLUDE_CLOSED: "${CYCLICAL_AXIOM_INCLUDE_CLOSED:-true}"
-      CYCLICAL_AXIOM_ACCESS_TOKEN: "${CYCLICAL_AXIOM_ACCESS_TOKEN:-}"
-      CYCLICAL_AXIOM_REFRESH_TOKEN: "${CYCLICAL_AXIOM_REFRESH_TOKEN:-}"
-      CYCLICAL_AXIOM_WALLETS: "${CYCLICAL_AXIOM_WALLETS:-}"
-      CYCLICAL_KAR_DIGITAL_WALLET: "${CYCLICAL_KAR_DIGITAL_WALLET:-}"
-      CYCLICAL_FOMO_TELEGRAM_CHAT_IDS: "${CYCLICAL_FOMO_TELEGRAM_CHAT_IDS:-}"
-      CYCLICAL_COORDINATOR_INTERVAL_SECONDS: "${CYCLICAL_COORDINATOR_INTERVAL_SECONDS:-300}"
-      CYCLICAL_BINANCE_AI_BOT_URL: "${CYCLICAL_BINANCE_AI_BOT_URL:-}"
-      CYCLICAL_BINANCE_AI_BOT_KEY: "${CYCLICAL_BINANCE_AI_BOT_KEY:-}"
-      CYCLICAL_BINANCE_API_KEY: "${CYCLICAL_BINANCE_API_KEY:-}"
-      CYCLICAL_BINANCE_API_SECRET: "${CYCLICAL_BINANCE_API_SECRET:-}"
-      CYCLICAL_BINANCE_AI_BOT_ENABLED: "${CYCLICAL_BINANCE_AI_BOT_ENABLED:-true}"
-      CYCLICAL_BINANCE_AI_BOT_INTERVAL_SECONDS: "${CYCLICAL_BINANCE_AI_BOT_INTERVAL_SECONDS:-120}"
-      CYCLICAL_BINANCE_AI_BOT_DRY_RUN: "${CYCLICAL_BINANCE_AI_BOT_DRY_RUN:-true}"
-      CYCLICAL_BINANCE_AI_BOT_MIRROR_PAPER: "${CYCLICAL_BINANCE_AI_BOT_MIRROR_PAPER:-true}"
-      CYCLICAL_BINANCE_DRIFT_ALERT_PCT: "${CYCLICAL_BINANCE_DRIFT_ALERT_PCT:-15}"
-    volumes:
-      - trader-data:/app/data
-      # Same folder as local Mac uvicorn — portfolio bible survives Docker↔local switches
-      - ./backend/data/baza_portfela:/app/data/baza_portfela
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/health', timeout=5)"]
-      interval: 30s
-      timeout: 8s
-      retries: 5
-      start_period: 40s
+    depends_on:
+      backend:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
-  trader-data:
+  trader-db:
+  portfolio-data:
+  app-cache:

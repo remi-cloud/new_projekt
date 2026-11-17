@@ -42,13 +42,36 @@ Opcjonalnie: `brew install cloudflared` (skrypt też pobierze binary do `.tools/
 
 Smoke po starcie: `./scripts/audit.sh`
 
-### Docker (jeden kontener WWW)
+### Docker
+
+Ten sam `docker compose` działa na **Macu M2 (arm64)** i na serwerze **amd64** (Hetzner). Obrazy bazują na oficjalnych bazach wieloarchitekturowych — Docker sam dobiera wariant procesora. Sekrety (token X, Twilio, klucze API) są tylko w pliku `.env`, nigdy w obrazie. Auto-publikacja na X jest **wyłączona**, dopóki w `.env` nie ustawisz `CYCLICAL_SOCIAL_AUTO_POST=true` i nie zrestartujesz stacku.
+
+Dane trwają w wolumenach: baza i dziennik decyzji (`trader-db`), portfel (`portfolio-data`), cache (`app-cache`).
+
+#### Mac M2 (Apple Silicon, arm64)
+
+Potrzebny [Docker Desktop](https://www.docker.com/products/docker-desktop/). Z katalogu projektu:
 
 ```bash
-docker compose up --build
+cp .env.example .env          # uzupełnij sekrety lokalnie; pliku nie commituj
+docker compose up --build -d  # albo: ./scripts/docker-up.sh
 ```
 
-Otwórz: **http://localhost:8080**
+Strona: **http://localhost:8080**
+
+#### Serwer amd64 (Hetzner)
+
+```bash
+git clone <repo> && cd <repo>
+cp .env.example .env          # tokeny tylko tutaj
+docker compose up --build -d
+```
+
+Otwórz port **8080** (albo postaw Caddy/Nginx z HTTPS przed tym portem). Logi: `docker compose logs -f backend frontend`. Stop: `docker compose down`. Skasowanie danych: `docker compose down -v`.
+
+#### Render (amd64)
+
+Blueprint `render.yaml` buduje jeden kontener z głównego `Dockerfile` (strona i API na porcie, który poda Render). Sekrety ustaw w panelu Render. `CYCLICAL_SOCIAL_AUTO_POST` zostaw `false`.
 
 ### Lokalnie (dev ręcznie)
 
@@ -125,7 +148,8 @@ backend/      FastAPI — API + serwowanie static SPA
   app/api/      routery HTTP (markets, paper, news, ai, …)
   app/main.py   lifespan + rejestracja routerów (~70 linii)
 scripts/      mac-bootstrap / build-www / start
-Dockerfile    Multi-stage: npm build → Python + static
+Dockerfile    Obraz jednokontenerowy (Render): SPA + API
+docker-compose.yml  frontend (nginx) + backend (API), wolumeny danych
 backups/      lokalne snapshoty (gitignore — nie commitować)
 ```
 

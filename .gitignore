@@ -15,10 +15,10 @@ __pycache__/
 .ruff_cache/
 *.egg-info/
 
-# Env & secrets
+# Env & secrets — never commit .env (tokens live only there)
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 *.pem
 
 # App data (runtime)
