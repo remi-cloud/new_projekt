@@ -48,10 +48,10 @@ Smoke: `./scripts/audit.sh http://127.0.0.1:8080`
 
 Proces API to użytkownik `app` (uid 10001), nie root. Entrypoint na starcie jest rootem tylko po to, by na `backend/data/baza_portfela` ustawić zapis dla tego uid i dla właściciela folderu na Macu, potem odpala serwer przez `gosu app`.
 
-Gdy kontener nie może być rootem, a folder należy do innego uid, start kończy się komunikatem. Na hoście:
+Gdy kontener nie może być rootem, a folder należy do innego uid, start kończy się komunikatem. Katalog nie jest zapisywalny dla wszystkich. Na hoście:
 
 ```bash
-chmod -R a+rwX backend/data/baza_portfela
+sudo chown -R 10001:10001 backend/data/baza_portfela
 ```
 
 Potem `docker compose up -d`. Lokalny uvicorn i Docker czytają ten sam `portfolio.db`.
@@ -75,7 +75,18 @@ cp .env.example .env   # uzupełnij sekrety + CYCLICAL_PUBLIC_BASE_URL
 docker compose up --build -d
 ```
 
-Potem reverse proxy (Caddy/Nginx) → `localhost:8080` **albo** Cloudflare tunnel jak w [`DOMAIN-PH.md`](DOMAIN-PH.md).
+HTTPS na własnej domenie, bez tunelu:
+
+```bash
+# w .env
+CYCLICAL_SITE_DOMAIN=kardigital.ph
+CYCLICAL_PUBLIC_BASE_URL=https://kardigital.ph
+docker compose --profile public up --build -d
+```
+
+Caddy (`deploy/Caddyfile`) bierze certyfikat i kieruje ruch na frontend:8080. Porty 80 i 443 muszą być otwarte. Kopia baz poza maszynę: [`BACKUP-OFFSITE.md`](BACKUP-OFFSITE.md).
+
+Albo Cloudflare tunnel jak w [`DOMAIN-PH.md`](DOMAIN-PH.md).
 
 Szczegóły AWS: [`DEPLOY-AWS.md`](DEPLOY-AWS.md).
 

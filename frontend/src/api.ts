@@ -267,7 +267,7 @@ export interface SocialDeskStatus {
   x_configured: boolean
   linkedin_configured: boolean
   auto_min_score?: number
-  auto_max_per_hour?: number
+  auto_max_per_day?: number
 }
 
 export interface SocialDecision {

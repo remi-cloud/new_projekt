@@ -45,7 +45,7 @@ def social_status() -> dict:
         "auto_post": bool(settings.social_auto_post),
         "platforms": social_platforms(),
         "auto_min_score": int(getattr(settings, "social_auto_min_score", 70) or 70),
-        "auto_max_per_hour": int(getattr(settings, "social_auto_max_per_hour", 2) or 2),
+        "auto_max_per_day": int(getattr(settings, "social_auto_max_per_day", 2) or 2),
         "cooldown_minutes": settings.social_cooldown_minutes,
         "max_per_cycle": settings.social_max_per_cycle,
         "public_base_url": public_site_base() or None,
@@ -175,14 +175,13 @@ async def _notify_webhook(record: dict) -> None:
 
 
 async def run_auto_x(items: list[MacroNewsItem], locale: str = "pl") -> dict:
-    """Publish at most the hourly allowance. Logs every whitelist decision."""
+    """Publish at most two posts a day. Logs every whitelist decision."""
     now = datetime.now(timezone.utc)
-    hour_ago = (now - timedelta(hours=1)).isoformat()
     day_ago = (now - timedelta(hours=24)).isoformat()
-    posted = await social_db.count_posted_since("x", hour_ago)
+    posted = await social_db.count_posted_since("x", day_ago)
     topics = await social_db.posted_topic_keys("x", day_ago)
     min_score = int(getattr(settings, "social_auto_min_score", 70) or 70)
-    max_per_hour = int(getattr(settings, "social_auto_max_per_hour", 2) or 2)
+    max_per_day = int(getattr(settings, "social_auto_max_per_day", 2) or 2)
 
     pool: list[MacroNewsItem] = []
     outside = 0
@@ -224,10 +223,10 @@ async def run_auto_x(items: list[MacroNewsItem], locale: str = "pl") -> dict:
             published_at=item.published_at,
             now=now,
             confirming_sources=max(1, len(groups.get(key) or ())),
-            posted_last_hour=posted,
+            posted_last_day=posted,
             recent_topics=topics,
             min_score=min_score,
-            max_per_hour=max_per_hour,
+            max_per_day=max_per_day,
         )
         ranked.append((decision, item))
     ranked.sort(key=lambda pair: pair[0].score, reverse=True)
@@ -235,8 +234,8 @@ async def run_auto_x(items: list[MacroNewsItem], locale: str = "pl") -> dict:
     published = 0
     for decision, item in ranked:
         final = decision
-        if final.action == "publish" and posted + published >= max_per_hour:
-            final = AutoDecision("reject", f"limit {max_per_hour} postów na godzinę", final.score, final.topic)
+        if final.action == "publish" and posted + published >= max_per_day:
+            final = AutoDecision("reject", f"limit {max_per_day} postów na dobę", final.score, final.topic)
         if final.action == "publish" and not x_configured():
             final = AutoDecision("reject", "brak tokenów X", final.score, final.topic)
         if final.action == "publish" and settings.social_dry_run:

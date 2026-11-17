@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+import secrets
 
+from fastapi import APIRouter, HTTPException, Request
+
+from app.config import settings
 from app.news import social_db
 from app.notifications.social_dispatcher import (
     DryRunPublicationBlocked,
@@ -16,16 +19,22 @@ from app.notifications.social_dispatcher import (
 router = APIRouter(tags=["social"])
 
 
+def _require_internal(request: Request) -> None:
+    expected = (settings.internal_api_token or "").strip()
+    supplied = request.headers.get("x-internal-token", "")
+    if not expected or not secrets.compare_digest(supplied, expected):
+        raise HTTPException(status_code=403, detail="Kolejka i dziennik są tylko wewnętrzne.")
+
+
 @router.get("/api/social/status")
 async def get_social_status():
     return social_status()
 
 
 @router.get("/api/social/posts")
-async def get_social_posts(limit: int = 40):
+async def get_social_posts(request: Request, limit: int = 40):
+    _require_internal(request)
     platforms = social_platforms()
-    if not social_status()["dry_run"]:
-        await social_db.promote_ready_posts(platforms)
     posts = await social_db.list_posts(limit=limit)
     posts = [post for post in posts if post.get("platform") in platforms]
     return {"count": len(posts), "posts": posts, "status": social_status()}
@@ -39,8 +48,9 @@ async def published_posts(limit: int = 30):
 
 
 @router.get("/api/social/decisions")
-async def social_decisions(limit: int = 40):
-    """Why the automatic publisher sent or skipped a story."""
+async def social_decisions(request: Request, limit: int = 40):
+    """Why the automatic publisher sent or skipped a story. Internal only."""
+    _require_internal(request)
     return {"decisions": await social_db.list_decisions(limit)}
 
 

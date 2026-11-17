@@ -7,6 +7,13 @@ class Settings(BaseSettings):
     # Lightweight price refresh (batch quotes) — co minutę
     price_poll_interval_seconds: int = 60
 
+    # production hides docs and sends HSTS behind HTTPS. Use dev for local OpenAPI.
+    app_env: str = "production"
+    # Comma-separated browser origins. public_base_url is added when set.
+    cors_origins: str = ""
+    post_rate_limit: int = 120
+    post_rate_window_seconds: int = 60
+
     database_path: str = "data/trader.db"
     portfolio_database_path: str = "data/baza_portfela/portfolio.db"
     coingecko_base_url: str = "https://api.coingecko.com/api/v3"
@@ -135,7 +142,9 @@ class Settings(BaseSettings):
     social_max_per_cycle: int = 2
     # Automatic X posts stay off until CYCLICAL_SOCIAL_AUTO_POST=true.
     social_auto_min_score: int = 70
-    social_auto_max_per_hour: int = 2
+    social_auto_max_per_day: int = 2
+    # Shared secret for the queue and the decision log. Empty keeps both closed.
+    internal_api_token: str = ""
     social_webhook_url: str = ""
     public_base_url: str = ""
     x_api_key: str = ""

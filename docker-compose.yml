@@ -46,6 +46,27 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # Public HTTPS. Start with: docker compose --profile public up -d
+  # Set CYCLICAL_SITE_DOMAIN to the real hostname. Caddy fetches the certificate.
+  proxy:
+    image: caddy:2.10
+    profiles: ["public"]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_DOMAIN: ${CYCLICAL_SITE_DOMAIN:?set CYCLICAL_SITE_DOMAIN}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      frontend:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   trader-db:
   app-cache:
+  caddy-data:
+  caddy-config:

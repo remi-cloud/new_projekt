@@ -5,12 +5,13 @@ set -eu
 
 mkdir -p /data/db /data/portfolio /app/data/news_images /backups
 
-# Shared with local uvicorn: keep the host owner's uid, but let uid 10001 write.
+# Portfolio stays private to uid 10001. No world-writable bits.
 share_portfolio() {
   dir=/data/portfolio
-  chmod a+rwx "$dir" || return 1
-  find "$dir" -type d -exec chmod a+rwx {} +
-  find "$dir" -type f -exec chmod a+rw {} +
+  chown -R app:app "$dir" || return 1
+  chmod 750 "$dir" || return 1
+  find "$dir" -type d -exec chmod 750 {} +
+  find "$dir" -type f -exec chmod 640 {} +
 }
 
 if [ "$(id -u)" = "0" ]; then
@@ -19,8 +20,7 @@ if [ "$(id -u)" = "0" ]; then
     echo "Nie udało się otworzyć zapisu portfela w /data/portfolio." >&2
     exit 1
   fi
-  # New sqlite files stay writable for the Mac user who shares this folder.
-  umask 000
+  umask 027
   exec gosu app "$0" "$@"
 fi
 
@@ -29,11 +29,11 @@ for dir in /data/db /data/portfolio /app/data; do
     owner="$(stat -c '%u:%g' "$dir" 2>/dev/null || echo '?')"
     echo "Katalog $dir należy do uid $owner i nie jest zapisywalny dla uid $(id -u) (app)." >&2
     echo "Aplikacja nie działa jako root. Na hoście ustaw prawa wspólnego portfela:" >&2
-    echo "  chmod -R a+rwX backend/data/baza_portfela" >&2
+    echo "  sudo chown -R 10001:10001 backend/data/baza_portfela" >&2
     echo "Szczegóły: docs/DOCKER.md" >&2
     exit 1
   fi
 done
 
-umask 000
+umask 027
 exec "$@"

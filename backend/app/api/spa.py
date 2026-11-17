@@ -7,7 +7,10 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.http_guard import is_dev
 from app.www_redirects import WWW_REDIRECTS
+
+_CLOSED_DOCS = {"docs", "redoc", "openapi.json"}
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +38,8 @@ def mount_static(app: FastAPI) -> None:
         if full_path.startswith("api"):
             raise HTTPException(status_code=404)
         head = full_path.split("/", 1)[0].lower()
+        if not is_dev() and head in _CLOSED_DOCS:
+            raise HTTPException(status_code=404)
         if head in WWW_REDIRECTS:
             return RedirectResponse(url=WWW_REDIRECTS[head], status_code=307)
 

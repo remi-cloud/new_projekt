@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import register_routers
+from app.http_guard import PostRateLimitMiddleware, SecurityHeadersMiddleware, cors_origin_list, is_dev
 from app.api.news import initial_news
 from app.db.database import init_db
 from app.notifications.alert_engine import alert_engine
@@ -116,20 +117,25 @@ async def lifespan(app: FastAPI):
     stop_scheduler()
 
 
+DOCS_ENABLED = is_dev()
 app = FastAPI(
     title="Cykliczny Trader Kar Digital",
     description="Cykliczny Trader · Kar Digital — cykle rynkowe, śledzenie live, powiadomienia push/SMS",
     version="1.3.0",
     lifespan=lifespan,
+    docs_url="/docs" if DOCS_ENABLED else None,
+    redoc_url="/redoc" if DOCS_ENABLED else None,
+    openapi_url="/openapi.json" if DOCS_ENABLED else None,
 )
 
+app.add_middleware(PostRateLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    # Same-origin SPA + Vite proxy; credentials+wildcard is rejected by browsers.
-    allow_origins=["*"],
+    allow_origins=cors_origin_list(),
     allow_credentials=False,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+app.add_middleware(SecurityHeadersMiddleware)
 
 register_routers(app)
