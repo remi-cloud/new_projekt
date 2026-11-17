@@ -1,0 +1,6 @@
+# Public HTTPS in front of the frontend container.
+# Domain comes from CYCLICAL_SITE_DOMAIN (compose maps it to SITE_DOMAIN).
+{$SITE_DOMAIN} {
+	encode gzip
+	reverse_proxy frontend:8080
+}
