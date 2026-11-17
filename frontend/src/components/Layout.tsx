@@ -5,8 +5,8 @@ import { KarDigitalLogo } from './KarDigitalLogo'
 import { LanguageSwitcher } from './LanguageSwitcher'
 import { SectionTabs } from './SectionTabs'
 import { MOBILE_NAV, NAV_SECTIONS, navActivePath, sectionForPath } from '../constants'
+import { shellTitle } from '../lib/pageTitle'
 import { useLocale } from '../context/LocaleContext'
-import type { TranslationPath } from '../i18n'
 
 interface LayoutProps {
   scannerRunning?: boolean
@@ -15,34 +15,6 @@ interface LayoutProps {
   liveConnected?: boolean
   onScan?: () => Promise<void>
   scanning?: boolean
-}
-
-const NAV_KEYS: Record<string, TranslationPath> = {
-  '/': 'nav.start',
-  '/dashboard': 'nav.panel',
-  '/rynki': 'nav.markets',
-  '/okazje': 'nav.opportunities',
-  '/superokazje': 'nav.super',
-  '/cykle': 'nav.cycles',
-  '/kalkulator': 'nav.calculator',
-  '/live': 'nav.live',
-  '/biznes': 'nav.business',
-  '/partnerzy': 'nav.partners',
-  '/embed': 'nav.embed',
-  '/news': 'nav.news',
-  '/ai-hacking': 'nav.aiHacking',
-  '/radar': 'nav.radar',
-  '/agent': 'nav.agent',
-  '/narzedzia': 'nav.tools',
-  '/narzedzia/singularity': 'nav.singularity',
-  '/narzedzia/astra': 'nav.astra',
-  '/execution': 'nav.execution',
-  '/powiadomienia': 'nav.alerts',
-  '/o-nas': 'nav.about',
-  '/portfel': 'nav.portfolio',
-  '/perly': 'nav.pearls',
-  '/fomo': 'nav.fomo',
-  '/axiom': 'nav.axiom',
 }
 
 function NavSections({ onNavigate }: { onNavigate?: () => void }) {
@@ -83,9 +55,7 @@ export function Layout({ scannerRunning, scanInProgress, liveMode, liveConnected
   const activePath = navActivePath(location.pathname)
   const section = sectionForPath(location.pathname)
   const activeLink = section?.items.find((item) => item.path === activePath)
-  const titleKey: TranslationPath = activeLink?.labelKey
-    ?? (location.pathname.startsWith('/o-nas') ? 'nav.about' : NAV_KEYS[location.pathname] ?? 'nav.start')
-  const pageTitle = t(titleKey)
+  const pageTitle = shellTitle(location.pathname, t)
   const isHome = location.pathname === '/'
 
   useEffect(() => {

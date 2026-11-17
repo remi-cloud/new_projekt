@@ -64,6 +64,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { path: '/perly', labelKey: 'nav.pearls' },
       { path: '/fomo', labelKey: 'nav.fomo' },
       { path: '/axiom', labelKey: 'nav.axiom' },
+      { path: '/launch', labelKey: 'nav.launch' },
     ],
   },
   {

@@ -164,7 +164,19 @@ export function CycleCardBitcoin({ cycle }: { cycle: BitcoinCycleStatus }) {
         </>
       )}
 
-      <p className="cycle-rationale">{cycle.rationale}</p>
+      <p className="cycle-rationale">
+        {t(
+          cycle.phase === 'bear'
+            ? 'cyclesCard.btcRationaleBear'
+            : cycle.phase === 'bull'
+              ? 'cyclesCard.btcRationaleBull'
+              : 'cyclesCard.btcRationaleDistribution',
+          {
+            days: cycle.days_since_ath,
+            end: cycle.phase === 'bear' ? cycle.bear_phase_end_day : cycle.bull_phase_end_day,
+          },
+        )}
+      </p>
     </div>
   )
 }

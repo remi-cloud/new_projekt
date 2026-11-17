@@ -24,6 +24,24 @@ describe('Layout navigation', () => {
     expect(current?.className).toContain('active')
   })
 
+  it('names the desk symbol and a missing page, not the home title', () => {
+    renderAt('/pozycja/BTC-USD')
+    expect(screen.getAllByRole('heading', { name: 'BTC-USD' }).length).toBeGreaterThan(0)
+    expect(screen.queryByRole('heading', { name: 'Start' })).toBeNull()
+  })
+
+  it('uses the symbol on a superokazje deep link', () => {
+    renderAt('/superokazje/ETH-USD')
+    expect(screen.getAllByRole('heading', { name: 'ETH-USD' }).length).toBeGreaterThan(0)
+    expect(screen.queryByRole('heading', { name: 'Rynki' })).toBeNull()
+  })
+
+  it('titles an unknown route as not found', () => {
+    renderAt('/nie-ma-takiej-strony')
+    expect(screen.getAllByRole('heading', { name: 'Strona nie znaleziona' }).length).toBeGreaterThan(0)
+    expect(screen.queryByRole('heading', { name: 'Start' })).toBeNull()
+  })
+
   it('toggles the mobile menu', () => {
     renderAt('/dashboard')
     expect(screen.queryByRole('navigation', { name: 'Menu' })).toBeNull()

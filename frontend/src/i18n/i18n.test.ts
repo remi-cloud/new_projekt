@@ -7,7 +7,7 @@ import { aboutDetailFr } from './aboutDetail/fr'
 import { aboutDetailIt } from './aboutDetail/it'
 import { aboutDetailPl } from './aboutDetail/pl'
 import { ABOUT_TOPIC_SLUGS } from './aboutTopics'
-import { resolveApiMessage } from './utils'
+import { detectLocale, resolveApiMessage, LOCALE_STORAGE_KEY } from './utils'
 
 const aboutBundles = {
   pl: aboutDetailPl,
@@ -27,6 +27,16 @@ function collectKeys(obj: Record<string, unknown>, prefix = ''): string[] {
     return [path]
   })
 }
+
+describe('locale choice', () => {
+  it('stays Polish until the menu stores a language', () => {
+    localStorage.removeItem(LOCALE_STORAGE_KEY)
+    expect(detectLocale()).toBe('pl')
+    localStorage.setItem(LOCALE_STORAGE_KEY, 'en')
+    expect(detectLocale()).toBe('en')
+    localStorage.removeItem(LOCALE_STORAGE_KEY)
+  })
+})
 
 describe('i18n completeness', () => {
   const enKeys = collectKeys(translations.en as unknown as Record<string, unknown>)

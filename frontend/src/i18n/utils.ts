@@ -31,12 +31,7 @@ export function interpolate(str: string, vars?: Record<string, string | number>)
 export function detectLocale(): Locale {
   const stored = localStorage.getItem(LOCALE_STORAGE_KEY) as Locale | null
   if (stored && DATE_LOCALE[stored]) return stored
-  const browser = navigator.language.slice(0, 2)
-  const map: Record<string, Locale> = {
-    pl: 'pl', de: 'de', en: 'en', fil: 'fil', tl: 'fil',
-    es: 'es', fr: 'fr', it: 'it',
-  }
-  return map[browser] ?? 'pl'
+  return 'pl'
 }
 
 export function resolveApiMessage(code: ApiErrorCode, locale?: Locale): string {

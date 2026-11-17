@@ -147,7 +147,9 @@ export function FomoGhostPage() {
           </button>
         </div>
         {status?.last_error && <p className="pearl-agent-error">{status.last_error}</p>}
-        {status?.mode === 'degraded' && <p className="pres-next-term-note">{t('fomo.degradedHint')}</p>}
+        {status?.mode === 'degraded' && (
+          <p className="desk-source-down" role="status">{t('fomo.degradedHint')}</p>
+        )}
         {status?.needs_api_key && status?.mode !== 'degraded' && (
           <p className="pres-next-term-note">{t('fomo.keyHint')}</p>
         )}

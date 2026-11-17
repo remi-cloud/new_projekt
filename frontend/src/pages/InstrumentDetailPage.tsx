@@ -9,7 +9,7 @@ import { ErrorState, Loading } from '../components/Loading'
 import { useDashboardContext } from '../context/DashboardContext'
 import { useLocale } from '../context/LocaleContext'
 import { formatThrownError } from '../i18n/utils'
-import { formatPrice } from '../lib/labels'
+import { formatPrice } from '../utils/format'
 import { positionPath } from '../lib/routes'
 import type { AssetCycleAssessment, SuperOpportunity } from '../types'
 
