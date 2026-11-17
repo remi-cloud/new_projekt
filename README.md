@@ -46,7 +46,9 @@ Smoke po starcie: `./scripts/audit.sh`
 
 Ten sam `docker compose` działa na **Macu M2 (arm64)** i na serwerze **amd64** (Hetzner). Obrazy bazują na oficjalnych bazach wieloarchitekturowych — Docker sam dobiera wariant procesora. Sekrety (token X, Twilio, klucze API) są tylko w pliku `.env`, nigdy w obrazie. Auto-publikacja na X jest **wyłączona**, dopóki w `.env` nie ustawisz `CYCLICAL_SOCIAL_AUTO_POST=true` i nie zrestartujesz stacku.
 
-Dane trwają w wolumenach: baza i dziennik decyzji (`trader-db`), portfel (`portfolio-data`), cache (`app-cache`).
+Baza i dziennik decyzji oraz cache siedzą na wolumenach (`trader-db`, `app-cache`). Portfel to wspólny folder `backend/data/baza_portfela` — ten sam dla Dockera i lokalnego uvicorn. Serwer działa jako uid 10001. Przy starcie entrypoint tylko na chwilę jest rootem, żeby ten folder był zapisywalny, i oddaje proces użytkownikowi `app`. Gdy folder należy do innego uid i nie da się go otworzyć, w logu jest polecenie `chmod -R a+rwX backend/data/baza_portfela`.
+
+Posty na X i bot Binance startują w trybie próbnym (`CYCLICAL_SOCIAL_DRY_RUN` i `CYCLICAL_BINANCE_AI_BOT_DRY_RUN` domyślnie true). Auto-publikacja zostaje wyłączona.
 
 #### Mac M2 (Apple Silicon, arm64)
 

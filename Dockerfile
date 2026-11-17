@@ -38,7 +38,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     CYCLICAL_DATABASE_PATH=/data/db/trader.db \
     CYCLICAL_PORTFOLIO_DATABASE_PATH=/data/portfolio/portfolio.db \
     CYCLICAL_PORTFOLIO_RESTORE_BACKUP=false \
-    CYCLICAL_SOCIAL_AUTO_POST=false
+    CYCLICAL_SOCIAL_AUTO_POST=false \
+    CYCLICAL_SOCIAL_DRY_RUN=true \
+    CYCLICAL_BINANCE_AI_BOT_DRY_RUN=true
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates \
@@ -58,11 +60,12 @@ COPY --from=frontend-build --chown=app:app /src/dist /app/static
 RUN chmod 755 /app/start.sh /app/docker-entrypoint.sh \
     && python -c "import curl_cffi, fastapi, PIL, uvicorn"
 
-USER app
+# Entrypoint starts as root only to open the shared portfolio folder, then
+# execs the server as uid 10001.
 EXPOSE 8080
 
 HEALTHCHECK --interval=15s --timeout=5s --start-period=60s --retries=5 \
-    CMD python -c "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/api/health' % os.environ.get('PORT','8080'), timeout=4)"
+    CMD gosu app python -c "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/api/health' % os.environ.get('PORT','8080'), timeout=4)"
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["/app/start.sh"]

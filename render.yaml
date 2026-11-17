@@ -10,3 +10,7 @@ services:
         value: 15
       - key: CYCLICAL_SOCIAL_AUTO_POST
         value: "false"
+      - key: CYCLICAL_SOCIAL_DRY_RUN
+        value: "true"
+      - key: CYCLICAL_BINANCE_AI_BOT_DRY_RUN
+        value: "true"

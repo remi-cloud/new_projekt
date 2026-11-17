@@ -18,13 +18,15 @@ services:
       CYCLICAL_DATABASE_PATH: /data/db/trader.db
       CYCLICAL_PORTFOLIO_DATABASE_PATH: /data/portfolio/portfolio.db
       CYCLICAL_PORTFOLIO_RESTORE_BACKUP: "false"
-      # Domyślnie wyłączone także wtedy, gdy .env nie ustawia tej zmiennej.
+      # Domyślnie wyłączone. .env może nadpisać każdą z tych wartości.
       CYCLICAL_SOCIAL_AUTO_POST: "${CYCLICAL_SOCIAL_AUTO_POST:-false}"
+      CYCLICAL_SOCIAL_DRY_RUN: "${CYCLICAL_SOCIAL_DRY_RUN:-true}"
+      CYCLICAL_BINANCE_AI_BOT_DRY_RUN: "${CYCLICAL_BINANCE_AI_BOT_DRY_RUN:-true}"
     volumes:
       # Baza SQLite: alerty, newsy i dziennik decyzji (tabela social_decisions).
       - trader-db:/data/db
-      # Portfel papierowy, snapshot i ledger.
-      - portfolio-data:/data/portfolio
+      # Ten sam folder co lokalny uvicorn na Macu (backend/data/baza_portfela).
+      - ./backend/data/baza_portfela:/data/portfolio
       # Cache notowań, grafiki newsów i pliki pomocnicze.
       - app-cache:/app/data
     expose:
@@ -46,5 +48,4 @@ services:
 
 volumes:
   trader-db:
-  portfolio-data:
   app-cache:

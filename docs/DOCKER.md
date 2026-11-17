@@ -1,6 +1,6 @@
 # Docker — Cyclical Trader · Kar Digital
 
-Dwa kontenery: **frontend** (strona na porcie **8080**) i **backend** (API). Baza, dziennik decyzji i cache są na wolumenach (przeżywają restart). Auto-publikacja na X jest wyłączona, dopóki `CYCLICAL_SOCIAL_AUTO_POST=true`.
+Dwa kontenery: **frontend** (strona na porcie **8080**) i **backend** (API). Baza, dziennik decyzji i cache są na wolumenach. Portfel jest bind-mountem tego samego folderu co lokalny uvicorn. Auto-publikacja na X jest wyłączona. Posty i bot Binance są w trybie próbnym, dopóki w `.env` nie ustawisz `CYCLICAL_SOCIAL_DRY_RUN=false` albo `CYCLICAL_BINANCE_AI_BOT_DRY_RUN=false`.
 
 ## Wymagania
 
@@ -36,13 +36,25 @@ Smoke: `./scripts/audit.sh http://127.0.0.1:8080`
 
 ## Volume’y (pamięć)
 
-| Volume | Ścieżka w kontenerze | Co trzyma |
-|--------|----------------------|-----------|
+| Volume / mount | Ścieżka w kontenerze | Co trzyma |
+|----------------|----------------------|-----------|
 | `trader-db` | `/data/db` | `trader.db` — alerty, newsy i **dziennik decyzji** (`social_decisions`) |
-| `portfolio-data` | `/data/portfolio` | paper `portfolio.db`, snapshot, **ledger/** |
+| `./backend/data/baza_portfela` | `/data/portfolio` | paper `portfolio.db`, snapshot, **ledger/** — ten sam folder co lokalny uvicorn |
 | `app-cache` | `/app/data` | cache notowań, grafiki newsów |
 
-Wolumeny są w Dockerze (Mac i serwer tak samo). Lokalny uvicorn bez Dockera nadal trzyma portfel w `backend/data/baza_portfela/`.
+`docker compose down -v` kasuje wolumeny bazy i cache. Folder portfela na dysku zostaje.
+
+### Prawa portfela (uid 10001)
+
+Proces API to użytkownik `app` (uid 10001), nie root. Entrypoint na starcie jest rootem tylko po to, by na `backend/data/baza_portfela` ustawić zapis dla tego uid i dla właściciela folderu na Macu, potem odpala serwer przez `gosu app`.
+
+Gdy kontener nie może być rootem, a folder należy do innego uid, start kończy się komunikatem. Na hoście:
+
+```bash
+chmod -R a+rwX backend/data/baza_portfela
+```
+
+Potem `docker compose up -d`. Lokalny uvicorn i Docker czytają ten sam `portfolio.db`.
 
 ## Produkcja — domena .ph (zalecane na Mac + Docker)
 
