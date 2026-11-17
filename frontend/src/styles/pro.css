@@ -282,3 +282,16 @@
   font-size: 0.68rem;
   letter-spacing: 0.02em;
 }
+
+.super-card.deep-focus {
+  outline: 1px solid var(--accent-gold);
+  scroll-margin-top: 24px;
+}
+
+.desk-source-down {
+  margin: 0 0 var(--space-4);
+  padding: 12px 14px;
+  border: 1px solid var(--border-gold);
+  color: var(--text-primary);
+  background: rgba(184, 151, 90, 0.08);
+}

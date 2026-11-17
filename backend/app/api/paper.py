@@ -54,11 +54,11 @@ async def paper_trades_for_symbol(symbol: str, limit: int = 200):
     return [PaperTradeView(**r) for r in rows]
 
 
-@router.get("/api/paper/position/{symbol:path}", response_model=PaperPositionView)
+@router.get("/api/paper/position/{symbol:path}", response_model=PaperPositionView | None)
 async def paper_position(symbol: str):
     pos = await get_position_for_symbol(symbol)
     if not pos:
-        raise HTTPException(status_code=404, detail="Brak otwartej pozycji")
+        return None
     return PaperPositionView(**pos)
 
 

@@ -39,7 +39,13 @@ export function CycleCardRegional({ cycle }: { cycle: RegionalCycleSnapshot }) {
       <div className="progress-bar">
         <div className="progress-fill neutral" style={{ width: `${cycle.buy_weight * 100}%` }} />
       </div>
-      <p className="cycle-rationale">{cycle.rationale}</p>
+      <p className="cycle-rationale">
+        {t('cyclesCard.regionalSummary', {
+          region: cycle.region_label,
+          phase: phase(cycle.phase),
+          weight: Math.round(cycle.buy_weight * 100),
+        })}
+      </p>
     </div>
   )
 }

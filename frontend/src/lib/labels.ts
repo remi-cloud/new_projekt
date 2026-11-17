@@ -1,4 +1,4 @@
-import type { AssetClass, SignalAction } from '../types'
+import type { SignalAction } from '../types'
 
 export type SignalDirection = 'long' | 'short' | 'neutral'
 
@@ -43,13 +43,6 @@ export const MODEL_LABELS: Record<string, string> = {
 
 export function formatModel(source: string): string {
   return MODEL_LABELS[source] ?? source
-}
-
-export function formatPrice(price: number, assetClass?: AssetClass | string): string {
-  if (assetClass === 'forex') return price.toFixed(4)
-  if (price >= 1000) return price.toLocaleString('en-US', { maximumFractionDigits: 0 })
-  if (price >= 1) return price.toFixed(2)
-  return price.toFixed(4)
 }
 
 export function formatSignal(action: string): string {

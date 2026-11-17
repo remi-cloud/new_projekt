@@ -4,12 +4,15 @@ import { fetchSuperOpportunities, fetchSuperOpportunity, triggerScan } from '../
 import { AskAgentButton } from '../components/AskAgentButton'
 import { CommunityActions } from '../components/CommunityActions'
 import LiquidationHeatmapBar from '../components/LiquidationHeatmap'
-import LoadingState, { ErrorState } from '../components/LoadingState'
+import { ErrorState, Loading } from '../components/Loading'
 import { QuickTradeButtons } from '../components/QuickTradeButtons'
 import SignalTag from '../components/SignalTag'
 import SingularityTool from '../components/SingularityTool'
-import { ASSET_LABELS, formatDirection, formatPrice } from '../lib/labels'
+import { useLocale } from '../context/LocaleContext'
+import { focusedSymbol, focusMatches } from '../lib/focusSymbol'
+import { ASSET_LABELS, formatDirection } from '../lib/labels'
 import { positionPath } from '../lib/routes'
+import { formatPrice } from '../utils/format'
 import { SuperOpportunity, SuperOpportunitiesResponse } from '../types'
 
 async function mapPool<T, R>(
@@ -37,6 +40,7 @@ function heatmapHasData(hm: SuperOpportunity['heatmap'] | undefined | null): boo
 }
 
 export default function SuperOpportunitiesPage() {
+  const { t } = useLocale()
   const { symbol: routeSymbol } = useParams()
   const focusSymbol = routeSymbol ? decodeURIComponent(routeSymbol) : null
 
@@ -61,11 +65,11 @@ export default function SuperOpportunitiesPage() {
       for (const item of res.items) seed[item.symbol.toUpperCase()] = item
       setBySymbol(seed)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Nie udało się pobrać superokazji')
+      setError(e instanceof Error ? e.message : t('superDesk.fetchError'))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     load()
@@ -125,17 +129,27 @@ export default function SuperOpportunitiesPage() {
     if (sideFilter !== 'all') {
       pool = pool.filter((i) => i.levels.side === sideFilter)
     }
-    return pool.map((item) => bySymbol[item.symbol.toUpperCase()] ?? item)
-  }, [data, onlySuper, sideFilter, bySymbol])
+    const rows = pool.map((item) => bySymbol[item.symbol.toUpperCase()] ?? item)
+    if (focusSymbol) {
+      const hit = data.items.find((item) => focusMatches(focusSymbol, item.symbol))
+      if (hit && !rows.some((item) => item.symbol.toUpperCase() === hit.symbol.toUpperCase())) {
+        rows.unshift(bySymbol[hit.symbol.toUpperCase()] ?? hit)
+      }
+    }
+    return rows
+  }, [data, onlySuper, sideFilter, bySymbol, focusSymbol])
+
+  const matched = focusedSymbol(focusSymbol, list.map((item) => item.symbol))
+    ?? focusedSymbol(focusSymbol, (data?.items ?? []).map((item) => item.symbol))
 
   useEffect(() => {
-    if (!focusSymbol || !list.length) return
-    const el = document.getElementById(`pozycja-${focusSymbol}`)
-    el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }, [focusSymbol, list])
+    if (!matched) return
+    const el = document.getElementById(`pozycja-${matched}`)
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [matched, list.length])
 
   if (loading) {
-    return <LoadingState message="Liczenie superokazji (bid/ask + heatmapa liq)…" />
+    return <Loading message={t('superDesk.loading')} />
   }
   if (error && !data) return <ErrorState message={error} onRetry={load} />
   if (!data) return null
@@ -144,11 +158,11 @@ export default function SuperOpportunitiesPage() {
     <div className="page super-page">
       <div className="page-header">
         <div>
-          <h1>Superokazje</h1>
+          <h1>{t('superDesk.title')}</h1>
           <p className="page-lead">
-            Heatmapa likwidacji jest na <strong>każdej</strong> pozycji (IN / SL / TP + liq).{' '}
-            {hydrating ? 'Dociąganie pełnej mapy 3D…' : null}
-            Singularity: <Link to="/narzedzia">Narzędzia</Link>.
+            {t('superDesk.lead')}{' '}
+            {hydrating ? t('superDesk.hydrating') : null}{' '}
+            {t('superDesk.singularity')}: <Link to="/narzedzia">{t('superDesk.tools')}</Link>.
           </p>
         </div>
         <div className="page-actions">
@@ -158,12 +172,12 @@ export default function SuperOpportunitiesPage() {
               checked={onlySuper}
               onChange={(e) => setOnlySuper(e.target.checked)}
             />
-            Tylko SUPER (≥72)
+            {t('superDesk.onlySuper')}
           </label>
           <div className="filter-chips">
             {(
               [
-                ['all', 'Wszystkie'],
+                ['all', t('superDesk.all')],
                 ['long', 'LONG'],
                 ['short', 'SHORT'],
               ] as const
@@ -192,10 +206,10 @@ export default function SuperOpportunitiesPage() {
               }
             }}
           >
-            Przeskanuj
+            {t('superDesk.scan')}
           </button>
           <button className="btn btn-primary" type="button" onClick={load} disabled={busy}>
-            Odśwież obliczenia
+            {t('superDesk.refresh')}
           </button>
         </div>
       </div>
@@ -205,7 +219,7 @@ export default function SuperOpportunitiesPage() {
       <div className="super-stats">
         <div className="home-stat">
           <strong>{data.super_count}</strong>
-          <span>superokazji</span>
+          <span>{t('superDesk.countSuper')}</span>
         </div>
         <div className="home-stat">
           <strong className="pos">{data.long_count ?? '—'}</strong>
@@ -217,19 +231,19 @@ export default function SuperOpportunitiesPage() {
         </div>
         <div className="home-stat">
           <strong>{list.length}</strong>
-          <span>pozycji z heatmapą</span>
+          <span>{t('superDesk.countHeat')}</span>
         </div>
       </div>
 
       {list.length === 0 ? (
-        <p className="empty">Brak pozycji. Odznacz filtr SUPER albo uruchom skan.</p>
+        <p className="empty">{t('superDesk.empty')}</p>
       ) : (
         <div className="super-feed">
           {list.map((item) => (
             <PositionCard
               key={item.symbol}
               item={item}
-              focused={focusSymbol?.toUpperCase() === item.symbol.toUpperCase()}
+              focused={focusMatches(focusSymbol, item.symbol)}
               hydrateFailed={!!hydrateFailed[item.symbol.toUpperCase()]}
             />
           ))}
@@ -252,7 +266,7 @@ function PositionCard({
   return (
     <article
       id={`pozycja-${item.symbol}`}
-      className={`super-card super-feed-card${focused ? ' active' : ''}${item.is_super ? ' is-super' : ''}`}
+      className={`super-card super-feed-card${focused ? ' active deep-focus' : ''}${item.is_super ? ' is-super' : ''}`}
     >
       <div className="super-card-head">
         <div>

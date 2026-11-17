@@ -50,6 +50,7 @@ const SuperOpportunitiesPage = lazy(() => import('./pages/SuperOpportunitiesPage
 const ToolsPage = lazy(() => import('./pages/ToolsPage'))
 const AstraMathPage = lazy(() => import('./pages/AstraMathPage'))
 const AgentsPage = lazy(() => import('./pages/AgentsPage'))
+const LaunchScoutPage = lazy(() => import('./pages/LaunchScoutPage').then((m) => ({ default: m.LaunchScoutPage })))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })))
 
 function PageSuspense() {
@@ -121,7 +122,7 @@ export default function App() {
                 <Route path="axiom" element={<AxiomPage />} />
                 <Route path="ai-hacking" element={<AiHackingPage />} />
                 <Route path="radar" element={<RadarPage />} />
-                <Route path="launch" element={<Navigate to="/ai-hacking" replace />} />
+                <Route path="launch" element={<LaunchScoutPage />} />
                 <Route path="execution" element={<ExecutionAgentPage />} />
                 <Route path="portfel" element={<PortfolioPage />} />
                 <Route path="rynki" element={<MarketsPage />} />

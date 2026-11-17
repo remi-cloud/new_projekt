@@ -4,7 +4,7 @@ export type Locale = 'pl' | 'de' | 'en' | 'fil' | 'es' | 'fr' | 'it'
 
 export interface Translations {
   lang: Record<Locale, string>
-  nav: Record<'start' | 'panel' | 'markets' | 'opportunities' | 'pearls' | 'fomo' | 'axiom' | 'aiHacking' | 'radar' | 'cycles' | 'news' | 'alerts' | 'about' | 'portfolio' | 'agent' | 'calculator' | 'live' | 'business' | 'partners' | 'embed' | 'growth' | 'execution' | 'super' | 'tools' | 'toolsCatalog' | 'singularity' | 'astra' | 'sectionMarket' | 'scanner' | 'sectionCycles' | 'sectionNews' | 'sectionAi' | 'sectionAgent' | 'sectionAccount', string>
+  nav: Record<'start' | 'panel' | 'markets' | 'opportunities' | 'pearls' | 'fomo' | 'axiom' | 'launch' | 'aiHacking' | 'radar' | 'cycles' | 'news' | 'alerts' | 'about' | 'portfolio' | 'agent' | 'calculator' | 'live' | 'business' | 'partners' | 'embed' | 'growth' | 'execution' | 'super' | 'tools' | 'toolsCatalog' | 'singularity' | 'astra' | 'sectionMarket' | 'scanner' | 'sectionCycles' | 'sectionNews' | 'sectionAi' | 'sectionAgent' | 'sectionAccount', string>
   tools: {
     eyebrow: string
     title: string
@@ -235,6 +235,9 @@ export interface Translations {
   pearl: Record<string, string>
   fomo: Record<string, string>
   axiom: Record<string, string>
+  superDesk: Record<string, string>
+  radarPage: Record<string, string>
+  launchPage: Record<string, string>
   execution: Record<string, string>
   aiHacking: Record<'loading' | 'loadError', string>
   agent: {

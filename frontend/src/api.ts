@@ -1358,3 +1358,32 @@ export async function fetchWhaleFlows(force = false): Promise<{
   if (!res.ok) await throwApiError(res, 'noData')
   return res.json()
 }
+
+export type LaunchCandidate = {
+  symbol: string
+  name?: string
+  tier?: string
+  chain?: string
+  mint?: string
+  pair?: string
+  market_cap?: number | null
+}
+
+export type LaunchStatus = {
+  enabled?: boolean
+  last_error?: string | null
+  last_tick_at?: string | null
+  counts?: Record<string, number>
+}
+
+export async function fetchLaunchStatus(): Promise<LaunchStatus> {
+  const res = await fetch(`${API_BASE}/launch/status`)
+  if (!res.ok) await throwApiError(res, 'noData')
+  return res.json()
+}
+
+export async function fetchLaunchCandidates(tier = 'seed'): Promise<{ candidates: LaunchCandidate[] }> {
+  const res = await fetch(`${API_BASE}/launch/candidates?tier=${encodeURIComponent(tier)}&limit=40`)
+  if (!res.ok) await throwApiError(res, 'noData')
+  return res.json()
+}

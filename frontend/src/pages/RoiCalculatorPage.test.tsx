@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as api from '../api'
 import { LocaleProvider } from '../context/LocaleContext'
+import { LOCALE_STORAGE_KEY } from '../i18n'
 import type { RoiAssetInfo, RoiCalculateResult } from '../types'
 import { RoiCalculatorPage } from './RoiCalculatorPage'
 
@@ -66,6 +67,7 @@ function mockResult(symbol: string, name: string): RoiCalculateResult {
 }
 
 function renderPage(initialEntry = '/kalkulator?mode=backtest&symbol=BTC-USD') {
+  localStorage.setItem(LOCALE_STORAGE_KEY, 'en')
   return render(
     <LocaleProvider>
       <MemoryRouter initialEntries={[initialEntry]}>

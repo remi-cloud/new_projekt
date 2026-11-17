@@ -56,6 +56,9 @@ export type TranslationPath =
   | `chart.${keyof Translations['chart']}`
   | `confidence.${keyof Translations['confidence']}`
   | `cyclesCard.${keyof Translations['cyclesCard']}`
+  | `superDesk.${keyof Translations['superDesk']}`
+  | `radarPage.${keyof Translations['radarPage']}`
+  | `launchPage.${keyof Translations['launchPage']}`
   | `table.${keyof Translations['table']}`
   | `orders.${keyof Translations['orders']}`
   | `positions.${keyof Translations['positions']}`

@@ -20,6 +20,12 @@ def _quote(symbol: str = "AAPL", price: float = 150.0) -> AssetQuote:
     )
 
 
+def test_missing_paper_position_is_empty(client):
+    r = client.get("/api/paper/position/BTC-USD")
+    assert r.status_code == 200
+    assert r.json() is None
+
+
 def test_paper_portfolio_get(client):
     r = client.get("/api/paper/portfolio")
     assert r.status_code == 200

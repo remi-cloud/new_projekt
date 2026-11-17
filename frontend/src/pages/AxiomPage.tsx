@@ -118,7 +118,9 @@ export function AxiomPage() {
             {running ? t('axiom.running') : t('axiom.runNow')}
           </button>
         </div>
-        {status?.last_error && <p className="pearl-agent-error">{status.last_error}</p>}
+        {(status?.last_error || status?.enabled === false) && (
+          <p className="desk-source-down" role="status">{t('axiom.deskDown')}</p>
+        )}
         <p className="pres-next-term-note">
           {status?.axiom_auth ? t('axiom.authOn') : t('axiom.authOff')}
           {status?.wallets_tracked

@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 import logging
 import re
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 from email.utils import parsedate_to_datetime
 from xml.etree import ElementTree
 
@@ -695,16 +697,81 @@ async def _fresh_display(
     return picked[:limit]
 
 
-async def refresh_macro_news() -> tuple[MacroNewsFeed, list[MacroNewsItem]]:
-    """Refresh cache; returns (feed, live_items_before_dedup_for_alerts)."""
-    global _cache, _pool
-    raw_items: list[dict] = []
+def _news_snapshot_path() -> Path:
+    raw = Path(settings.database_path)
+    if not raw.is_absolute():
+        raw = Path.cwd() / raw
+    return raw.parent / "macro_news_snapshot.json"
 
-    async with httpx.AsyncClient(timeout=20, headers=HTTP_HEADERS) as client:
-        tasks = [_fetch_one_feed(client, url, source, cat) for url, source, cat in RSS_SOURCES]
-        results = await asyncio.gather(*tasks)
+
+def _save_news_snapshot(feed: MacroNewsFeed) -> None:
+    try:
+        path = _news_snapshot_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(feed.model_dump_json(), encoding="utf-8")
+    except OSError as exc:
+        logger.warning("News snapshot write failed: %s", exc)
+
+
+def _load_news_snapshot() -> MacroNewsFeed | None:
+    path = _news_snapshot_path()
+    if not path.is_file():
+        return None
+    try:
+        return MacroNewsFeed.model_validate(json.loads(path.read_text(encoding="utf-8")))
+    except (OSError, ValueError) as exc:
+        logger.warning("News snapshot read failed: %s", exc)
+        return None
+
+
+def _slice_feed(feed: MacroNewsFeed, category: str | None, limit: int) -> MacroNewsFeed:
+    items = list(feed.items)
+    if category and category != "all":
+        items = [item for item in items if item.category == category]
+    return feed.model_copy(update={"items": items[:limit]})
+
+
+_refresh_state: dict[str, asyncio.Task | None] = {"task": None}
+
+
+def _schedule_full_refresh() -> None:
+    task = _refresh_state["task"]
+    if task is not None and not task.done():
+        return
+    _refresh_state["task"] = asyncio.create_task(refresh_macro_news())
+
+
+async def _collect_feed_rows(wait_s: float | None) -> list[dict]:
+    raw_items: list[dict] = []
+    client_timeout = 8 if wait_s else 20
+    async with httpx.AsyncClient(timeout=client_timeout, headers=HTTP_HEADERS) as client:
+        tasks = [
+            asyncio.create_task(_fetch_one_feed(client, url, source, cat))
+            for url, source, cat in RSS_SOURCES
+        ]
+        if wait_s is None:
+            results = await asyncio.gather(*tasks)
+        else:
+            done, pending = await asyncio.wait(tasks, timeout=wait_s)
+            for task in pending:
+                task.cancel()
+            if pending:
+                await asyncio.gather(*pending, return_exceptions=True)
+            results = []
+            for task in done:
+                try:
+                    results.append(task.result())
+                except (httpx.HTTPError, OSError, asyncio.CancelledError):
+                    results.append([])
         for batch in results:
             raw_items.extend(batch)
+    return raw_items
+
+
+async def refresh_macro_news(wait_s: float | None = None) -> tuple[MacroNewsFeed, list[MacroNewsItem]]:
+    """Refresh cache; returns (feed, live_items_before_dedup_for_alerts)."""
+    global _cache, _pool
+    raw_items = await _collect_feed_rows(wait_s)
 
     now = datetime.now(timezone.utc)
     max_age = timedelta(hours=settings.news_fresh_hours)
@@ -785,6 +852,7 @@ async def refresh_macro_news() -> tuple[MacroNewsFeed, list[MacroNewsItem]]:
     async with _cache_lock:
         _pool = news
         _cache = feed
+    _save_news_snapshot(feed)
     logger.info(
         "Macro news: %d pool / %d display (%d last 1h) from %d feeds",
         len(news),
@@ -801,9 +869,13 @@ async def get_macro_news(category: str | None = None, limit: int = 50, locale: s
         cached = _cache
         pool = list(_pool)
     if cached is None or not pool:
-        cached, _ = await refresh_macro_news()
-        async with _cache_lock:
-            pool = list(_pool)
+        snap = _load_news_snapshot()
+        if snap is not None and snap.items:
+            _schedule_full_refresh()
+            return _slice_feed(snap, category, limit)
+        feed, _pool_items = await refresh_macro_news(wait_s=2.5)
+        _schedule_full_refresh()
+        return _slice_feed(feed, category, limit)
 
     cat: MacroNewsCategory | None = None
     if category and category != "all":

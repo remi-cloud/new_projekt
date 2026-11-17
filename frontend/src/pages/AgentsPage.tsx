@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { fetchAgentsReport, triggerScan } from '../api'
-import LoadingState, { ErrorState } from '../components/LoadingState'
+import { ErrorState, Loading } from '../components/Loading'
 import { positionPath } from '../lib/routes'
 import type { AgentScoutInfo, AgentsReport, AgentVerdictInfo } from '../types'
 
@@ -161,7 +161,7 @@ export default function AgentsPage() {
     }
   }
 
-  if (loading) return <LoadingState message="Budzenie Singularity…" />
+  if (loading) return <Loading message="Singularity…" />
   if (error && !data) return <ErrorState message={error} onRetry={load} />
   if (!data) return null
 

@@ -130,28 +130,34 @@ export function MacroNewsPage() {
   })
 
   useEffect(() => {
-    setLoading(true)
     let cancelled = false
+    setLoading(true)
     ;(async () => {
       try {
-        // Force wire refresh on first paint so feed is never stale ideology cache.
-        const data = await refreshMacroNews(locale)
+        const data = await fetchMacroNews(tab === 'all' ? undefined : tab, 24, locale)
         if (!cancelled) {
           setFeed(data)
           setError(null)
+          setLoading(false)
         }
       } catch {
-        if (!cancelled) await load(tab)
+        if (!cancelled) {
+          setError(t('macro.errors.fetchNews'))
+          setLoading(false)
+        }
         return
-      } finally {
-        if (!cancelled) setLoading(false)
       }
-      if (!cancelled) await load(tab, true)
+      try {
+        const fresh = await refreshMacroNews(locale)
+        if (!cancelled) setFeed(fresh)
+      } catch {
+        if (!cancelled) await load(tab, true)
+      }
     })()
     return () => {
       cancelled = true
     }
-  }, [tab, load, locale])
+  }, [tab, load, locale, t])
 
   useEffect(() => {
     if (connected) return
