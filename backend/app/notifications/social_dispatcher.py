@@ -11,6 +11,7 @@ from app.models.schemas import MacroNewsItem
 from app.news import social_db
 from app.news.image_agent import image_file_path
 from app.news.social_composer import compose_for_platforms, compose_x
+from app.news.google_news_urls import ensure_clickable_url, is_google_news_url
 from app.news.x_auto import (
     AutoDecision,
     assert_post_has_source,
@@ -171,6 +172,11 @@ async def run_auto_x(items: list[MacroNewsItem], locale: str = "pl") -> dict:
     pool: list[MacroNewsItem] = []
     outside = 0
     for item in items:
+        url = item.url or ""
+        if is_google_news_url(url):
+            resolved = await ensure_clickable_url(url, item.title)
+            if resolved and not is_google_news_url(resolved) and "news.google.com/" not in resolved:
+                item = item.model_copy(update={"url": resolved})
         if is_whitelisted(item.source, item.url):
             pool.append(item)
         else:

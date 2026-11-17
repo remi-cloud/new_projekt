@@ -35,6 +35,14 @@ _WEIGHT_WORDS = (
     "cpi", "inflation", "recession", "default", "sanction", "opec",
     "ecb", "gdp", "payroll", "ceasefire", "tariff",
 )
+# Word boundaries so "war" does not match "warning".
+_GLOBAL_HOT = re.compile(
+    r"\b(war|wars|invasion|missile|missiles|election|elections|"
+    r"sanction|sanctions|censorship|digital services act|dsa|"
+    r"artificial intelligence|cyberattack|cyber attack|cyber-attack|"
+    r"disaster|earthquake|tsunami|wildfire|flood|floods)\b",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -113,7 +121,7 @@ def score_item(
         fresh = 0
     confirms = min(3, max(0, confirming_sources)) * 15
     blob = f"{title} {summary or ''}".lower()
-    weight = 20 if any(word in blob for word in _WEIGHT_WORDS) else 0
+    weight = 20 if any(word in blob for word in _WEIGHT_WORDS) or _GLOBAL_HOT.search(blob) else 0
     if (impact or "").lower() == "high":
         weight += 25
     if category in {"fed", "macro"}:

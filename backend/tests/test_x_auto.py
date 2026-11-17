@@ -45,6 +45,11 @@ def test_whitelist_allows_named_outlets_and_blocks_the_rest():
     assert not is_whitelisted("BBC Business", None)
     assert is_whitelisted("BBC Business", "https://www.bbc.co.uk/news/business-1")
     assert is_whitelisted("Federal Reserve", "https://www.federalreserve.gov/newsevents.htm")
+    assert is_whitelisted("Al Jazeera", "https://www.aljazeera.com/news/story")
+    assert is_whitelisted("Kyodo", "https://english.kyodonews.net/news/story")
+    assert is_whitelisted("WHO", "https://www.who.int/news/item/1")
+    assert not is_whitelisted("Fox News · Politics", "https://www.foxnews.com/politics/x")
+    assert not is_whitelisted("ZeroHedge", "https://www.zerohedge.com/markets/x")
     assert is_whitelisted("Desk", "https://www.reuters.com/world/story")
     assert not is_whitelisted("Electrek", "https://electrek.co/2026/11/17/story")
     assert not is_whitelisted("ZeroHedge", "https://news.google.com/rss/articles/zh")
@@ -87,10 +92,66 @@ def test_two_per_hour_and_duplicate_topic_reject():
     assert duplicate.reason == "duplikat tematu"
 
 
+def test_global_hot_topic_adds_weight_without_matching_warning():
+    cold_kwargs = dict(
+        impact="low",
+        category="global",
+        published_at=_now() - timedelta(hours=8),
+        now=_now(),
+        confirming_sources=1,
+    )
+    war = score_item(
+        title="Missile strike widens the war",
+        summary="Sanctions follow the election.",
+        **cold_kwargs,
+    )
+    warning = score_item(
+        title="Weather warning issued",
+        summary="A quiet advisory.",
+        **cold_kwargs,
+    )
+    assert war - warning == 20
+
+
 def test_unconfirmed_single_source_is_rejected():
     decision = _decide(title="Fed holds rates, sources say, unconfirmed")
     assert decision.action == "reject"
     assert "niepotwierdzone" in decision.reason
+
+
+@pytest.mark.asyncio
+async def test_auto_unwraps_google_news_to_publisher_host():
+    from unittest.mock import patch
+
+    from app.models.schemas import MacroNewsItem
+    from app.news.social_db import init_social_db, list_decisions
+    from app.notifications import social_dispatcher as sd
+
+    await init_social_db()
+    item = MacroNewsItem(
+        id="unwrap-reuters-1",
+        title="Fed holds rates as inflation stays sticky",
+        summary="The Federal Reserve left interest rates unchanged.",
+        url="https://news.google.com/rss/articles/CBMiTestUnwrap",
+        source="Reuters",
+        category="fed",
+        impact="high",
+        published_at=_now(),
+    )
+
+    async def _unwrap(url, title=""):
+        return "https://www.reuters.com/world/fed-holds"
+
+    with (
+        patch.object(sd, "ensure_clickable_url", new=_unwrap),
+        patch.object(sd, "x_configured", return_value=False),
+    ):
+        await sd.run_auto_x([item])
+    rows = await list_decisions(10)
+    mine = [row for row in rows if row["news_id"] == "unwrap-reuters-1"]
+    assert mine
+    assert mine[0]["action"] == "odrzucono"
+    assert "tokenów" in mine[0]["reason"]
 
 
 def test_outside_whitelist_never_publishes():
