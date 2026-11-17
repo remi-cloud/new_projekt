@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { API_BASE } from '../api'
+import { API_BASE, apiFetch } from '../api'
 import { ApiError } from '../i18n/apiErrors'
 
 export interface LiveEvent {
@@ -76,7 +76,7 @@ export async function subscribeToPush(vapidPublicKey: string): Promise<boolean> 
     applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
   })
   const json = sub.toJSON()
-  const res = await fetch(`${API_BASE}/notifications/push/subscribe`, {
+  const res = await apiFetch(`${API_BASE}/notifications/push/subscribe`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ endpoint: json.endpoint, keys: json.keys }),

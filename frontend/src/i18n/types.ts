@@ -73,7 +73,7 @@ export interface Translations {
       { math: string; finance: string; market: string }
     >
   }
-  layout: Record<'scan' | 'scanning' | 'scanDone' | 'scanError' | 'statusScan' | 'statusLive' | 'statusOnline' | 'statusOffline' | 'language' | 'loading' | 'brand' | 'navMain' | 'navMobile' | 'autoRefresh' | 'notFoundTitle' | 'notFoundLead' | 'notFoundHome' | 'skip' | 'menu' | 'menuClose', string>
+  layout: Record<'scan' | 'scanning' | 'scanDone' | 'scanError' | 'statusScan' | 'statusLive' | 'statusOnline' | 'statusOffline' | 'language' | 'loading' | 'brand' | 'navMain' | 'navMobile' | 'autoRefresh' | 'notFoundTitle' | 'notFoundLead' | 'notFoundHome' | 'skip' | 'menu' | 'menuClose' | 'loginNav' | 'loginTitle' | 'loginLead' | 'loginToken' | 'loginSubmit' | 'loginOk' | 'loginClosed' | 'loginBad', string>
   common: Record<'retry' | 'all' | 'world' | 'save' | 'saving' | 'cancel' | 'close' | 'refresh' | 'loading' | 'loadingMarket' | 'seeAll' | 'back' | 'units' | 'pieces' | 'long' | 'short' | 'buy' | 'sell' | 'live' | 'today' | 'tomorrow' | 'inDays', string>
   labels: {
     asset: Record<'crypto' | 'stock' | 'etf' | 'tokenized' | 'index' | 'bond' | 'commodity' | 'forex', string>

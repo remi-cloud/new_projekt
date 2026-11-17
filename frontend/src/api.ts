@@ -18,12 +18,14 @@ import type {
 } from './types'
 import { ChartPreset, ChartResponse, CHART_PRESETS } from './types/chart'
 import { ApiError, type ApiErrorCode } from './i18n/apiErrors'
+import { apiFetch } from './lib/deskAuth'
 import { API_BASE } from './lib/sameOrigin'
 
 export { CHART_PRESETS }
 export type { ChartPreset, ChartResponse }
 
 export { API_BASE }
+export { apiFetch }
 
 export type HealthResponse = {
   status: string
@@ -34,7 +36,7 @@ export type HealthResponse = {
 }
 
 export async function fetchHealth(): Promise<HealthResponse> {
-  const res = await fetch(`${API_BASE}/health`, { cache: 'no-store' })
+  const res = await apiFetch(`${API_BASE}/health`, { cache: 'no-store' })
   if (!res.ok) throw new ApiError(apiErrorForStatus(res.status, 'noConnection'))
   return res.json() as Promise<HealthResponse>
 }
@@ -61,7 +63,7 @@ async function throwApiError(res: Response, fallback: ApiErrorCode): Promise<nev
 }
 
 export async function fetchDashboard(): Promise<DashboardResponse> {
-  const res = await fetch(`${API_BASE}/dashboard`)
+  const res = await apiFetch(`${API_BASE}/dashboard`)
   if (!res.ok) await throwApiError(res, 'fetchDashboard')
   return res.json()
 }
@@ -72,19 +74,19 @@ export async function triggerScan(): Promise<{
   already_running?: boolean
   opportunities_count: number
 }> {
-  const res = await fetch(`${API_BASE}/scan`, { method: 'POST' })
+  const res = await apiFetch(`${API_BASE}/scan`, { method: 'POST' })
   if (!res.ok) await throwApiError(res, 'scanFailed')
   return res.json()
 }
 
 export async function fetchNotificationStatus(): Promise<NotificationStatus> {
-  const res = await fetch(`${API_BASE}/notifications/status`)
+  const res = await apiFetch(`${API_BASE}/notifications/status`)
   if (!res.ok) await throwApiError(res, 'fetchNotifications')
   return res.json()
 }
 
 export async function saveAlertSettings(settings: AlertSettings): Promise<AlertSettings> {
-  const res = await fetch(`${API_BASE}/notifications/settings`, {
+  const res = await apiFetch(`${API_BASE}/notifications/settings`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(settings),
@@ -94,7 +96,7 @@ export async function saveAlertSettings(settings: AlertSettings): Promise<AlertS
 }
 
 export async function saveTwilioConfig(config: TwilioConfig): Promise<{ saved: boolean }> {
-  const res = await fetch(`${API_BASE}/notifications/twilio`, {
+  const res = await apiFetch(`${API_BASE}/notifications/twilio`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(config),
@@ -104,13 +106,13 @@ export async function saveTwilioConfig(config: TwilioConfig): Promise<{ saved: b
 }
 
 export async function testNotifications(): Promise<Record<string, unknown>> {
-  const res = await fetch(`${API_BASE}/notifications/test`, { method: 'POST' })
+  const res = await apiFetch(`${API_BASE}/notifications/test`, { method: 'POST' })
   if (!res.ok) await throwApiError(res, 'testNotifications')
   return res.json()
 }
 
 export async function fetchPaperPortfolio(): Promise<PaperPortfolio> {
-  const res = await fetch(`${API_BASE}/paper/portfolio`)
+  const res = await apiFetch(`${API_BASE}/paper/portfolio`)
   if (!res.ok) await throwApiError(res, 'fetchPortfolio')
   return res.json()
 }
@@ -137,20 +139,20 @@ export type BinancePortfolioSync = {
 }
 
 export async function fetchBinancePortfolioSync(): Promise<BinancePortfolioSync> {
-  const res = await fetch(`${API_BASE}/portfolio/binance-sync`)
+  const res = await apiFetch(`${API_BASE}/portfolio/binance-sync`)
   if (!res.ok) await throwApiError(res, 'fetchPortfolio')
   return res.json()
 }
 
 export async function fetchPaperMaxBuy(symbol: string): Promise<{ max_quantity: number }> {
   const encoded = symbol.split('/').map(encodeURIComponent).join('/')
-  const res = await fetch(`${API_BASE}/paper/max-buy/${encoded}`)
+  const res = await apiFetch(`${API_BASE}/paper/max-buy/${encoded}`)
   if (!res.ok) await throwApiError(res, 'noData')
   return res.json()
 }
 
 export async function placePaperOrder(order: PaperOrderRequest): Promise<unknown> {
-  const res = await fetch(`${API_BASE}/paper/order`, {
+  const res = await apiFetch(`${API_BASE}/paper/order`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(order),
@@ -160,28 +162,28 @@ export async function placePaperOrder(order: PaperOrderRequest): Promise<unknown
 }
 
 export async function resetPaperPortfolio(): Promise<PaperPortfolio> {
-  const res = await fetch(`${API_BASE}/paper/reset`, { method: 'POST' })
+  const res = await apiFetch(`${API_BASE}/paper/reset`, { method: 'POST' })
   if (!res.ok) await throwApiError(res, 'resetFailed')
   return res.json()
 }
 
 export async function purgeAgentPaperPositions(force = false): Promise<unknown> {
   const qs = force ? '?force=true' : ''
-  const res = await fetch(`${API_BASE}/paper/purge-agent-positions${qs}`, { method: 'POST' })
+  const res = await apiFetch(`${API_BASE}/paper/purge-agent-positions${qs}`, { method: 'POST' })
   if (!res.ok) await throwApiError(res, 'purgeAgentFailed')
   return res.json()
 }
 
 export async function fetchPaperPosition(symbol: string): Promise<PaperPosition | null> {
   const encoded = symbol.split('/').map(encodeURIComponent).join('/')
-  const res = await fetch(`${API_BASE}/paper/position/${encoded}`)
+  const res = await apiFetch(`${API_BASE}/paper/position/${encoded}`)
   if (res.status === 404) return null
   if (!res.ok) await throwApiError(res, 'fetchPosition')
   return res.json()
 }
 
 export async function cancelPaperOrder(orderId: number): Promise<PaperPortfolio> {
-  const res = await fetch(`${API_BASE}/paper/orders/${orderId}`, { method: 'DELETE' })
+  const res = await apiFetch(`${API_BASE}/paper/orders/${orderId}`, { method: 'DELETE' })
   if (!res.ok) await throwApiError(res, 'cancelOrder')
   const data = await res.json()
   return data.portfolio
@@ -192,7 +194,7 @@ export const cancelPaperLimitOrder = cancelPaperOrder
 
 export async function cancelAllPaperOrders(symbol?: string): Promise<PaperPortfolio> {
   const qs = symbol ? `?symbol=${encodeURIComponent(symbol)}` : ''
-  const res = await fetch(`${API_BASE}/paper/orders/cancel-all${qs}`, { method: 'POST' })
+  const res = await apiFetch(`${API_BASE}/paper/orders/cancel-all${qs}`, { method: 'POST' })
   if (!res.ok) await throwApiError(res, 'cancelAllOrders')
   const data = await res.json()
   return data.portfolio
@@ -203,7 +205,7 @@ export async function closePaperPosition(
   percent = 100,
 ): Promise<{ trade: PaperTrade; portfolio: PaperPortfolio }> {
   const encoded = symbol.split('/').map(encodeURIComponent).join('/')
-  const res = await fetch(`${API_BASE}/paper/close/${encoded}`, {
+  const res = await apiFetch(`${API_BASE}/paper/close/${encoded}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ percent }),
@@ -214,27 +216,27 @@ export async function closePaperPosition(
 
 export async function fetchPaperTrades(symbol: string): Promise<PaperTrade[]> {
   const encoded = symbol.split('/').map(encodeURIComponent).join('/')
-  const res = await fetch(`${API_BASE}/paper/trades/${encoded}`)
+  const res = await apiFetch(`${API_BASE}/paper/trades/${encoded}`)
   if (!res.ok) return []
   return res.json()
 }
 
 export async function fetchQuote(symbol: string): Promise<LiveQuote> {
   const encoded = symbol.split('/').map(encodeURIComponent).join('/')
-  const res = await fetch(`${API_BASE}/markets/quote/${encoded}`, { cache: 'no-store' })
+  const res = await apiFetch(`${API_BASE}/markets/quote/${encoded}`, { cache: 'no-store' })
   if (!res.ok) await throwApiError(res, 'fetchPrice')
   return res.json()
 }
 
 export async function fetchChart(symbol: string, range: ChartPreset = '3M'): Promise<ChartResponse> {
   const encoded = symbol.split('/').map(encodeURIComponent).join('/')
-  const res = await fetch(`${API_BASE}/markets/chart/${encoded}?range=${range}`)
+  const res = await apiFetch(`${API_BASE}/markets/chart/${encoded}?range=${range}`)
   if (!res.ok) await throwApiError(res, 'fetchChart')
   return res.json()
 }
 
 export async function fetchChartPresets(): Promise<string[]> {
-  const res = await fetch(`${API_BASE}/markets/chart-presets`)
+  const res = await apiFetch(`${API_BASE}/markets/chart-presets`)
   if (!res.ok) return CHART_PRESETS
   return res.json()
 }
@@ -244,14 +246,14 @@ export async function fetchMacroNews(category?: string, limit = 100, lang?: stri
   if (category && category !== 'all') qs.set('category', category)
   qs.set('limit', String(limit))
   if (lang) qs.set('lang', lang)
-  const res = await fetch(`${API_BASE}/news/macro?${qs}`)
+  const res = await apiFetch(`${API_BASE}/news/macro?${qs}`)
   if (!res.ok) await throwApiError(res, 'fetchNews')
   return res.json()
 }
 
 export async function refreshMacroNews(lang?: string): Promise<MacroNewsFeed> {
   const qs = lang ? `?lang=${encodeURIComponent(lang)}` : ''
-  const res = await fetch(`${API_BASE}/news/macro/refresh${qs}`, { method: 'POST' })
+  const res = await apiFetch(`${API_BASE}/news/macro/refresh${qs}`, { method: 'POST' })
   if (!res.ok) await throwApiError(res, 'refreshNews')
   return res.json()
 }
@@ -297,7 +299,7 @@ export interface SocialPost {
 }
 
 export async function fetchSocialStatus(): Promise<SocialDeskStatus> {
-  const res = await fetch(`${API_BASE}/social/status`)
+  const res = await apiFetch(`${API_BASE}/social/status`)
   if (!res.ok) await throwApiError(res, 'serverUnavailable')
   return res.json()
 }
@@ -307,7 +309,7 @@ export async function fetchSocialPosts(limit = 20): Promise<{
   posts: SocialPost[]
   status: SocialDeskStatus
 }> {
-  const res = await fetch(`${API_BASE}/social/posts?limit=${limit}`)
+  const res = await apiFetch(`${API_BASE}/social/posts?limit=${limit}`)
   if (!res.ok) await throwApiError(res, 'serverUnavailable')
   return res.json()
 }
@@ -315,19 +317,19 @@ export async function fetchSocialPosts(limit = 20): Promise<{
 export async function fetchSocialPublished(limit = 20): Promise<{
   posts: { id?: number; body: string; published_at?: string | null; x_url?: string | null; source_name?: string }[]
 }> {
-  const res = await fetch(`${API_BASE}/social/published?limit=${limit}`)
+  const res = await apiFetch(`${API_BASE}/social/published?limit=${limit}`)
   if (!res.ok) await throwApiError(res, 'serverUnavailable')
   return res.json()
 }
 
 export async function fetchSocialDecisions(limit = 30): Promise<{ decisions: SocialDecision[] }> {
-  const res = await fetch(`${API_BASE}/social/decisions?limit=${limit}`)
+  const res = await apiFetch(`${API_BASE}/social/decisions?limit=${limit}`)
   if (!res.ok) await throwApiError(res, 'serverUnavailable')
   return res.json()
 }
 
 export async function publishSocialPost(postId: number): Promise<{ ok: boolean; post: SocialPost }> {
-  const res = await fetch(`${API_BASE}/social/posts/${postId}/publish`, { method: 'POST' })
+  const res = await apiFetch(`${API_BASE}/social/posts/${postId}/publish`, { method: 'POST' })
   if (!res.ok) await throwApiError(res, 'badRequest')
   return res.json()
 }
@@ -355,19 +357,19 @@ export interface PredatorSignal {
 }
 
 export async function fetchPredatorStatus(): Promise<PredatorStatus> {
-  const res = await fetch(`${API_BASE}/predator/status`)
+  const res = await apiFetch(`${API_BASE}/predator/status`)
   if (!res.ok) await throwApiError(res, 'serverUnavailable')
   return res.json()
 }
 
 export async function fetchPredatorSignals(limit = 30): Promise<{ count: number; signals: PredatorSignal[] }> {
-  const res = await fetch(`${API_BASE}/predator/signals?limit=${limit}`)
+  const res = await apiFetch(`${API_BASE}/predator/signals?limit=${limit}`)
   if (!res.ok) await throwApiError(res, 'serverUnavailable')
   return res.json()
 }
 
 export async function pollPredatorFeed(): Promise<{ ok: boolean; updates: number; new: number }> {
-  const res = await fetch(`${API_BASE}/predator/poll`, { method: 'POST' })
+  const res = await apiFetch(`${API_BASE}/predator/poll`, { method: 'POST' })
   if (!res.ok) await throwApiError(res, 'badRequest')
   return res.json()
 }
@@ -460,19 +462,19 @@ export interface AiAnalyzeResponse {
 }
 
 export async function fetchAiStatus(): Promise<AiStatus> {
-  const res = await fetch(`${API_BASE}/ai/status`)
+  const res = await apiFetch(`${API_BASE}/ai/status`)
   if (!res.ok) await throwApiError(res, 'fetchAiStatus')
   return res.json()
 }
 
 export async function fetchAiAcademy(): Promise<AiAcademy> {
-  const res = await fetch(`${API_BASE}/ai/academy`)
+  const res = await apiFetch(`${API_BASE}/ai/academy`)
   if (!res.ok) await throwApiError(res, 'serverUnavailable')
   return res.json()
 }
 
 export async function postAiChat(body: AiChatRequest): Promise<AiChatResponse> {
-  const res = await fetch(`${API_BASE}/ai/chat`, {
+  const res = await apiFetch(`${API_BASE}/ai/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -482,7 +484,7 @@ export async function postAiChat(body: AiChatRequest): Promise<AiChatResponse> {
 }
 
 export async function postAiFeedback(body: AiFeedbackRequest): Promise<{ saved: boolean }> {
-  const res = await fetch(`${API_BASE}/ai/feedback`, {
+  const res = await apiFetch(`${API_BASE}/ai/feedback`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -493,7 +495,7 @@ export async function postAiFeedback(body: AiFeedbackRequest): Promise<{ saved: 
 
 export async function fetchAiHistory(sessionId: string, limit = 40): Promise<{ session_id: string; messages: AiMessage[] }> {
   const qs = new URLSearchParams({ session_id: sessionId, limit: String(limit) })
-  const res = await fetch(`${API_BASE}/ai/history?${qs}`)
+  const res = await apiFetch(`${API_BASE}/ai/history?${qs}`)
   if (!res.ok) await throwApiError(res, 'aiHistoryFailed')
   return res.json()
 }
@@ -501,27 +503,27 @@ export async function fetchAiHistory(sessionId: string, limit = 40): Promise<{ s
 export async function postAiAnalyze(symbol: string, lang?: string): Promise<AiAnalyzeResponse> {
   const encoded = symbol.split('/').map(encodeURIComponent).join('/')
   const qs = lang ? `?lang=${encodeURIComponent(lang)}` : ''
-  const res = await fetch(`${API_BASE}/ai/analyze/${encoded}${qs}`, { method: 'POST' })
+  const res = await apiFetch(`${API_BASE}/ai/analyze/${encoded}${qs}`, { method: 'POST' })
   if (!res.ok) await throwApiError(res, 'aiAnalyzeFailed')
   return res.json()
 }
 
 export async function fetchMarketAssessment(symbol: string): Promise<import('./types').AssetCycleAssessment> {
   const encoded = symbol.split('/').map(encodeURIComponent).join('/')
-  const res = await fetch(`${API_BASE}/markets/assessment/${encoded}`)
+  const res = await apiFetch(`${API_BASE}/markets/assessment/${encoded}`)
   if (!res.ok) await throwApiError(res, 'noData')
   return res.json()
 }
 
 export async function fetchRoiAssets(): Promise<import('./types').RoiAssetInfo[]> {
-  const res = await fetch(`${API_BASE}/roi/assets`)
+  const res = await apiFetch(`${API_BASE}/roi/assets`)
   if (!res.ok) await throwApiError(res, 'roiAssetsFailed')
   return res.json()
 }
 
 export async function fetchRoiShowcase(years = 10, amount = 10000): Promise<import('./types').RoiShowcaseResult> {
   const qs = `?years=${years}&amount=${amount}`
-  const res = await fetch(`${API_BASE}/roi/showcase${qs}`)
+  const res = await apiFetch(`${API_BASE}/roi/showcase${qs}`)
   if (!res.ok) await throwApiError(res, 'roiShowcaseFailed')
   return res.json()
 }
@@ -562,7 +564,7 @@ export type AgentTelemetryResponse = {
 export async function fetchAgentTelemetry(
   range: '7d' | '30d' | '90d' | 'all' = '30d',
 ): Promise<AgentTelemetryResponse> {
-  const res = await fetch(`${API_BASE}/telemetry/agent-vs-sp500?range=${range}`)
+  const res = await apiFetch(`${API_BASE}/telemetry/agent-vs-sp500?range=${range}`)
   if (!res.ok) await throwApiError(res, 'noData')
   return res.json()
 }
@@ -618,7 +620,7 @@ export type CoordinatorHealth = {
 }
 
 export async function fetchCoordinatorHealth(): Promise<CoordinatorHealth> {
-  const res = await fetch(`${API_BASE}/coordinator/health`)
+  const res = await apiFetch(`${API_BASE}/coordinator/health`)
   if (!res.ok) await throwApiError(res, 'noData')
   return res.json()
 }
@@ -643,14 +645,14 @@ export type ProgramUsBacktestResponse = {
 }
 
 export async function fetchProgramUs1995(amount = 1000): Promise<ProgramUsBacktestResponse> {
-  const res = await fetch(`${API_BASE}/roi/program-us-1995?amount=${amount}`)
+  const res = await apiFetch(`${API_BASE}/roi/program-us-1995?amount=${amount}`)
   if (!res.ok) await throwApiError(res, 'roiCalculateFailed')
   return res.json()
 }
 
 export async function fetchSeasonalityHealth(refresh = false): Promise<Record<string, unknown>> {
   const qs = refresh ? '?refresh=true' : ''
-  const res = await fetch(`${API_BASE}/cycles/seasonality-health${qs}`)
+  const res = await apiFetch(`${API_BASE}/cycles/seasonality-health${qs}`)
   if (!res.ok) await throwApiError(res, 'noData')
   return res.json()
 }
@@ -688,7 +690,7 @@ export async function fetchIntramonth(
   month: number,
   universe: 'us' | 'btc' = 'us',
 ): Promise<IntramonthResponse> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_BASE}/cycles/intramonth?month=${month}&universe=${universe}`,
   )
   if (!res.ok) await throwApiError(res, 'noData')
@@ -747,7 +749,7 @@ export type GlobalCycleBookResponse = {
 export async function fetchGlobalCycleBook(
   status: 'all' | 'adopted' | 'watch' | 'rejected' = 'all',
 ): Promise<GlobalCycleBookResponse> {
-  const res = await fetch(`${API_BASE}/cycles/global-book?status=${status}`)
+  const res = await apiFetch(`${API_BASE}/cycles/global-book?status=${status}`)
   if (!res.ok) await throwApiError(res, 'noData')
   return res.json()
 }
@@ -821,7 +823,7 @@ export type CalendarSearchHit = {
 }
 
 export async function fetchInstrumentCalendar(symbol: string): Promise<InstrumentCalendarResponse> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_BASE}/cycles/instrument-calendar?symbol=${encodeURIComponent(symbol)}`,
   )
   if (!res.ok) await throwApiError(res, 'noData')
@@ -836,13 +838,13 @@ export async function fetchMonthPumps(
   if (opts?.class) qs.set('class', opts.class)
   if (opts?.region) qs.set('region', opts.region)
   if (opts?.limit) qs.set('limit', String(opts.limit))
-  const res = await fetch(`${API_BASE}/cycles/month-pumps?${qs}`)
+  const res = await apiFetch(`${API_BASE}/cycles/month-pumps?${qs}`)
   if (!res.ok) await throwApiError(res, 'noData')
   return res.json()
 }
 
 export async function fetchMonthPumpSnippet(month: number, topN = 3): Promise<MonthPumpSnippet> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_BASE}/cycles/month-pumps/snippet?month=${month}&top_n=${topN}`,
   )
   if (!res.ok) await throwApiError(res, 'noData')
@@ -850,7 +852,7 @@ export async function fetchMonthPumpSnippet(month: number, topN = 3): Promise<Mo
 }
 
 export async function fetchCalendarSearch(q: string, limit = 20): Promise<CalendarSearchHit[]> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_BASE}/cycles/calendar-search?q=${encodeURIComponent(q)}&limit=${limit}`,
   )
   if (!res.ok) await throwApiError(res, 'noData')
@@ -869,7 +871,7 @@ export async function calculateRoi(body: {
   end?: string
   compare_buy_hold?: boolean
 }): Promise<import('./types').RoiCalculateResult> {
-  const res = await fetch(`${API_BASE}/roi/calculate`, {
+  const res = await apiFetch(`${API_BASE}/roi/calculate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -880,13 +882,13 @@ export async function calculateRoi(body: {
 
 export async function fetchPublicLive(lang?: string): Promise<PublicLiveDigest> {
   const qs = lang ? `?lang=${encodeURIComponent(lang)}` : ''
-  const res = await fetch(`${API_BASE}/public/live${qs}`)
+  const res = await apiFetch(`${API_BASE}/public/live${qs}`)
   if (!res.ok) await throwApiError(res, 'fetchLiveFailed')
   return res.json()
 }
 
 export async function fetchGrowthPackages(): Promise<GrowthPackage[]> {
-  const res = await fetch(`${API_BASE}/growth/packages`)
+  const res = await apiFetch(`${API_BASE}/growth/packages`)
   if (!res.ok) await throwApiError(res, 'fetchGrowthFailed')
   return res.json()
 }
@@ -898,13 +900,13 @@ export async function fetchBackupStatus(): Promise<{
   auto_backup_interval_seconds?: number
   [key: string]: unknown
 }> {
-  const res = await fetch(`${API_BASE}/backup/status`)
+  const res = await apiFetch(`${API_BASE}/backup/status`)
   if (!res.ok) await throwApiError(res, 'serverUnavailable')
   return res.json()
 }
 
 export async function subscribeNewsletter(email: string, locale?: string, source = 'web'): Promise<{ ok: boolean }> {
-  const res = await fetch(`${API_BASE}/growth/newsletter`, {
+  const res = await apiFetch(`${API_BASE}/growth/newsletter`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, locale, source }),
@@ -921,7 +923,7 @@ export async function submitBusinessLead(body: {
   message?: string
   locale?: string
 }): Promise<{ ok: boolean; id?: number }> {
-  const res = await fetch(`${API_BASE}/growth/contact`, {
+  const res = await apiFetch(`${API_BASE}/growth/contact`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -931,13 +933,13 @@ export async function submitBusinessLead(body: {
 }
 
 export async function fetchWatchlist(): Promise<WatchlistItem[]> {
-  const res = await fetch(`${API_BASE}/growth/watchlist`)
+  const res = await apiFetch(`${API_BASE}/growth/watchlist`)
   if (!res.ok) await throwApiError(res, 'fetchGrowthFailed')
   return res.json()
 }
 
 export async function voteWatchlist(symbol: string, name?: string): Promise<{ ok: boolean; votes: number }> {
-  const res = await fetch(`${API_BASE}/growth/watchlist/vote`, {
+  const res = await apiFetch(`${API_BASE}/growth/watchlist/vote`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ symbol, name }),
@@ -947,26 +949,26 @@ export async function voteWatchlist(symbol: string, name?: string): Promise<{ ok
 }
 
 export async function fetchEmbedCycle(): Promise<EmbedCyclePayload> {
-  const res = await fetch(`${API_BASE}/embed/cycle`)
+  const res = await apiFetch(`${API_BASE}/embed/cycle`)
   if (!res.ok) await throwApiError(res, 'embedFailed')
   return res.json()
 }
 
 export async function fetchPearlStatus() {
-  const res = await fetch(`${API_BASE}/pearl/status`)
+  const res = await apiFetch(`${API_BASE}/pearl/status`)
   if (!res.ok) await throwApiError(res, 'serverUnavailable')
   return res.json()
 }
 
 export async function fetchPearlFinds(agentId?: string) {
   const qs = agentId ? `?agent_id=${encodeURIComponent(agentId)}` : ''
-  const res = await fetch(`${API_BASE}/pearl/finds${qs}`)
+  const res = await apiFetch(`${API_BASE}/pearl/finds${qs}`)
   if (!res.ok) await throwApiError(res, 'serverUnavailable')
   return res.json()
 }
 
 export async function runPearlHunt(agent: 'equity' | 'crypto' | 'both' = 'both') {
-  const res = await fetch(`${API_BASE}/pearl/run?agent=${agent}`, { method: 'POST' })
+  const res = await apiFetch(`${API_BASE}/pearl/run?agent=${agent}`, { method: 'POST' })
   if (!res.ok) await throwApiError(res, 'serverUnavailable')
   return res.json()
 }
@@ -1022,13 +1024,13 @@ export type FomoStatus = {
 }
 
 export async function fetchFomoStatus(): Promise<FomoStatus> {
-  const res = await fetch(`${API_BASE}/fomo/status`)
+  const res = await apiFetch(`${API_BASE}/fomo/status`)
   if (!res.ok) await throwApiError(res, 'serverUnavailable')
   return res.json()
 }
 
 export async function fetchFomoTop(limit = 30): Promise<{ traders: FomoTrader[] }> {
-  const res = await fetch(`${API_BASE}/fomo/top?limit=${limit}`)
+  const res = await apiFetch(`${API_BASE}/fomo/top?limit=${limit}`)
   if (!res.ok) await throwApiError(res, 'serverUnavailable')
   return res.json()
 }
@@ -1039,19 +1041,19 @@ export async function fetchFomoEvents(
 ): Promise<{ events: FomoEvent[] }> {
   const qs = new URLSearchParams({ limit: String(limit) })
   if (side) qs.set('side', side)
-  const res = await fetch(`${API_BASE}/fomo/events?${qs}`)
+  const res = await apiFetch(`${API_BASE}/fomo/events?${qs}`)
   if (!res.ok) await throwApiError(res, 'serverUnavailable')
   return res.json()
 }
 
 export async function runFomoTick(force = false) {
-  const res = await fetch(`${API_BASE}/fomo/run?force=${force ? 'true' : 'false'}`, { method: 'POST' })
+  const res = await apiFetch(`${API_BASE}/fomo/run?force=${force ? 'true' : 'false'}`, { method: 'POST' })
   if (!res.ok) await throwApiError(res, 'serverUnavailable')
   return res.json()
 }
 
 export async function registerFomoKey(agentName = 'cyclical-trader-fomo-ghost') {
-  const res = await fetch(`${API_BASE}/fomo/register`, {
+  const res = await apiFetch(`${API_BASE}/fomo/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ agent_name: agentName }),
@@ -1088,7 +1090,7 @@ export async function fetchFomoFamily(limit = 100): Promise<{
   bags: FomoBag[]
   summary?: FomoFamilySummary
 }> {
-  const res = await fetch(`${API_BASE}/fomo/family?limit=${limit}`)
+  const res = await apiFetch(`${API_BASE}/fomo/family?limit=${limit}`)
   if (!res.ok) await throwApiError(res, 'serverUnavailable')
   return res.json()
 }
@@ -1101,7 +1103,7 @@ export async function fetchFomoBags(
     limit: String(limit),
     include_closed: includeClosed ? 'true' : 'false',
   })
-  const res = await fetch(`${API_BASE}/fomo/bags?${qs}`)
+  const res = await apiFetch(`${API_BASE}/fomo/bags?${qs}`)
   if (!res.ok) await throwApiError(res, 'serverUnavailable')
   return res.json()
 }
@@ -1159,13 +1161,13 @@ export type AxiomPosition = {
 }
 
 export async function fetchAxiomStatus(): Promise<AxiomStatus> {
-  const res = await fetch(`${API_BASE}/axiom/status`)
+  const res = await apiFetch(`${API_BASE}/axiom/status`)
   if (!res.ok) await throwApiError(res, 'serverUnavailable')
   return res.json()
 }
 
 export async function fetchAxiomPulse(limit = 80): Promise<{ markets: AxiomPulseMarket[] }> {
-  const res = await fetch(`${API_BASE}/axiom/pulse?limit=${limit}`)
+  const res = await apiFetch(`${API_BASE}/axiom/pulse?limit=${limit}`)
   if (!res.ok) await throwApiError(res, 'serverUnavailable')
   return res.json()
 }
@@ -1175,13 +1177,13 @@ export async function fetchAxiomPositions(
   status: 'open' | 'closed' | 'all' = 'all',
 ): Promise<{ positions: AxiomPosition[] }> {
   const qs = new URLSearchParams({ limit: String(limit), status })
-  const res = await fetch(`${API_BASE}/axiom/positions?${qs}`)
+  const res = await apiFetch(`${API_BASE}/axiom/positions?${qs}`)
   if (!res.ok) await throwApiError(res, 'serverUnavailable')
   return res.json()
 }
 
 export async function runAxiomTick() {
-  const res = await fetch(`${API_BASE}/axiom/run`, { method: 'POST' })
+  const res = await apiFetch(`${API_BASE}/axiom/run`, { method: 'POST' })
   if (!res.ok) await throwApiError(res, 'serverUnavailable')
   return res.json()
 }
@@ -1232,13 +1234,13 @@ export type SessionClockSnapshot = {
 }
 
 export async function fetchSessionClock(): Promise<SessionClockSnapshot> {
-  const res = await fetch(`${API_BASE}/cycles/session-clock`)
+  const res = await apiFetch(`${API_BASE}/cycles/session-clock`)
   if (!res.ok) await throwApiError(res, 'serverUnavailable')
   return res.json()
 }
 
 export async function fetchExecutionStatus() {
-  const res = await fetch(`${API_BASE}/execution/status`)
+  const res = await apiFetch(`${API_BASE}/execution/status`)
   if (!res.ok) await throwApiError(res, 'serverUnavailable')
   return res.json()
 }
@@ -1246,25 +1248,25 @@ export async function fetchExecutionStatus() {
 export async function fetchExecutionProposals(limit = 50, status?: string) {
   const qs = new URLSearchParams({ limit: String(limit) })
   if (status) qs.set('status', status)
-  const res = await fetch(`${API_BASE}/execution/proposals?${qs}`)
+  const res = await apiFetch(`${API_BASE}/execution/proposals?${qs}`)
   if (!res.ok) await throwApiError(res, 'serverUnavailable')
   return res.json()
 }
 
 export async function approveExecutionProposal(id: number) {
-  const res = await fetch(`${API_BASE}/execution/proposals/${id}/approve`, { method: 'POST' })
+  const res = await apiFetch(`${API_BASE}/execution/proposals/${id}/approve`, { method: 'POST' })
   if (!res.ok) await throwApiError(res, 'badRequest')
   return res.json()
 }
 
 export async function runExecutionAgent(force = false) {
-  const res = await fetch(`${API_BASE}/execution/run?force=${force}`, { method: 'POST' })
+  const res = await apiFetch(`${API_BASE}/execution/run?force=${force}`, { method: 'POST' })
   if (!res.ok) await throwApiError(res, 'serverUnavailable')
   return res.json()
 }
 
 export async function patchExecutionSettings(patch: Record<string, unknown>) {
-  const res = await fetch(`${API_BASE}/execution/settings`, {
+  const res = await apiFetch(`${API_BASE}/execution/settings`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(patch),
@@ -1338,20 +1340,20 @@ export interface EmbedCyclePayload {
 export async function fetchSuperOpportunities(
   minScore = 0,
 ): Promise<SuperOpportunitiesResponse> {
-  const res = await fetch(`${API_BASE}/super-opportunities?min_score=${minScore}`)
+  const res = await apiFetch(`${API_BASE}/super-opportunities?min_score=${minScore}`)
   if (!res.ok) await throwApiError(res, 'noData')
   return res.json()
 }
 
 export async function fetchSuperOpportunity(symbol: string): Promise<SuperOpportunity> {
-  const res = await fetch(`${API_BASE}/super-opportunities/${encodeURIComponent(symbol)}`)
+  const res = await apiFetch(`${API_BASE}/super-opportunities/${encodeURIComponent(symbol)}`)
   if (!res.ok) await throwApiError(res, 'noData')
   return res.json()
 }
 
 export async function fetchAgentsReport(refresh = false): Promise<AgentsReport> {
   const q = refresh ? '?refresh=true' : ''
-  const res = await fetch(`${API_BASE}/singularity${q}`)
+  const res = await apiFetch(`${API_BASE}/singularity${q}`)
   if (!res.ok) await throwApiError(res, 'noConnection')
   return res.json()
 }
@@ -1362,7 +1364,7 @@ export async function fetchWhaleFlows(force = false): Promise<{
   by_symbol: Record<string, unknown>
 }> {
   const q = force ? '?force=true' : ''
-  const res = await fetch(`${API_BASE}/whale-flows${q}`)
+  const res = await apiFetch(`${API_BASE}/whale-flows${q}`)
   if (!res.ok) await throwApiError(res, 'noData')
   return res.json()
 }
@@ -1385,13 +1387,13 @@ export type LaunchStatus = {
 }
 
 export async function fetchLaunchStatus(): Promise<LaunchStatus> {
-  const res = await fetch(`${API_BASE}/launch/status`)
+  const res = await apiFetch(`${API_BASE}/launch/status`)
   if (!res.ok) await throwApiError(res, 'noData')
   return res.json()
 }
 
 export async function fetchLaunchCandidates(tier = 'seed'): Promise<{ candidates: LaunchCandidate[] }> {
-  const res = await fetch(`${API_BASE}/launch/candidates?tier=${encodeURIComponent(tier)}&limit=40`)
+  const res = await apiFetch(`${API_BASE}/launch/candidates?tier=${encodeURIComponent(tier)}&limit=40`)
   if (!res.ok) await throwApiError(res, 'noData')
   return res.json()
 }

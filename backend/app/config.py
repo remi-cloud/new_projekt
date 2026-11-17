@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     cors_origins: str = ""
     post_rate_limit: int = 120
     post_rate_window_seconds: int = 60
+    # Empty = every state-changing request is refused. Set only in .env.
+    desk_token: str = ""
+    # Comma-separated IPs or CIDRs allowed to supply X-Forwarded-For.
+    trusted_proxies: str = ""
 
     database_path: str = "data/trader.db"
     portfolio_database_path: str = "data/baza_portfela/portfolio.db"

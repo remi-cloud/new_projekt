@@ -30,10 +30,48 @@ def test_post_rate_limit(client: TestClient, monkeypatch):
     _HITS.clear()
     monkeypatch.setattr(settings, "post_rate_limit", 2)
     monkeypatch.setattr(settings, "post_rate_window_seconds", 60)
+    monkeypatch.setattr(settings, "trusted_proxies", "")
     first = client.post("/api/social/posts/1/publish")
     second = client.post("/api/social/posts/1/publish")
     third = client.post("/api/social/posts/1/publish")
     assert first.status_code == 409
     assert second.status_code == 409
     assert third.status_code == 429
+    _HITS.clear()
+
+
+def test_forwarded_for_is_ignored_unless_peer_is_trusted(client: TestClient, monkeypatch):
+    _HITS.clear()
+    monkeypatch.setattr(settings, "post_rate_limit", 2)
+    monkeypatch.setattr(settings, "post_rate_window_seconds", 60)
+    monkeypatch.setattr(settings, "trusted_proxies", "")
+    codes = []
+    for spoofed in ("203.0.113.10", "203.0.113.11", "198.51.100.8"):
+        response = client.post(
+            "/api/social/posts/1/publish",
+            headers={"X-Forwarded-For": spoofed},
+        )
+        codes.append(response.status_code)
+    assert codes == [409, 409, 429]
+    _HITS.clear()
+
+
+def test_trusted_proxy_uses_the_rightmost_untrusted_hop(client: TestClient, monkeypatch):
+    _HITS.clear()
+    monkeypatch.setattr(settings, "post_rate_limit", 2)
+    monkeypatch.setattr(settings, "post_rate_window_seconds", 60)
+    monkeypatch.setattr(settings, "trusted_proxies", "testclient")
+    spoofed_left = []
+    for _ in range(3):
+        response = client.post(
+            "/api/social/posts/1/publish",
+            headers={"X-Forwarded-For": "203.0.113.77, 198.51.100.20"},
+        )
+        spoofed_left.append(response.status_code)
+    other = client.post(
+        "/api/social/posts/1/publish",
+        headers={"X-Forwarded-For": "203.0.113.77, 198.51.100.21"},
+    )
+    assert spoofed_left == [409, 409, 429]
+    assert other.status_code == 409
     _HITS.clear()

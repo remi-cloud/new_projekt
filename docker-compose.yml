@@ -22,6 +22,10 @@ services:
       CYCLICAL_SOCIAL_AUTO_POST: "${CYCLICAL_SOCIAL_AUTO_POST:-false}"
       CYCLICAL_SOCIAL_DRY_RUN: "${CYCLICAL_SOCIAL_DRY_RUN:-true}"
       CYCLICAL_BINANCE_AI_BOT_DRY_RUN: "${CYCLICAL_BINANCE_AI_BOT_DRY_RUN:-true}"
+      # Puste = zmiany stanu zwracają 403. Ustaw w .env, nie w tym pliku.
+      CYCLICAL_DESK_TOKEN: "${CYCLICAL_DESK_TOKEN:-}"
+      # Nginx i Caddy siedzą w sieci Dockera. Pusty poza compose = brak zaufania do X-Forwarded-For.
+      CYCLICAL_TRUSTED_PROXIES: ${CYCLICAL_TRUSTED_PROXIES:-172.16.0.0/12,10.0.0.0/8,192.168.0.0/16}
     volumes:
       # Baza SQLite: alerty, newsy i dziennik decyzji (tabela social_decisions).
       - trader-db:/data/db
@@ -39,8 +43,11 @@ services:
       dockerfile: Dockerfile
     image: cyclical-trader-frontend:latest
     container_name: cyclical-trader-frontend
+    # Lokalnie i w profilu public: tylko pętla zwrotna. Świat wchodzi przez Caddy (80/443).
     ports:
-      - "${PORT:-8080}:8080"
+      - "127.0.0.1:${PORT:-8080}:8080"
+    expose:
+      - "8080"
     depends_on:
       backend:
         condition: service_healthy
@@ -49,17 +56,20 @@ services:
   # Public HTTPS. Start with: docker compose --profile public up -d
   # Set CYCLICAL_SITE_DOMAIN to the real hostname. Caddy fetches the certificate.
   proxy:
-    image: caddy:2.10
+    image: caddy:2.10-alpine
     profiles: ["public"]
     ports:
       - "80:80"
       - "443:443"
     environment:
       SITE_DOMAIN: ${CYCLICAL_SITE_DOMAIN:?set CYCLICAL_SITE_DOMAIN}
+      CYCLICAL_CADDY_BASIC_USER: ${CYCLICAL_CADDY_BASIC_USER:-}
+      CYCLICAL_CADDY_BASIC_HASH: ${CYCLICAL_CADDY_BASIC_HASH:-}
     volumes:
-      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./deploy/caddy-entrypoint.sh:/caddy-entrypoint.sh:ro
       - caddy-data:/data
       - caddy-config:/config
+    entrypoint: ["/bin/sh", "/caddy-entrypoint.sh"]
     depends_on:
       frontend:
         condition: service_healthy
