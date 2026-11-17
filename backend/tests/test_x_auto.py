@@ -111,6 +111,7 @@ def test_compose_x_includes_source_name_and_article_url():
     body = compose_x(item).body
     assert "Źródło: Reuters" in body
     assert "https://www.reuters.com/markets/fed-holds" in body
+    assert "— @robi44610 | Kar Digital" in body
     assert len(body) <= 500
     lowered = body.lower()
     assert "oslo" not in lowered
@@ -149,4 +150,14 @@ def test_publish_blocked_without_source_line():
     with pytest.raises(RuntimeError, match="źródła"):
         assert_post_has_source("Fed holds rates", "Reuters", "https://www.reuters.com/a")
     with pytest.raises(RuntimeError, match="linku"):
-        assert_post_has_source("Źródło: Reuters\nFed holds", "Reuters", "")
+        assert_post_has_source(
+            "Źródło: Reuters\n— @robi44610 | Kar Digital",
+            "Reuters",
+            "",
+        )
+    with pytest.raises(RuntimeError, match="robi44610"):
+        assert_post_has_source(
+            "Źródło: Reuters\nhttps://www.reuters.com/a",
+            "Reuters",
+            "https://www.reuters.com/a",
+        )

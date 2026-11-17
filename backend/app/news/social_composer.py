@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 from app.models.schemas import MacroNewsItem
 from app.news.public_urls import public_site_base
-from app.news.x_auto import X_MAX_CHARS, strip_forbidden_place
+from app.news.x_auto import X_AUTHOR_FOOTER, X_MAX_CHARS, strip_forbidden_place
 
 
 DISCLAIMER_PL = "Edukacja rynkowa · nie porada inwestycyjna · KAR Digital"
@@ -53,7 +53,7 @@ def compose_x(item: MacroNewsItem, locale: str = "pl") -> ComposedPost:
     summary = _clean(strip_forbidden_place(item.summary), 160)
     tag = f"#{item.category.upper()} · {disc}"
     source_lines = [line for line in (f"Źródło: {name}" if name else "", url) if line]
-    tail = "\n".join([*source_lines, tag])
+    tail = "\n".join([*source_lines, tag, X_AUTHOR_FOOTER])
 
     def pack(head: str, blurb: str) -> str:
         chunks = [f"📰 {head}"]
@@ -69,7 +69,8 @@ def compose_x(item: MacroNewsItem, locale: str = "pl") -> ComposedPost:
         budget = X_MAX_CHARS - len(f"📰 \n{tail}") - 1
         body = pack(_clean(title, max(40, budget)), "")
     if len(body) > X_MAX_CHARS:
-        body = body[: X_MAX_CHARS - 1].rstrip() + "…"
+        room = X_MAX_CHARS - len(X_AUTHOR_FOOTER) - 1
+        body = body[:room].rstrip() + "\n" + X_AUTHOR_FOOTER
     return ComposedPost(platform="x", body=body, title=title)
 
 
@@ -93,9 +94,11 @@ def compose_linkedin(item: MacroNewsItem, locale: str = "pl") -> ComposedPost:
     elif link:
         lines.append(link)
     lines.append(disc)
+    lines.append(X_AUTHOR_FOOTER)
     body = "\n".join(lines).strip()
     if len(body) > 1300:
-        body = body[:1299] + "…"
+        room = 1300 - len(X_AUTHOR_FOOTER) - 1
+        body = body[:room].rstrip() + "\n" + X_AUTHOR_FOOTER
     return ComposedPost(platform="linkedin", body=body, title=title)
 
 

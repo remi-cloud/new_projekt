@@ -31,6 +31,7 @@ def test_compose_x_includes_source_within_limit():
     assert len(body) <= 500
     assert "Źródło: TestWire" in body
     assert "https://example.com/fed" in body
+    assert body.endswith("— @robi44610 | Kar Digital")
 
 
 def test_compose_linkedin_has_disclaimer():
@@ -120,7 +121,10 @@ async def test_publish_force_without_tokens(client):
         news_id="force-uniq-1",
         url="https://www.reuters.com/markets/fed",
         title="T",
-        body="Źródło: Reuters\nhttps://www.reuters.com/markets/fed\nFed holds rates",
+        body=(
+            "Źródło: Reuters\nhttps://www.reuters.com/markets/fed\n"
+            "Fed holds rates\n— @robi44610 | Kar Digital"
+        ),
         source_name="Reuters",
         media_path=None,
         status="dry_run",
@@ -147,6 +151,61 @@ async def test_publish_rejects_post_without_source(client):
         r = client.post(f"/api/social/posts/{post_id}/publish")
     assert r.status_code == 400
     assert "źródł" in r.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_publish_rejects_post_without_author_handle(client):
+    await init_social_db()
+    post_id = await insert_post(
+        platform="x",
+        news_id="force-no-handle",
+        url="https://www.reuters.com/markets/fed",
+        title="T",
+        body="Źródło: Reuters\nhttps://www.reuters.com/markets/fed\nFed holds rates",
+        source_name="Reuters",
+        media_path=None,
+        status="ready",
+    )
+    with patch("app.notifications.social_dispatcher.x_configured", return_value=True):
+        r = client.post(f"/api/social/posts/{post_id}/publish")
+    assert r.status_code == 400
+    assert "robi44610" in r.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_published_feed_lists_a_sent_post(client):
+    await init_social_db()
+    post_id = await insert_post(
+        platform="x",
+        news_id="force-listed",
+        url="https://www.reuters.com/markets/fed",
+        title="Fed holds",
+        body=(
+            "Źródło: Reuters\nhttps://www.reuters.com/markets/fed\n"
+            "Fed holds rates\n— @robi44610 | Kar Digital"
+        ),
+        source_name="Reuters",
+        media_path=None,
+        status="ready",
+    )
+    with (
+        patch("app.notifications.social_dispatcher.x_configured", return_value=True),
+        patch(
+            "app.notifications.social_dispatcher.post_to_x",
+            new_callable=AsyncMock,
+            return_value={"external_id": "1842001"},
+        ),
+    ):
+        sent = client.post(f"/api/social/posts/{post_id}/publish")
+    assert sent.status_code == 200
+    listed = client.get("/api/social/published").json()["posts"]
+    match = next(row for row in listed if row["id"] == post_id)
+    assert match["x_post_id"] == "1842001"
+    assert match["x_url"] == "https://x.com/i/status/1842001"
+    assert "@robi44610" in match["body"]
+    assert match["source_name"] == "Reuters"
+    assert match["source_url"] == "https://www.reuters.com/markets/fed"
+    assert match["published_at"]
 
 
 def test_published_endpoint_has_no_secrets(client):

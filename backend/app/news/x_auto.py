@@ -11,6 +11,8 @@ from app.news.x_publish_whitelist import OFFICIAL_LABELS, SOURCE_LABELS, URL_HOS
 
 # X Premium allows much more. Keep posts short enough to read.
 X_MAX_CHARS = 500
+X_AUTHOR_HANDLE = "@robi44610"
+X_AUTHOR_FOOTER = "— @robi44610 | Kar Digital"
 
 _UNCONFIRMED = re.compile(
     r"\b(unconfirmed|unnamed|anonymous|sources say|reportedly|"
@@ -181,6 +183,8 @@ def assert_post_has_source(body: str, source_name: str | None, source_url: str |
         raise RuntimeError("Treść nie zawiera nazwy źródła")
     if url not in text:
         raise RuntimeError("Treść nie zawiera linku do artykułu")
+    if X_AUTHOR_HANDLE not in text:
+        raise RuntimeError("Treść nie zawiera @robi44610")
 
 
 def x_status_url(external_id: str | None) -> str | None:
