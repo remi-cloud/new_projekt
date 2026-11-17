@@ -1,7 +1,8 @@
 """Whitelist for automatic posts on X.
 
-Edit this file to add or remove a publisher. Anything that does not match
-a label or a URL host never goes out automatically. Manual Publish is separate.
+Edit this file to add or remove a publisher. Automatic posts require the
+article host to be in URL_HOSTS. A Google News label such as "Reuters" is not
+enough while the link is still a news.google.com wrapper. Manual Publish is separate.
 """
 
 from __future__ import annotations
@@ -31,6 +32,7 @@ URL_HOSTS: tuple[str, ...] = (
     "bloomberg.com",
     "bbc.com",
     "bbc.co.uk",
+    "bbci.co.uk",
     "ft.com",
     "pap.pl",
     "federalreserve.gov",

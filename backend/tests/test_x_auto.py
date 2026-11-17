@@ -39,9 +39,11 @@ def _decide(**kwargs):
 
 
 def test_whitelist_allows_named_outlets_and_blocks_the_rest():
-    assert is_whitelisted("Reuters", "https://news.google.com/rss/articles/x")
+    assert not is_whitelisted("Reuters", "https://news.google.com/rss/articles/x")
+    assert is_whitelisted("Reuters", "https://www.reuters.com/markets/fed-holds")
     assert is_whitelisted("FT · Markets", "https://www.ft.com/content/abc")
-    assert is_whitelisted("BBC Business", None)
+    assert not is_whitelisted("BBC Business", None)
+    assert is_whitelisted("BBC Business", "https://www.bbc.co.uk/news/business-1")
     assert is_whitelisted("Federal Reserve", "https://www.federalreserve.gov/newsevents.htm")
     assert is_whitelisted("Desk", "https://www.reuters.com/world/story")
     assert not is_whitelisted("Electrek", "https://electrek.co/2026/11/17/story")

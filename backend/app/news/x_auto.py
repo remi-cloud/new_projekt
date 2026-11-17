@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
-from app.news.x_publish_whitelist import OFFICIAL_LABELS, SOURCE_LABELS, URL_HOSTS
+from app.news.x_publish_whitelist import URL_HOSTS
 
 # X Premium allows much more. Keep posts short enough to read.
 X_MAX_CHARS = 500
@@ -69,15 +69,15 @@ def _host(url: str | None) -> str:
 
 
 def is_whitelisted(source: str | None, url: str | None) -> bool:
-    label = (source or "").lower().strip()
-    if label in {"pap", "afp", "ap", "bbc", "ft", "reuters"}:
-        return True
-    if any(token in label for token in SOURCE_LABELS):
-        return True
-    if any(token in label for token in OFFICIAL_LABELS):
-        return True
+    """True only when the article host is a listed publisher.
+
+    Feed labels are ignored. A Google News hit titled Reuters stays out until
+    the link is on reuters.com (or another host in the whitelist file).
+    ``source`` is accepted so callers can keep passing the feed label.
+    """
+    del source
     host = _host(url)
-    if not host or host.endswith("news.google.com") or host == "news.google.com":
+    if not host or "news.google.com" in host:
         return False
     return any(host == allowed or host.endswith("." + allowed) for allowed in URL_HOSTS)
 
