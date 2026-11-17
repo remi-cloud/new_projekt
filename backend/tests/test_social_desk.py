@@ -86,6 +86,32 @@ async def test_queue_dry_run_no_network():
 
 
 @pytest.mark.asyncio
+async def test_queue_x_ready_does_not_send():
+    from app.news.social_db import list_posts
+    from app.notifications import social_dispatcher as sd
+
+    with (
+        patch.object(sd, "post_to_x", new_callable=AsyncMock) as px,
+        patch.object(sd, "post_to_linkedin", new_callable=AsyncMock) as pl,
+        patch.object(sd.settings, "social_enabled", True),
+        patch.object(sd.settings, "social_dry_run", False),
+        patch.object(sd.settings, "social_auto_post", False),
+        patch.object(sd.settings, "social_platforms", "x"),
+        patch.object(sd.settings, "social_max_per_cycle", 2),
+    ):
+        result = await sd.queue_social_from_news_items([_item(id="n-ready-x")])
+    assert result["posted"] == 0
+    assert result["queued"] >= 1
+    px.assert_not_called()
+    pl.assert_not_called()
+    rows = await list_posts(20)
+    mine = [row for row in rows if row["news_id"] == "n-ready-x"]
+    assert mine
+    assert {row["platform"] for row in mine} == {"x"}
+    assert all(row["status"] == "ready" for row in mine)
+
+
+@pytest.mark.asyncio
 async def test_publish_force_without_tokens(client):
     await init_social_db()
     post_id = await insert_post(

@@ -21,11 +21,20 @@ from app.notifications.social_clients import (
 logger = logging.getLogger(__name__)
 
 
+def social_platforms() -> list[str]:
+    """Platforms the news desk may queue. Default is X only."""
+    allowed = {"x", "linkedin"}
+    raw = (getattr(settings, "social_platforms", None) or "x").split(",")
+    picked = [part.strip().lower() for part in raw if part.strip().lower() in allowed]
+    return picked or ["x"]
+
+
 def social_status() -> dict:
     return {
         "enabled": bool(settings.social_enabled),
         "dry_run": bool(settings.social_dry_run),
         "auto_post": bool(settings.social_auto_post),
+        "platforms": social_platforms(),
         "cooldown_minutes": settings.social_cooldown_minutes,
         "max_per_cycle": settings.social_max_per_cycle,
         "public_base_url": public_site_base() or None,
@@ -121,13 +130,16 @@ async def queue_social_from_news_items(items: list[MacroNewsItem], locale: str =
         if path.is_file():
             media = str(path)
 
+        allowed = set(social_platforms())
         for composed in compose_for_platforms(item, locale=locale):
+            if composed.platform not in allowed:
+                continue
             key = social_db.content_key(composed.platform, item.id, item.url)
             if await social_db.has_content_key(key):
                 skipped += 1
                 continue
 
-            status = "dry_run"
+            status = "dry_run" if settings.social_dry_run else "ready"
             error = None
             external_id = None
             posted_at = None

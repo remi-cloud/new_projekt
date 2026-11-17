@@ -54,6 +54,8 @@ export function SocialDeskPanel({ refreshKey = 0 }: { refreshKey?: number }) {
   }
   if (!status?.enabled) return null
 
+  const platforms = status.platforms?.length ? status.platforms : ['x']
+  const visible = posts.filter((post) => platforms.includes(post.platform))
   const modeLabel = status.dry_run
     ? t('macro.social.modeDryRun')
     : status.auto_post
@@ -71,15 +73,17 @@ export function SocialDeskPanel({ refreshKey = 0 }: { refreshKey?: number }) {
         {status.linkedin_configured ? t('macro.social.ready') : t('macro.social.noTokens')}
       </p>
       {msg && <p className="social-desk-msg">{msg}</p>}
-      {posts.length === 0 ? (
+      {visible.length === 0 ? (
         <p className="empty-state social-desk-empty">{t('macro.social.empty')}</p>
       ) : (
         <ul className="social-desk-list">
-          {posts.map((p) => (
+          {visible.map((p) => (
             <li key={p.id} className="social-desk-item">
               <div className="social-desk-item-top">
                 <strong className="social-desk-platform">{p.platform.toUpperCase()}</strong>
-                <span className={`social-desk-status status-${p.status}`}>{p.status}</span>
+                <span className={`social-desk-status status-${p.status}`}>
+                  {p.status === 'ready' ? t('macro.social.modeManual') : p.status}
+                </span>
               </div>
               <p className="social-desk-body">{p.body}</p>
               {p.error && <p className="social-desk-error">{p.error}</p>}

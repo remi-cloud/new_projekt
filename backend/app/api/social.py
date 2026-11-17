@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 
 from app.news import social_db
-from app.notifications.social_dispatcher import publish_post, social_status
+from app.notifications.social_dispatcher import publish_post, social_platforms, social_status
 
 router = APIRouter(tags=["social"])
 
@@ -17,7 +17,11 @@ async def get_social_status():
 
 @router.get("/api/social/posts")
 async def get_social_posts(limit: int = 40):
+    platforms = social_platforms()
+    if not social_status()["dry_run"]:
+        await social_db.promote_ready_posts(platforms)
     posts = await social_db.list_posts(limit=limit)
+    posts = [post for post in posts if post.get("platform") in platforms]
     return {"count": len(posts), "posts": posts, "status": social_status()}
 
 

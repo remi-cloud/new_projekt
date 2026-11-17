@@ -269,6 +269,7 @@ export interface SocialDeskStatus {
   enabled: boolean
   dry_run: boolean
   auto_post: boolean
+  platforms?: string[]
   cooldown_minutes: number
   max_per_cycle: number
   public_base_url: string | null

@@ -1,6 +1,6 @@
 # Social desk — news → X / LinkedIn
 
-News agent składa posty z makro-newsów. **Domyślnie dry-run**: zapis w DB + podgląd w UI (`/news`), **bez wysyłki**.
+News agent składa posty z makro-newsów. Domyślnie kolejka jest **gotowa do publikacji na X** (status `ready`, bez auto-wysyłki). LinkedIn dochodzi, gdy dopiszesz go w `CYCLICAL_SOCIAL_PLATFORMS`.
 
 ## Szybki start (lokalnie / Docker)
 
@@ -8,8 +8,9 @@ News agent składa posty z makro-newsów. **Domyślnie dry-run**: zapis w DB + p
 2. Zostaw:
    ```
    CYCLICAL_SOCIAL_ENABLED=true
-   CYCLICAL_SOCIAL_DRY_RUN=true
+   CYCLICAL_SOCIAL_DRY_RUN=false
    CYCLICAL_SOCIAL_AUTO_POST=false
+   CYCLICAL_SOCIAL_PLATFORMS=x
    ```
 3. Odśwież newsy (`POST /api/news/macro/refresh` lub przycisk na `/news`).
 4. Sprawdź `GET /api/social/posts` albo sekcję **Social desk** na `/news`.
