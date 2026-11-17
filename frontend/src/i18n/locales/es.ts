@@ -357,7 +357,7 @@ export const es: Translations = {
       modeDryRun: 'Dry-run', modeAuto: 'Auto', modeManual: 'Manual',
       ready: 'tokens OK', noTokens: 'sin tokens', publish: 'Publicar',
       confirmPublish: '¿Enviar este post a la plataforma (tokens en .env)?',
-      published: 'Enviado / marcado como posted.', publishFailed: 'Error al publicar',
+      published: 'Enviado / marcado como posted.', decisionsTitle: 'Registro de decisiones', decisionsEmpty: 'Aún no hay decisiones automáticas.', publishFailed: 'Error al publicar',
     },
   },
   home: { topOpportunities: 'Mejores oportunidades', seeAll: 'Ver todos →' },

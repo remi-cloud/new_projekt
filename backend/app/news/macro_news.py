@@ -100,6 +100,26 @@ RSS_SOURCES: list[tuple[str, str, MacroNewsCategory]] = [
     ("https://www.corriere.it/dynamic-feed/rss/section/Economia.xml", "Corriere · Economia", "global"),
     ("https://www.spiegel.de/international/index.rss", "Spiegel International", "global"),
 
+    # ── Global wires (official feeds that responded; agencies without RSS use Google News) ──
+    ("https://feeds.bbci.co.uk/news/world/rss.xml", "BBC World", "global"),
+    ("https://feeds.bbci.co.uk/news/politics/rss.xml", "BBC Politics", "global"),
+    ("https://feeds.bbci.co.uk/news/technology/rss.xml", "BBC Technology", "global"),
+    ("https://www.aljazeera.com/xml/rss/all.xml", "Al Jazeera", "global"),
+    ("https://en.yna.co.kr/RSS/news.xml", "Yonhap", "global"),
+    ("https://www.abc.net.au/news/feed/51120/rss.xml", "ABC Australia", "global"),
+    ("https://www.cbc.ca/webfeed/rss/rss-world", "CBC World", "global"),
+    ("https://www.france24.com/en/rss", "France 24", "global"),
+    ("https://www.euronews.com/rss?level=theme&name=news", "Euronews", "global"),
+    ("https://www.lemonde.fr/international/rss_full.xml", "Le Monde · International", "global"),
+    ("https://www.lemonde.fr/pixels/rss_full.xml", "Le Monde · Pixels", "global"),
+    ("https://timesofindia.indiatimes.com/rssfeeds/296589292.cms", "Times of India · World", "global"),
+    ("https://www.ansa.it/english/english_rss.xml", "ANSA English", "global"),
+    ("https://news.google.com/rss/search?q=site:apnews.com+when:1d&hl=en-US&gl=US&ceid=US:en", "AP News", "global"),
+    ("https://news.google.com/rss/search?q=site:afp.com+when:1d&hl=en-US&gl=US&ceid=US:en", "AFP", "global"),
+    ("https://news.google.com/rss/search?q=site:pap.pl+when:1d&hl=en-US&gl=US&ceid=US:en", "PAP", "global"),
+    ("https://news.google.com/rss/search?q=site:nhk.or.jp/nhkworld+when:1d&hl=en-US&gl=US&ceid=US:en", "NHK World", "global"),
+    ("https://news.google.com/rss/search?q=site:english.kyodonews.net+when:1d&hl=en-US&gl=US&ceid=US:en", "Kyodo", "global"),
+
     # ── Asia & Pacific ────────────────────────────────────────────
     ("https://asia.nikkei.com/rss/feed/nar", "Nikkei Asia", "global"),
     ("https://www.japantimes.co.jp/feed/", "Japan Times", "global"),

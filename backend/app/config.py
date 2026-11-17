@@ -135,12 +135,17 @@ class Settings(BaseSettings):
     portfolio_restore_backup: bool = False
     portfolio_migrate_legacy: bool = False
 
-    # Social desk — news → X / LinkedIn (dry-run by default)
+    # Social desk — news → X first (manual publish). LinkedIn stays off until listed.
     social_enabled: bool = True
-    social_dry_run: bool = True
+    social_dry_run: bool = False
     social_auto_post: bool = False
+    social_platforms: str = "x"
     social_cooldown_minutes: int = 60
     social_max_per_cycle: int = 2
+    # Automatic X posts stay off until CYCLICAL_SOCIAL_AUTO_POST=true.
+    social_auto_min_score: int = 70
+    social_auto_max_per_hour: int = 2
+    social_webhook_url: str = ""
     public_base_url: str = ""
     x_api_key: str = ""
     x_api_secret: str = ""

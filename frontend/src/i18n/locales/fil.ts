@@ -357,7 +357,7 @@ export const fil: Translations = {
       modeDryRun: 'Dry-run', modeAuto: 'Auto', modeManual: 'Manual',
       ready: 'tokens OK', noTokens: 'walang tokens', publish: 'I-publish',
       confirmPublish: 'Ipadala ang post sa platform (kailangan ng tokens sa .env)?',
-      published: 'Naipadala / marked as posted.', publishFailed: 'Failed ang publish',
+      published: 'Naipadala / marked as posted.', decisionsTitle: 'Log ng desisyon', decisionsEmpty: 'Wala pang awtomatikong desisyon.', publishFailed: 'Failed ang publish',
     },
   },
   home: { topOpportunities: 'Nangungunang pagkakataon', seeAll: 'Lahat →' },
