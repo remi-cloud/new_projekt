@@ -65,6 +65,48 @@ def test_social_posts_list(client):
 
 
 @pytest.mark.asyncio
+async def test_pipeline_dry_run_marks_posts_and_does_not_raise():
+    """Scheduler queue and auto-pipeline stay soft in dry-run; only the button is hard."""
+    from app.news.social_db import init_social_db, list_posts
+    from app.notifications import social_dispatcher as sd
+
+    await init_social_db()
+    queued_item = _item(id="n-pipe-dry-1")
+    auto_item = _item(
+        id="n-pipe-auto-1",
+        title="Fed holds rates as inflation stays sticky",
+        url="https://www.reuters.com/markets/fed-holds-dry",
+        source="Reuters",
+    )
+    with (
+        patch.object(sd, "post_to_x", new_callable=AsyncMock) as px,
+        patch.object(sd, "post_to_linkedin", new_callable=AsyncMock) as pl,
+        patch.object(sd, "x_configured", return_value=True),
+        patch.object(sd.settings, "social_enabled", True),
+        patch.object(sd.settings, "social_dry_run", True),
+        patch.object(sd.settings, "social_auto_post", True),
+        patch.object(sd.settings, "social_max_per_cycle", 2),
+        patch.object(sd.settings, "social_platforms", "x"),
+    ):
+        queued = await sd.queue_social_from_news_items([queued_item])
+        auto = await sd.run_auto_x([auto_item])
+        rows = await list_posts(40)
+        queued_rows = [row for row in rows if row["news_id"] == "n-pipe-dry-1"]
+        auto_rows = [row for row in rows if row["news_id"] == "n-pipe-auto-1"]
+        assert queued_rows
+        saved = await sd.publish_post(queued_rows[0]["id"], force=False)
+    assert queued["posted"] == 0
+    assert queued["queued"] >= 1
+    assert auto["published"] == 0
+    assert all(row["status"] == "dry_run" for row in queued_rows)
+    assert auto_rows and all(row["status"] == "dry_run" for row in auto_rows)
+    assert saved.get("dry_run") is True
+    assert saved["status"] == "dry_run"
+    px.assert_not_called()
+    pl.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_queue_dry_run_no_network():
     from app.notifications import social_dispatcher as sd
 
@@ -114,7 +156,9 @@ async def test_queue_x_ready_does_not_send():
 
 
 @pytest.mark.asyncio
-async def test_publish_force_without_tokens(client):
+async def test_publish_dry_run_does_not_call_x(client):
+    from app.notifications import social_dispatcher as sd
+
     await init_social_db()
     post_id = await insert_post(
         platform="x",
@@ -129,13 +173,49 @@ async def test_publish_force_without_tokens(client):
         media_path=None,
         status="dry_run",
     )
-    with patch("app.notifications.social_dispatcher.x_configured", return_value=False):
+    with (
+        patch.object(sd.settings, "social_dry_run", True),
+        patch.object(sd, "post_to_x", new_callable=AsyncMock) as px,
+        patch("app.notifications.social_dispatcher.x_configured", return_value=True),
+    ):
+        r = client.post(f"/api/social/posts/{post_id}/publish")
+        with pytest.raises(sd.DryRunPublicationBlocked):
+            await sd.publish_post(post_id, force=True)
+    assert r.status_code == 409
+    assert "próbny" in r.json()["detail"].lower() or "dry-run" in r.json()["detail"].lower()
+    px.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_publish_force_without_tokens(client):
+    from app.notifications import social_dispatcher as sd
+
+    await init_social_db()
+    post_id = await insert_post(
+        platform="x",
+        news_id="force-uniq-live",
+        url="https://www.reuters.com/markets/fed",
+        title="T",
+        body=(
+            "Źródło: Reuters\nhttps://www.reuters.com/markets/fed\n"
+            "Fed holds rates\n— @robi44610 | Kar Digital"
+        ),
+        source_name="Reuters",
+        media_path=None,
+        status="ready",
+    )
+    with (
+        patch.object(sd.settings, "social_dry_run", False),
+        patch("app.notifications.social_dispatcher.x_configured", return_value=False),
+    ):
         r = client.post(f"/api/social/posts/{post_id}/publish")
     assert r.status_code == 400
 
 
 @pytest.mark.asyncio
 async def test_publish_rejects_post_without_source(client):
+    from app.notifications import social_dispatcher as sd
+
     await init_social_db()
     post_id = await insert_post(
         platform="x",
@@ -147,7 +227,10 @@ async def test_publish_rejects_post_without_source(client):
         media_path=None,
         status="ready",
     )
-    with patch("app.notifications.social_dispatcher.x_configured", return_value=True):
+    with (
+        patch.object(sd.settings, "social_dry_run", False),
+        patch("app.notifications.social_dispatcher.x_configured", return_value=True),
+    ):
         r = client.post(f"/api/social/posts/{post_id}/publish")
     assert r.status_code == 400
     assert "źródł" in r.json()["detail"].lower()
@@ -155,6 +238,8 @@ async def test_publish_rejects_post_without_source(client):
 
 @pytest.mark.asyncio
 async def test_publish_rejects_post_without_author_handle(client):
+    from app.notifications import social_dispatcher as sd
+
     await init_social_db()
     post_id = await insert_post(
         platform="x",
@@ -166,7 +251,10 @@ async def test_publish_rejects_post_without_author_handle(client):
         media_path=None,
         status="ready",
     )
-    with patch("app.notifications.social_dispatcher.x_configured", return_value=True):
+    with (
+        patch.object(sd.settings, "social_dry_run", False),
+        patch("app.notifications.social_dispatcher.x_configured", return_value=True),
+    ):
         r = client.post(f"/api/social/posts/{post_id}/publish")
     assert r.status_code == 400
     assert "robi44610" in r.json()["detail"]
@@ -174,6 +262,8 @@ async def test_publish_rejects_post_without_author_handle(client):
 
 @pytest.mark.asyncio
 async def test_published_feed_lists_a_sent_post(client):
+    from app.notifications import social_dispatcher as sd
+
     await init_social_db()
     post_id = await insert_post(
         platform="x",
@@ -189,6 +279,7 @@ async def test_published_feed_lists_a_sent_post(client):
         status="ready",
     )
     with (
+        patch.object(sd.settings, "social_dry_run", False),
         patch("app.notifications.social_dispatcher.x_configured", return_value=True),
         patch(
             "app.notifications.social_dispatcher.post_to_x",

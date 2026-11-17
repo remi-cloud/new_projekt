@@ -49,7 +49,6 @@ async def ai_status():
             "learning_from_feedback",
             "macro_cycles",
             "news_image_agent",
-            "calendar_ai",
             "free_llm7",
         ],
         knowledge_entries=stats["knowledge_entries"],

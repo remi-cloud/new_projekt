@@ -1,13 +1,11 @@
 import asyncio
 import logging
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, RedirectResponse
 
 from app.news.image_agent import has_image as news_has_image, image_file_path, purge_legacy_images
 from app.news.macro_news import (
-    get_macro_calendar_month,
     get_macro_news,
     get_news_item_by_id,
     patch_cached_image,
@@ -18,7 +16,7 @@ from app.news.google_news_urls import ensure_clickable_url, is_unsafe_news_url, 
 from app.news.public_urls import strip_loopback_origin
 from app.news.news_alerts import news_alert_engine
 from app.notifications.news_dispatcher import dispatch_news_alerts
-from app.models.schemas import MacroCalendarMonthResponse, MacroNewsFeed
+from app.models.schemas import MacroNewsFeed
 from app.realtime.broadcaster import broadcaster
 
 logger = logging.getLogger(__name__)
@@ -54,16 +52,6 @@ async def initial_news() -> None:
         asyncio.create_task(kick_news_images(feed.items))
     except Exception as exc:
         logger.warning("Initial macro news fetch failed: %s", exc)
-
-
-@router.get("/api/news/calendar", response_model=MacroCalendarMonthResponse)
-async def macro_calendar_month(year: int | None = None, month: int | None = None, lang: str | None = None):
-    now = datetime.now(timezone.utc)
-    y = year or now.year
-    m = month or now.month
-    if m < 1 or m > 12:
-        raise HTTPException(status_code=400, detail="Month must be 1–12")
-    return await get_macro_calendar_month(y, m, locale=lang)
 
 
 @router.get("/api/news/macro", response_model=MacroNewsFeed)

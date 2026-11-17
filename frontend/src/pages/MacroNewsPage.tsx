@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { SocialDeskPanel } from '../components/SocialDeskPanel'
 import { fetchMacroNews, refreshMacroNews } from '../api'
-import { MacroCalendarTab } from '../components/MacroCalendarTab'
 import { GrowthFunnelStrip } from '../components/GrowthFunnelStrip'
 import { ErrorState } from '../components/Loading'
 import { AskAgentButton } from '../components/AskAgentButton'
@@ -12,7 +11,6 @@ import type { TranslationPath } from '../i18n'
 import { MacroNewsCategory, MacroNewsFeed, MacroNewsItem } from '../types'
 import { newsAssetUrl, newsOutboundUrl, newsShareUrl } from '../lib/newsUrl'
 
-type ViewMode = 'news' | 'calendar'
 type TabId = 'all' | MacroNewsCategory
 
 const NEWS_TAB_IDS: TabId[] = ['all', 'musk', 'fed', 'usa', 'macro', 'global', 'crypto']
@@ -104,7 +102,6 @@ function NewsCard({
 
 export function MacroNewsPage() {
   const { t, dateLocale, locale } = useLocale()
-  const [view, setView] = useState<ViewMode>('news')
   const [tab, setTab] = useState<TabId>('all')
   const [feed, setFeed] = useState<MacroNewsFeed | null>(null)
   const [loading, setLoading] = useState(true)
@@ -112,9 +109,7 @@ export function MacroNewsPage() {
   const [socialRefreshKey, setSocialRefreshKey] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const tabRef = useRef(tab)
-  const viewRef = useRef(view)
   tabRef.current = tab
-  viewRef.current = view
 
   const load = useCallback(async (category: TabId, silent = false) => {
     if (!silent) setError(null)
@@ -130,12 +125,11 @@ export function MacroNewsPage() {
 
   const { connected } = useLiveFeed((event) => {
     if (event.type === 'macro_news_tick' || event.type === 'macro_news' || event.type === 'macro_news_image') {
-      if (viewRef.current === 'news') void load(tabRef.current, true)
+      void load(tabRef.current, true)
     }
   })
 
   useEffect(() => {
-    if (view !== 'news') return
     setLoading(true)
     let cancelled = false
     ;(async () => {
@@ -157,15 +151,14 @@ export function MacroNewsPage() {
     return () => {
       cancelled = true
     }
-  }, [tab, load, view, locale])
+  }, [tab, load, locale])
 
   useEffect(() => {
-    if (view !== 'news') return
     if (connected) return
     const pollMs = (feed?.poll_interval_seconds ?? 60) * 1000
     const id = window.setInterval(() => void load(tabRef.current, true), pollMs)
     return () => window.clearInterval(id)
-  }, [load, feed?.poll_interval_seconds, view, connected])
+  }, [load, feed?.poll_interval_seconds, connected])
 
   const handleRefresh = async () => {
     setRefreshing(true)
@@ -184,10 +177,10 @@ export function MacroNewsPage() {
   const counts = feed?.counts ?? {}
   const pollSec = feed?.poll_interval_seconds ?? 60
 
-  if (view === 'news' && loading && !feed) {
+  if (loading && !feed) {
     return <div className="page-loading macro-page-loading">{t('macro.loadingNews')}</div>
   }
-  if (view === 'news' && error && !feed) {
+  if (error && !feed) {
     return <ErrorState message={error} onRetry={() => load(tab)} />
   }
 
@@ -213,12 +206,12 @@ export function MacroNewsPage() {
           <span className="macro-news-live-dot" />
           {connected ? t('macro.live') : t('macro.connecting')}
         </span>
-        {view === 'news' && feed && (
+        {feed && (
           <span className="macro-news-fresh-badge">
             {t('macro.freshLastHour', { count: feed.fresh_count_1h ?? 0 })}
           </span>
         )}
-        {view === 'news' && feed?.fetched_at && (
+        {feed?.fetched_at && (
           <span className="macro-news-poll-hint">
             {t('macro.fetchedAt', {
               date: new Date(feed.fetched_at).toLocaleString(dateLocale),
@@ -228,31 +221,7 @@ export function MacroNewsPage() {
         <span className="macro-news-poll-hint">{t('macro.refreshEvery', { sec: pollSec })}</span>
       </div>
 
-      <div className="macro-view-tabs macro-tabs-enter" role="tablist">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={view === 'news'}
-          className={`macro-view-tab ${view === 'news' ? 'active' : ''}`}
-          onClick={() => setView('news')}
-        >
-          {t('macro.tabNews')}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={view === 'calendar'}
-          className={`macro-view-tab macro-view-tab-calendar ${view === 'calendar' ? 'active' : ''}`}
-          onClick={() => setView('calendar')}
-        >
-          {t('macro.tabCalendar')}
-        </button>
-      </div>
-
-      <div className={`macro-view-panel ${view === 'calendar' ? 'macro-view-calendar' : 'macro-view-news'}`}>
-        {view === 'calendar' ? (
-          <MacroCalendarTab />
-        ) : (
+      <div className="macro-view-panel macro-view-news">
           <>
             <div className="macro-news-toolbar">
               <div className="macro-news-tabs" role="tablist">
@@ -305,7 +274,6 @@ export function MacroNewsPage() {
               </div>
             )}
           </>
-        )}
       </div>
 
       <GrowthFunnelStrip source="news" />

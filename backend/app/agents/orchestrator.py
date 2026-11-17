@@ -1,7 +1,7 @@
 """
 Singularity orchestrator — Kar Digital.
 
-Uses Academy bitcoin/presidential cycles (adapted to Alpha/Beta scout shapes)
+Uses the Bitcoin cycle as Alpha and a neutral Beta (no presidential-term tilt)
 and MONITORED_ASSETS universe. Does not replace the Academy opportunity_scanner.
 """
 
@@ -16,8 +16,7 @@ from app.agents.scouts import ScoutAgent, build_scout_roster
 from app.agents.specialists import LongSpecialist, ShortSpecialist
 from app.agents.types import AgentScanResult, ScoutFinding
 from app.cycles.bitcoin_cycle import analyze_bitcoin_cycle
-from app.cycles.model_adapters import bitcoin_as_alpha, presidential_as_beta
-from app.cycles.presidential_cycle import analyze_presidential_cycle
+from app.cycles.model_adapters import bitcoin_as_alpha, neutral_beta
 from app.data.assets import MONITORED_ASSETS
 from app.data.market_data import fetch_bitcoin_ath, fetch_quotes
 from app.data.whale_flows import fetch_whale_snapshot
@@ -104,9 +103,8 @@ class AgentOrchestrator:
 
         ath_date, ath_price, btc_price = await fetch_bitcoin_ath()
         btc = analyze_bitcoin_cycle(ath_date, ath_price, btc_price)
-        pres = analyze_presidential_cycle()
         self.alpha_model = bitcoin_as_alpha(btc)
-        self.beta_model = presidential_as_beta(pres)
+        self.beta_model = neutral_beta()
 
         assets = [
             {

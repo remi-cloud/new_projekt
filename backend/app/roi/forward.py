@@ -9,7 +9,6 @@ from datetime import date, datetime, timezone
 from app.config import settings
 from app.cycles.bitcoin_cycle import analyze_bitcoin_cycle
 from app.cycles.momentum_cycle import analyze_momentum, compute_momentum_indicators
-from app.cycles.presidential_cycle import analyze_presidential_cycle
 from app.cycles.price_cycle import analyze_price_cycle
 from app.data.assets import MONITORED_ASSETS
 from app.data.market_data import fetch_bitcoin_ath
@@ -40,12 +39,6 @@ TERMINAL_CAGR = {
 }
 
 EQUITY_BASE_ANNUAL = 8.5
-PRESIDENTIAL_ANNUAL = {
-    "year_1": 7.1,
-    "year_2": 3.9,
-    "year_3": 16.0,
-    "year_4": 6.8,
-}
 
 
 def _blend_to_terminal(phase_annual: float, terminal: float, month_index: int, total_months: int) -> float:
@@ -212,12 +205,6 @@ async def project_forward(
             days_since_ath = 400  # mid-cycle fallback
             cycle_phase = "bull"
             cycle_rationale = "Fallback mid-cycle (ATH fetch failed)"
-    elif region == "us" and asset_class in ("stock", "etf", "index", "tokenized"):
-        cycle_source = "presidential+price"
-        pres = analyze_presidential_cycle(today)
-        cycle_phase = f"{pres.current_year.value}+{price_phase.value}"
-        cycle_rationale = pres.rationale
-
     # Portfolio state
     months = years * 12
     crypto_scale = _scale_crypto_returns(hist_cagr) if asset_class == "crypto" else 1.0
@@ -249,13 +236,6 @@ async def project_forward(
             # Soft floor using observed hist CAGR for near-term realism
             if m < 36:
                 annual = 0.7 * annual + 0.3 * min(hist_cagr, 80.0)
-        elif region == "us" and asset_class in ("stock", "etf", "index", "tokenized"):
-            pres = analyze_presidential_cycle(as_of)
-            annual = PRESIDENTIAL_ANNUAL.get(pres.current_year.value, EQUITY_BASE_ANNUAL)
-            annual *= PRICE_PHASE_ADJ.get(price_phase.value, 1.0)
-            annual = 0.55 * annual + 0.45 * hist_cagr
-            annual = _blend_to_terminal(annual, terminal, m, months)
-            phase_key = f"{pres.current_year.value}"
         else:
             annual = hist_cagr * PRICE_PHASE_ADJ.get(price_phase.value, 1.0)
             annual = max(-15.0, min(22.0, annual))

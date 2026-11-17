@@ -99,10 +99,19 @@ export function SocialDeskPanel({ refreshKey = 0 }: { refreshKey?: number }) {
                 <button
                   type="button"
                   className="btn btn-ghost tap-target social-desk-publish"
-                  disabled={publishingId === p.id}
-                  onClick={() => void handlePublish(p.id)}
+                  disabled={Boolean(status.dry_run) || publishingId === p.id}
+                  aria-disabled={Boolean(status.dry_run) || publishingId === p.id}
+                  title={status.dry_run ? 'tryb próbny' : undefined}
+                  onClick={() => {
+                    if (status.dry_run) return
+                    void handlePublish(p.id)
+                  }}
                 >
-                  {publishingId === p.id ? '…' : t('macro.social.publish')}
+                  {status.dry_run
+                    ? 'tryb próbny'
+                    : publishingId === p.id
+                      ? '…'
+                      : t('macro.social.publish')}
                 </button>
               )}
             </li>

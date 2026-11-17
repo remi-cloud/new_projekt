@@ -64,9 +64,9 @@ def test_news_image_not_found(client: TestClient):
     assert r.status_code == 404
 
 
-def test_macro_calendar_invalid_month(client: TestClient):
-    r = client.get("/api/news/calendar?month=13")
-    assert r.status_code == 400
+def test_macro_calendar_removed(client: TestClient):
+    r = client.get("/api/news/calendar")
+    assert r.status_code == 404
 
 
 def test_paper_portfolio(client: TestClient):

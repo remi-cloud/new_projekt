@@ -47,7 +47,7 @@ def consult_trade_signal(
     score = float(super_score or 0)
     model = {
         "bitcoin": "Cykl Bitcoin",
-        "presidential": "Cykl prezydencki",
+        "us_neutral": "USA neutralnie",
         "alpha": "Cykl Bitcoin",
         "beta": "Cykl prezydencki",
     }.get(cycle_source, cycle_source or "cykl")

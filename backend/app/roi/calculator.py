@@ -8,7 +8,6 @@ from datetime import date, datetime, timezone
 from typing import Literal
 
 from app.cycles.bitcoin_cycle import analyze_bitcoin_cycle
-from app.cycles.presidential_cycle import analyze_presidential_cycle
 from app.cycles.price_cycle import analyze_price_cycle
 from app.data.assets import MONITORED_ASSETS
 from app.models.schemas import ChartCandle, CyclePhase, SignalAction
@@ -96,25 +95,17 @@ def _phase_for_bar(
     phase, signal, _conf, _rationale = analyze_price_cycle(c.close, high_52, low_52)
 
     if region == "us" and asset_class in ("stock", "etf", "index", "tokenized"):
-        pres = analyze_presidential_cycle(as_of)
         dd_pct = ((high_52 - c.close) / high_52 * 100) if high_52 > 0 else 0.0
-        # Invested-first US book (real Yahoo prices): stay long through normal
-        # bull/near-high action. Deploy on dips (≥10% off 52w high). Do NOT
-        # park cash at ≤3% from highs — that cash drag is what lost to buy&hold.
+        # Price-only US book: stay long near highs, buy dips. No term-year bias.
         if dd_pct >= 10 or phase in (CyclePhase.BEAR, CyclePhase.ACCUMULATION):
             return (
                 CyclePhase.ACCUMULATION if dd_pct >= 10 else phase,
                 SignalAction.BUY,
-                f"Dip buy −{dd_pct:.0f}% · {pres.current_year.value}",
+                f"Dip buy −{dd_pct:.0f}%",
             )
-        if pres.signal == SignalAction.BUY or phase in (CyclePhase.BULL, CyclePhase.DISTRIBUTION):
-            return (
-                CyclePhase.BULL,
-                SignalAction.BUY,
-                f"Stay invested · {pres.current_year.value}",
-            )
-        # Weak presidential year but not toppy exit: remain invested (HOLD keeps units)
-        return CyclePhase.BULL, SignalAction.HOLD, f"Hold invested · {pres.current_year.value}"
+        if phase in (CyclePhase.BULL, CyclePhase.DISTRIBUTION) or dd_pct <= 3:
+            return CyclePhase.BULL, SignalAction.BUY, "Stay invested"
+        return CyclePhase.BULL, SignalAction.HOLD, "Hold invested"
 
     return phase, signal, f"Price cycle · {phase.value}"
 
@@ -355,7 +346,7 @@ async def calculate_roi(
         "cycle_source": (
             "bitcoin_ath"
             if asset_class == "crypto"
-            else ("presidential+price" if region == "us" else "price_cycle")
+            else "price_cycle"
         ),
         "equity_curve": [
             {"time": p.time, "equity": p.equity, "price": p.price, "phase": p.phase}
@@ -467,7 +458,7 @@ async def calculate_program_us_backtest(
     agent_final = float(result.get("final_value") or 0)
     bh_final = float(bh.get("final_value") or 0)
     result["program"] = {
-        "label": "US presidential+price cycle vs S&P buy&hold",
+        "label": "Price cycle vs S&P buy&hold",
         "start_capital": amount,
         "start_date": start.isoformat(),
         "agent_final": agent_final,

@@ -36,9 +36,9 @@ export const SIGNAL_LABELS: Record<string, string> = {
 
 export const MODEL_LABELS: Record<string, string> = {
   bitcoin: 'Cykl Bitcoin',
-  presidential: 'Cykl prezydencki',
+  us_neutral: 'USA neutralnie',
   alpha: 'Cykl Bitcoin',
-  beta: 'Cykl prezydencki',
+  beta: 'Bez wpływu',
 }
 
 export function formatModel(source: string): string {

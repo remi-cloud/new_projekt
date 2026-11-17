@@ -1,11 +1,10 @@
-"""Regional macro cycles — local events instead of one global US presidential cycle."""
+"""Regional macro cycles. The US presidential term model is not used."""
 
 from __future__ import annotations
 
 from datetime import date
 
 from app.cycles.macro_types import MacroCycleResult
-from app.cycles.presidential_cycle import analyze_presidential_cycle, presidential_buy_weight
 from app.models.schemas import SignalAction
 
 # ── Election / event calendars ──
@@ -68,15 +67,15 @@ def _months_since(last: date | None, as_of: date) -> int:
 
 
 def analyze_us_macro(as_of: date | None = None) -> MacroCycleResult:
-    pres = analyze_presidential_cycle(as_of)
-    weight = presidential_buy_weight(as_of)
+    """Neutral US weight. No presidential-term bias."""
+    del as_of
     return MacroCycleResult(
-        cycle_id="presidential_cycle",
-        phase=pres.current_year.value,
-        signal=pres.signal,
-        buy_weight=weight,
-        bias=pres.historical_bias,
-        rationale=pres.rationale,
+        cycle_id="us_neutral",
+        phase="neutral",
+        signal=SignalAction.HOLD,
+        buy_weight=1.0,
+        bias="USA: waga neutralna, bez cyklu prezydenckiego",
+        rationale="Cykl prezydencki wyłączony. Sygnał USA nie dokłada biasu kadencji.",
     )
 
 
@@ -151,7 +150,7 @@ def analyze_europe_cycle(as_of: date | None = None) -> MacroCycleResult:
     ecb_active = as_of.month in (3, 6, 9, 12)
     ecb_note = " Miesiąc decyzji ECB — podwyższona zmienność." if ecb_active else ""
 
-    us_spill = presidential_buy_weight(as_of) * 0.35
+    us_spill = 0.0
 
     if months_from_eu <= 12:
         buy_w = 0.45 + us_spill * 0.3
@@ -214,7 +213,7 @@ def analyze_asia_cycle(as_of: date | None = None, symbol: str = "") -> MacroCycl
     month = as_of.month
     market = _asia_market_hint(symbol)
 
-    us_spill = presidential_buy_weight(as_of) * 0.25
+    us_spill = 0.0
     phase = "asia_general"
     signal = SignalAction.HOLD
     buy_w = 0.50 + us_spill
@@ -275,7 +274,7 @@ def analyze_asia_cycle(as_of: date | None = None, symbol: str = "") -> MacroCycl
 
 def analyze_em_cycle(as_of: date | None = None, symbol: str = "") -> MacroCycleResult:
     as_of = as_of or date.today()
-    us_spill = presidential_buy_weight(as_of)
+    us_spill = 0.0
 
     # Brazylia — wybory co 4 lata (październik)
     last_br, next_br, months_to_br = _nearest_election(BRAZIL_PRESIDENTIAL_ELECTIONS, as_of)
@@ -322,7 +321,7 @@ def analyze_global_macro(
     asset_class: str = "commodity",
 ) -> MacroCycleResult:
     as_of = as_of or date.today()
-    us_spill = presidential_buy_weight(as_of) * 0.40
+    us_spill = 0.0
     month = as_of.month
 
     if asset_class == "commodity":
@@ -349,25 +348,13 @@ def analyze_global_macro(
         )
 
     if asset_class == "forex":
-        pres = analyze_presidential_cycle(as_of)
-        # Rok 1-2 USD często silniejszy; rok 3-4 słabszy — uproszczone
-        if pres.year_number in (1, 2):
-            phase = "usd_strong_bias"
-            buy_w = 0.45
-            signal = SignalAction.WATCH
-            note = "Forex: wczesna faza kadencji USA — tendencja silniejszego USD"
-        else:
-            phase = "usd_neutral_bias"
-            buy_w = 0.50
-            signal = SignalAction.HOLD
-            note = "Forex: późna kadencja — rotacja z USD"
         return MacroCycleResult(
             cycle_id="global_forex_cycle",
-            phase=phase,
-            signal=signal,
-            buy_weight=buy_w,
-            bias="Forex: wpływ Fed/USD, nie pełny cykl prezydencki",
-            rationale=f"{note} ({pres.president}, rok {pres.year_number}).",
+            phase="usd_neutral_bias",
+            signal=SignalAction.HOLD,
+            buy_weight=1.0,
+            bias="Forex: waga neutralna, bez cyklu prezydenckiego",
+            rationale="Forex bez biasu kadencji USA. Ocena zostaje przy cenie i momentum.",
         )
 
     # bonds with region global (BNDX etc.)

@@ -28,9 +28,10 @@ def test_polish_pre_election():
     assert result.signal == SignalAction.WATCH
 
 
-def test_us_region_uses_presidential():
+def test_us_region_is_neutral():
     result = analyze_regional_macro("us", "stock", "AAPL", date(2026, 7, 13))
-    assert result.cycle_id == "presidential_cycle"
+    assert result.cycle_id == "us_neutral"
+    assert result.buy_weight == 1.0
 
 
 def test_pl_region_not_presidential():

@@ -80,28 +80,23 @@ async def init_ai_db() -> None:
 SEASONALITY_KNOWLEDGE = [
     (
         "cycles",
-        "Cykl prezydencki USA",
+        "Cykl prezydencki USA — wyłączony",
         (
-            "Lata kadencji (S&P Almanac): rok 3 zwykle najsilniejszy, rok 2 najsłabszy (midterms), "
-            "rok 1/4 umiarkowane. Dotyczy aktywów region=us. "
-            "Sygnał wejścia łączy rok kadencji z sezonowością miesiąca."
+            "Prognoza kadencji prezydenckiej (Trump, rok 1–4, next term) jest wyłączona. "
+            "Nie podawaj roku kadencji ani oczekiwanej stopy z almanachu. "
+            "USA ma wagę neutralną 1.0. Sezonowość instrumentu bierz z global_cycle_book i calendar_pumps."
         ),
-        "usa,presidential,cycle",
+        "usa,presidential,disabled",
     ),
     (
         "cycles",
-        "Sezonowość miesięczna USA (kadencja × miesiąc)",
+        "Sezonowość miesięczna USA (bez kadencji)",
         (
-            "Model liczy equal-weight średnie zwroty miesięczne po uniwersum USA (akcje/ETF/indeksy/obligacje) "
-            "w latach 1–4 kadencji (inauguracja 20 stycznia). "
-            "get_macro_cycles.month_matrices ma WSZYSTKIE lata Y1–Y4 bieżącej kadencji (nie tylko rok bieżący). "
-            "next_term_outlook nakłada ten sam wzorzec na 2029–2033 po Trump II — kontynuacja cyklu, "
-            "nie prognoza wyborów 2028. "
-            "Średnie miesięczne są monitorowane (seasonality_health); przy dryfcie overlay_scale spada — "
-            "nie traktuj % jako pewnych. "
-            "Agent ma brać current_month_bias + strongest/weakest_months + all_years — nie zmyślać tabel."
+            "Macierz kadencja × miesiąc została usunięta. "
+            "Nie cytuj month_matrices ani next_term_outlook. "
+            "Dla miesiąca kalendarzowego użyj calendar_pumps i global_cycle_book."
         ),
-        "usa,seasonality,presidential,month",
+        "usa,seasonality,month",
     ),
     (
         "cycles",
@@ -280,7 +275,7 @@ async def _seed_knowledge_if_empty() -> None:
 
     seeds = [
         ("cycles", "Cykl Bitcoina 364/1064", "Po ATH Bitcoin często przechodzi fazę spadkową (~364 dni), potem falę wzrostową (~1064 dni), następnie dystrybucję. Sygnały krypto powinny uwzględniać fazę cyklu BTC.", "bitcoin,crypto,cycle"),
-        ("cycles", "Cykl prezydencki USA", "Lata kadencji (S&P Almanac): rok 3 zwykle najsilniejszy, rok 2 najsłabszy (midterms). Łącz z sezonowością miesięczną USA z get_macro_cycles.", "usa,presidential,cycle"),
+        ("cycles", "Cykl prezydencki USA — wyłączony", "Prognoza kadencji prezydenckiej jest wyłączona. Nie podawaj roku kadencji. USA ma wagę neutralną. Sezonowość bierz z global_cycle_book i calendar_pumps.", "usa,presidential,disabled"),
         ("macro", "Fed i stopy procentowe", "Decyzje FOMC wpływają na koszt kapitału, dolara i wyceny aktywów ryzykownych. Rynek często dyskontuje oczekiwania przed samym komunikatem.", "fed,rates,macro"),
         ("macro", "CPI i inflacja", "CPI powyżej oczekiwań może wspierać hossę na obligacjach krótkoterminowych i osłabiać growth/tech w krótkim horyzoncie. Kontekst cyklu ma znaczenie.", "cpi,inflation,macro"),
         ("technical", "Trend vs korekta", "Trend wzrostowy: wyższe dołki i szczyty (HH/HL). Trend spadkowy: niższe szczyty i dołki (LH/LL). Korekta w trendzie ≠ zmiana trendu.", "trend,technical"),

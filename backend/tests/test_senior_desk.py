@@ -88,7 +88,7 @@ async def test_desk_bundle_has_render_for_focus(monkeypatch):
         if name == "risk_snapshot":
             return {"symbol": args.get("symbol"), "summary": "risk ok"}
         if name == "get_macro_cycles":
-            return {"bitcoin": {}, "presidential": {}}
+            return {"bitcoin": {}}
         return {"error": "unexpected"}
 
     monkeypatch.setattr("app.ai.tools.fetch_chart", fake_fetch)

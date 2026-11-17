@@ -16,7 +16,7 @@ async def dashboard():
         not scanner.bitcoin_cycle or not scanner.market_assessments
     ):
         raise HTTPException(status_code=503, detail="Skan rynków w toku — spróbuj za chwilę")
-    if not scanner.bitcoin_cycle or not scanner.presidential_cycle:
+    if not scanner.bitcoin_cycle:
         raise HTTPException(status_code=503, detail="Nie udało się pobrać danych cykli")
     if not scanner.market_assessments:
         raise HTTPException(status_code=503, detail="Skan rynków w toku — spróbuj za chwilę")
@@ -28,7 +28,6 @@ async def dashboard():
 
     return DashboardResponse(
         bitcoin_cycle=scanner.bitcoin_cycle,
-        presidential_cycle=scanner.presidential_cycle,
         regional_cycles=scanner.regional_cycles,
         opportunities=scanner.opportunities,
         monitored_assets=scanner.quotes,

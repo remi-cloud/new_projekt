@@ -8,7 +8,6 @@ import {
   PaperPortfolio,
   PaperPosition,
   PaperTrade,
-  MacroCalendarMonth,
   MacroNewsFeed,
   TwilioConfig,
 } from './types'
@@ -237,14 +236,6 @@ export async function fetchChart(symbol: string, range: ChartPreset = '3M'): Pro
 export async function fetchChartPresets(): Promise<string[]> {
   const res = await fetch(`${API_BASE}/markets/chart-presets`)
   if (!res.ok) return CHART_PRESETS
-  return res.json()
-}
-
-export async function fetchMacroCalendar(year: number, month: number, lang?: string): Promise<MacroCalendarMonth> {
-  const qs = new URLSearchParams({ year: String(year), month: String(month) })
-  if (lang) qs.set('lang', lang)
-  const res = await fetch(`${API_BASE}/news/calendar?${qs}`)
-  if (!res.ok) await throwApiError(res, 'fetchCalendar')
   return res.json()
 }
 
@@ -1278,14 +1269,6 @@ export interface PublicLiveDigest {
   fetched_at: string
   status: string
   bitcoin_cycle: BitcoinCycleStatus | null
-  presidential_cycle: {
-    president?: string
-    current_year?: string
-    year_number?: number
-    signal?: string
-    rationale?: string
-    current_year_expected_return_pct?: number
-  } | null
   top_opportunities: {
     symbol: string
     name: string

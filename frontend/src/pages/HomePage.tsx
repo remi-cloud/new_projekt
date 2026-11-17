@@ -1,6 +1,5 @@
 import { useNavigate } from 'react-router-dom'
 import { CycleCardBitcoin } from '../components/CycleCardBitcoin'
-import { CycleCardPresidential } from '../components/CycleCardPresidential'
 import { ErrorState, Loading } from '../components/Loading'
 import { OpportunityCard } from '../components/OpportunityCard'
 import { InvestmentShowcase } from '../components/InvestmentShowcase'
@@ -50,7 +49,6 @@ export function HomePage() {
 
         <section className="home-cycles">
           <CycleCardBitcoin cycle={data.bitcoin_cycle} />
-          <CycleCardPresidential cycle={data.presidential_cycle} />
         </section>
 
         {topOpps.length > 0 && (

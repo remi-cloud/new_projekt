@@ -13,14 +13,11 @@ from xml.etree import ElementTree
 import httpx
 
 from app.config import settings
-from app.models.schemas import MacroCalendarMonthResponse, MacroNewsCategory, MacroNewsFeed, MacroNewsItem
-from app.news.calendar_ai import enrich_calendar_events
+from app.models.schemas import MacroNewsCategory, MacroNewsFeed, MacroNewsItem
 from app.news.google_news_urls import resolve_item_urls
 from app.news.ideology_lens import sort_by_alignment
 from app.news.image_agent import enrich_items, generate_missing
 from app.news.image_sources import extract_image_from_rss_description
-from app.news.macro_calendar import get_calendar_month, get_upcoming_calendar
-
 logger = logging.getLogger(__name__)
 
 HTTP_HEADERS = {
@@ -776,11 +773,8 @@ async def refresh_macro_news() -> tuple[MacroNewsFeed, list[MacroNewsItem]]:
     news = [by_id.get(n.id, n) for n in news]
     fresh_1h = sum(1 for n in news if _age_minutes(n, now) <= 60)
 
-    # Feed strip: next dozen only (calendar month endpoint assesses the full month)
-    upcoming = await enrich_calendar_events(get_upcoming_calendar()[:12], locale="pl")
     feed = MacroNewsFeed(
         items=display_items,
-        calendar_events=upcoming,
         fetched_at=now,
         counts=counts,
         sources_count=len(RSS_SOURCES),
@@ -827,56 +821,13 @@ async def get_macro_news(category: str | None = None, limit: int = 50, locale: s
         if _cache is not None and not cat:
             _cache = _cache.model_copy(update={"items": enrich_items(items)})
 
-    upcoming = await enrich_calendar_events(get_upcoming_calendar(locale=locale)[:12], locale=locale)
     return MacroNewsFeed(
         items=enrich_items(items),
-        calendar_events=upcoming,
         fetched_at=cached.fetched_at,
         counts=counts,
         sources_count=cached.sources_count,
         poll_interval_seconds=cached.poll_interval_seconds,
         fresh_count_1h=cached.fresh_count_1h,
-    )
-
-
-def _month_bounds(year: int, month: int) -> tuple[date, date]:
-    start = date(year, month, 1)
-    if month == 12:
-        end = date(year + 1, 1, 1) - timedelta(days=1)
-    else:
-        end = date(year, month + 1, 1) - timedelta(days=1)
-    return start, end
-
-
-async def get_macro_calendar_month(year: int, month: int, locale: str | None = "pl") -> MacroCalendarMonthResponse:
-    global _cache, _pool
-    async with _cache_lock:
-        cached = _cache
-        pool = list(_pool)
-    if cached is None or not pool:
-        cached, _ = await refresh_macro_news()
-        async with _cache_lock:
-            pool = list(_pool)
-
-    events = await enrich_calendar_events(
-        get_calendar_month(year, month, locale=locale),
-        locale=locale,
-    )
-    start, end = _month_bounds(year, month)
-    news = [
-        item
-        for item in pool
-        if start <= item.published_at.date() <= end
-    ]
-    news = await resolve_item_urls(news)
-
-    return MacroCalendarMonthResponse(
-        year=year,
-        month=month,
-        events=events,
-        news=enrich_items(news),
-        fetched_at=cached.fetched_at,
-        poll_interval_seconds=cached.poll_interval_seconds,
     )
 
 

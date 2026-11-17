@@ -6,7 +6,6 @@ import { AgentTelemetryStrip } from '../components/AgentTelemetryStrip'
 import { CoordinatorHealthStrip } from '../components/CoordinatorHealthStrip'
 import { FomoGhostStrip } from '../components/FomoGhostStrip'
 import { CycleCardBitcoin } from '../components/CycleCardBitcoin'
-import { CycleCardPresidential } from '../components/CycleCardPresidential'
 import { MarketSummaryBanner } from '../components/MarketAssessmentCard'
 import { ProgramUsBacktestPanel } from '../components/ProgramUsBacktestPanel'
 import { OpportunityCard } from '../components/OpportunityCard'
@@ -45,7 +44,6 @@ export function DashboardPage() {
         </div>
         <div className="cycles-grid">
           <CycleCardBitcoin cycle={data.bitcoin_cycle} />
-          <CycleCardPresidential cycle={data.presidential_cycle} />
         </div>
       </section>
 
