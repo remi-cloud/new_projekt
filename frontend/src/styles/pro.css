@@ -1,0 +1,284 @@
+/* Stage 3 — one desk scale. Dark theme stays the default. */
+
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5rem;
+  --content-max: 1180px;
+  --sidebar-width: 336px;
+  --mobile-header-height: 64px;
+}
+
+.app-main,
+.app-content,
+.page-transition,
+.dashboard-columns,
+.dashboard-columns > *,
+.opportunities-grid,
+.opportunities-grid > *,
+.opp-card,
+.super-page,
+.super-feed,
+.super-card,
+.section-tabs {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.app-content {
+  overflow-x: clip;
+}
+
+@media (min-width: 1024px) {
+  .app-shell,
+  .app-main {
+    overflow-x: clip;
+  }
+
+  .app-main {
+    min-width: 0;
+  }
+}
+
+.sidebar-brand {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  overflow: visible;
+  width: 100%;
+  padding: 2px 0 16px 6px;
+}
+
+.sidebar-brand .kar-logo,
+.sidebar-brand .kar-globe-mark {
+  overflow: visible;
+  flex-shrink: 0;
+}
+
+.sidebar-brand .kar-globe-mark {
+  margin: 10px 6px;
+}
+
+.sidebar-product {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.78rem;
+  line-height: 1.2;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.sidebar-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  margin: 0 4px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+}
+
+.sidebar-status::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+@media (max-width: 1023px) {
+  .app-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+    z-index: 40;
+    height: var(--mobile-header-height);
+    min-height: var(--mobile-header-height);
+    padding: 0 12px;
+    background: #000;
+    overflow: visible;
+  }
+}
+
+.mobile-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  min-width: 0;
+  flex: 1;
+  overflow: visible;
+}
+
+.mobile-header-left .kar-logo {
+  overflow: visible;
+  flex-shrink: 0;
+}
+
+.mobile-header-left .kar-globe-mark {
+  margin: 0 14px 0 4px;
+  flex-shrink: 0;
+}
+
+.mobile-header-titles {
+  min-width: 0;
+  padding-left: 2px;
+}
+
+.mobile-title,
+.mobile-subtitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.15;
+}
+
+.mobile-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+}
+
+.mobile-drawer-lang {
+  margin-bottom: var(--space-4);
+}
+
+.nav-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: var(--space-4);
+}
+
+.nav-section-label {
+  margin: 0 0 var(--space-1);
+  padding: 0 var(--space-3);
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-gold);
+}
+
+.sidebar-nav-item {
+  display: block;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  text-decoration: none;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.sidebar-nav-item.active {
+  background: rgba(184, 151, 90, 0.16);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.page-crumbs {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin: 0 0 var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.page-crumbs-sep {
+  color: var(--border-strong);
+}
+
+.desktop-page-title {
+  font-size: var(--text-xl);
+  letter-spacing: -0.02em;
+}
+
+.mobile-menu-btn,
+.btn,
+.sidebar-scan-btn,
+.section-tab {
+  border-radius: var(--radius);
+}
+
+.mobile-menu-btn {
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 8px 10px;
+}
+
+.opp-card,
+.super-card,
+.side-panel,
+.section-tabs {
+  border-radius: var(--radius);
+}
+
+.opp-header,
+.opp-header-actions,
+.super-card-head,
+.super-dir-row,
+.section-header {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.opp-name,
+.opp-symbol,
+.super-card-head h2 {
+  overflow-wrap: anywhere;
+}
+
+.mobile-drawer {
+  display: none;
+}
+
+.mobile-drawer.is-open {
+  display: block;
+  position: fixed;
+  z-index: 30;
+  top: var(--mobile-header-height);
+  right: 0;
+  bottom: var(--nav-height);
+  left: 0;
+  overflow: auto;
+  padding: var(--space-4);
+  background: var(--bg-primary);
+  border-top: 1px solid var(--border);
+}
+
+@media (min-width: 1024px) {
+  .mobile-menu-btn,
+  .mobile-drawer {
+    display: none !important;
+  }
+}
+
+.bottom-nav-label {
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+}

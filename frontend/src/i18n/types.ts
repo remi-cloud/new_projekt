@@ -4,7 +4,7 @@ export type Locale = 'pl' | 'de' | 'en' | 'fil' | 'es' | 'fr' | 'it'
 
 export interface Translations {
   lang: Record<Locale, string>
-  nav: Record<'start' | 'panel' | 'markets' | 'opportunities' | 'pearls' | 'fomo' | 'axiom' | 'aiHacking' | 'radar' | 'cycles' | 'news' | 'alerts' | 'about' | 'portfolio' | 'agent' | 'calculator' | 'live' | 'business' | 'partners' | 'embed' | 'growth' | 'execution' | 'super' | 'tools' | 'toolsCatalog' | 'singularity' | 'astra', string>
+  nav: Record<'start' | 'panel' | 'markets' | 'opportunities' | 'pearls' | 'fomo' | 'axiom' | 'aiHacking' | 'radar' | 'cycles' | 'news' | 'alerts' | 'about' | 'portfolio' | 'agent' | 'calculator' | 'live' | 'business' | 'partners' | 'embed' | 'growth' | 'execution' | 'super' | 'tools' | 'toolsCatalog' | 'singularity' | 'astra' | 'sectionMarket' | 'scanner' | 'sectionCycles' | 'sectionNews' | 'sectionAi' | 'sectionAgent' | 'sectionAccount', string>
   tools: {
     eyebrow: string
     title: string
@@ -73,7 +73,7 @@ export interface Translations {
       { math: string; finance: string; market: string }
     >
   }
-  layout: Record<'scan' | 'scanning' | 'scanDone' | 'scanError' | 'statusScan' | 'statusLive' | 'statusOnline' | 'statusOffline' | 'language' | 'loading' | 'brand' | 'navMain' | 'navMobile' | 'autoRefresh' | 'notFoundTitle' | 'notFoundLead' | 'notFoundHome', string>
+  layout: Record<'scan' | 'scanning' | 'scanDone' | 'scanError' | 'statusScan' | 'statusLive' | 'statusOnline' | 'statusOffline' | 'language' | 'loading' | 'brand' | 'navMain' | 'navMobile' | 'autoRefresh' | 'notFoundTitle' | 'notFoundLead' | 'notFoundHome' | 'menu' | 'menuClose', string>
   common: Record<'retry' | 'all' | 'world' | 'save' | 'saving' | 'cancel' | 'close' | 'refresh' | 'loading' | 'loadingMarket' | 'seeAll' | 'back' | 'units' | 'pieces' | 'long' | 'short' | 'buy' | 'sell' | 'live' | 'today' | 'tomorrow' | 'inDays', string>
   labels: {
     asset: Record<'crypto' | 'stock' | 'etf' | 'tokenized' | 'index' | 'bond' | 'commodity' | 'forex', string>
