@@ -5,6 +5,7 @@ import { KarDigitalLogo } from './KarDigitalLogo'
 import { LanguageSwitcher } from './LanguageSwitcher'
 import { SectionTabs } from './SectionTabs'
 import { MOBILE_NAV, NAV_SECTIONS, navActivePath, sectionForPath } from '../constants'
+import { ApiError } from '../i18n/apiErrors'
 import { shellTitle } from '../lib/pageTitle'
 import { useLocale } from '../context/LocaleContext'
 
@@ -73,8 +74,9 @@ export function Layout({ scannerRunning, scanInProgress, liveMode, liveConnected
       await onScan()
       setToast(t('layout.scanDone'))
       setTimeout(() => setToast(null), 3500)
-    } catch {
-      setToast(t('layout.scanError'))
+    } catch (err) {
+      const detail = err instanceof ApiError ? err.detail : ''
+      setToast(detail || t('layout.scanError'))
       setTimeout(() => setToast(null), 3500)
     }
   }
@@ -108,6 +110,9 @@ export function Layout({ scannerRunning, scanInProgress, liveMode, liveConnected
         </nav>
 
         <div className="sidebar-footer">
+          <Link to="/logowanie" className="sidebar-nav-item tap-target">
+            {t('layout.loginNav')}
+          </Link>
           <div className={`sidebar-status ${scannerRunning ? 'online' : ''}`}>{statusLabel}</div>
         </div>
       </aside>

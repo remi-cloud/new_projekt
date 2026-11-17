@@ -26,7 +26,7 @@ Nie trzymaj drugiej kopii `Docker.app` na Desktopie — używaj `/Applications/D
 
 | | |
 |---|---|
-| Aplikacja | http://127.0.0.1:8080 |
+| Aplikacja | http://127.0.0.1:8080 (port tylko na localhost, także w profilu public) |
 | Health | http://127.0.0.1:8080/api/health |
 | Logi | `docker compose logs -f backend frontend` |
 | Stop | `docker compose down` |
@@ -81,10 +81,21 @@ HTTPS na własnej domenie, bez tunelu:
 # w .env
 CYCLICAL_SITE_DOMAIN=kardigital.ph
 CYCLICAL_PUBLIC_BASE_URL=https://kardigital.ph
+CYCLICAL_DESK_TOKEN=  # długi losowy ciąg; puste zamyka zmiany stanu
 docker compose --profile public up --build -d
 ```
 
-Caddy (`deploy/Caddyfile`) bierze certyfikat i kieruje ruch na frontend:8080. Porty 80 i 443 muszą być otwarte. Kopia baz poza maszynę: [`BACKUP-OFFSITE.md`](BACKUP-OFFSITE.md).
+Caddy bierze certyfikat i kieruje ruch na `frontend:8080` wewnątrz sieci Dockera. Port 8080 na hoście jest zbindowany do `127.0.0.1`, nie do internetu. Na zewnątrz zostają 80 i 443.
+
+Opcjonalne basic auth na 443 (oba pola albo żadne). Hash bez zapisu hasła w repo:
+
+```bash
+docker run --rm caddy:2.10-alpine caddy hash-password --plaintext 'twoje-haslo'
+```
+
+W `.env`: `CYCLICAL_CADDY_BASIC_USER` i `CYCLICAL_CADDY_BASIC_HASH`. Puste = strona bez tej warstwy. Token biurka i tak zamyka zmiany stanu.
+
+Kopia baz poza maszynę: [`BACKUP-OFFSITE.md`](BACKUP-OFFSITE.md).
 
 Albo Cloudflare tunnel jak w [`DOMAIN-PH.md`](DOMAIN-PH.md).
 

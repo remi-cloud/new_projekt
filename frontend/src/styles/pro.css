@@ -188,6 +188,24 @@
   text-decoration: none;
 }
 
+.desk-login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 420px;
+}
+
+.desk-login-form .field-input {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.desk-login-closed,
+.desk-login-ok,
+.desk-login-message {
+  max-width: 520px;
+}
+
 .skip-link:focus {
   transform: none;
 }
@@ -310,4 +328,22 @@
   border: 1px solid var(--border-gold);
   color: var(--text-primary);
   background: rgba(184, 151, 90, 0.08);
+}
+
+.desk-login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 420px;
+}
+
+.desk-login-form .field-input {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.desk-login-closed,
+.desk-login-ok,
+.desk-login-message {
+  max-width: 520px;
 }

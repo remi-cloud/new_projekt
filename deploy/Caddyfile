@@ -1,5 +1,6 @@
-# Public HTTPS in front of the frontend container.
-# Domain comes from CYCLICAL_SITE_DOMAIN (compose maps it to SITE_DOMAIN).
+# Reference only. The public profile runs deploy/caddy-entrypoint.sh,
+# which writes this same site and adds basic_auth when
+# CYCLICAL_CADDY_BASIC_USER and CYCLICAL_CADDY_BASIC_HASH are both set.
 {$SITE_DOMAIN} {
 	encode gzip
 	reverse_proxy frontend:8080

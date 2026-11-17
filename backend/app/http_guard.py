@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 import time
 from collections import defaultdict, deque
 
@@ -53,13 +54,44 @@ def cors_origin_list() -> list[str]:
     return origins
 
 
-def _client_key(request: Request) -> str:
-    forwarded = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
-    if forwarded:
-        return forwarded
+def _peer_host(request: Request) -> str:
     if request.client and request.client.host:
         return request.client.host
     return "unknown"
+
+
+def _trusted_proxy(host: str) -> bool:
+    raw = (settings.trusted_proxies or "").strip()
+    if not raw or not host:
+        return False
+    for item in raw.split(","):
+        token = item.strip()
+        if not token:
+            continue
+        if token == host:
+            return True
+        try:
+            if ipaddress.ip_address(host) in ipaddress.ip_network(token, strict=False):
+                return True
+        except ValueError:
+            continue
+    return False
+
+
+def client_key(request: Request) -> str:
+    """Socket peer, unless that peer is a trusted proxy.
+
+    A client-supplied X-Forwarded-For is ignored. Behind a trusted proxy the
+    rightmost untrusted hop is the address that proxy actually saw.
+    """
+    peer = _peer_host(request)
+    if not _trusted_proxy(peer):
+        return peer
+    hops = [hop.strip() for hop in (request.headers.get("x-forwarded-for") or "").split(",") if hop.strip()]
+    for hop in reversed(hops):
+        if not _trusted_proxy(hop):
+            return hop
+    return peer
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -83,7 +115,7 @@ class PostRateLimitMiddleware(BaseHTTPMiddleware):
         limit = max(1, int(settings.post_rate_limit or 120))
         window = max(1, int(settings.post_rate_window_seconds or 60))
         now = time.monotonic()
-        bucket = _HITS[_client_key(request)]
+        bucket = _HITS[client_key(request)]
         while bucket and now - bucket[0] > window:
             bucket.popleft()
         if len(bucket) >= limit:
