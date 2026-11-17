@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { fetchPublicLive, voteWatchlist, type PublicLiveDigest } from '../api'
+import { newsAssetUrl, newsOutboundUrl } from '../lib/newsUrl'
 import { NewsletterSignup } from '../components/NewsletterSignup'
 import { CommunityActions } from '../components/CommunityActions'
 import { ErrorState } from '../components/Loading'
@@ -126,11 +127,11 @@ export function LivePage() {
             <a
               key={n.id}
               className="growth-news"
-              href={n.url || '#'}
+              href={n.id ? newsOutboundUrl(n.id) : newsAssetUrl(n.url) || '#'}
               target="_blank"
               rel="noopener noreferrer"
             >
-              {n.image_url && <img src={n.image_url} alt="" loading="lazy" />}
+              {n.image_url && <img src={newsAssetUrl(n.image_url)} alt="" loading="lazy" />}
               <div>
                 <span className="growth-cat">{n.category}</span>
                 <strong>{n.title}</strong>

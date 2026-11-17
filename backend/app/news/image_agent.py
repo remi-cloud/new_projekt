@@ -18,6 +18,7 @@ from app.config import settings
 from app.db.paths import BACKEND_ROOT
 from app.models.schemas import MacroNewsCategory, MacroNewsItem
 from app.news.image_sources import resolve_photo_bytes, stable_seed
+from app.news.public_urls import strip_loopback_origin
 
 logger = logging.getLogger(__name__)
 
@@ -90,9 +91,20 @@ def has_image(news_id: str) -> bool:
 
 
 def enrich_item(item: MacroNewsItem) -> MacroNewsItem:
+    updates: dict = {}
+    if item.url:
+        cleaned = strip_loopback_origin(item.url)
+        if cleaned != item.url:
+            updates["url"] = cleaned or None
     if has_image(item.id):
-        return item.model_copy(update={"image_url": image_public_url(item.id)})
-    return item
+        updates["image_url"] = image_public_url(item.id)
+    elif item.image_url:
+        cleaned_image = strip_loopback_origin(item.image_url)
+        if cleaned_image != item.image_url:
+            updates["image_url"] = cleaned_image or None
+    if not updates:
+        return item
+    return item.model_copy(update=updates)
 
 
 def enrich_items(items: list[MacroNewsItem]) -> list[MacroNewsItem]:

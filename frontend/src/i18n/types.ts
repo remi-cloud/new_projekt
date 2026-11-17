@@ -4,7 +4,7 @@ export type Locale = 'pl' | 'de' | 'en' | 'fil' | 'es' | 'fr' | 'it'
 
 export interface Translations {
   lang: Record<Locale, string>
-  nav: Record<'start' | 'panel' | 'markets' | 'opportunities' | 'pearls' | 'fomo' | 'axiom' | 'launch' | 'cycles' | 'news' | 'alerts' | 'about' | 'portfolio' | 'agent' | 'calculator' | 'live' | 'business' | 'partners' | 'embed' | 'growth' | 'execution' | 'super' | 'tools' | 'toolsCatalog' | 'singularity' | 'astra', string>
+  nav: Record<'start' | 'panel' | 'markets' | 'opportunities' | 'pearls' | 'fomo' | 'axiom' | 'aiHacking' | 'radar' | 'cycles' | 'news' | 'alerts' | 'about' | 'portfolio' | 'agent' | 'calculator' | 'live' | 'business' | 'partners' | 'embed' | 'growth' | 'execution' | 'super' | 'tools' | 'toolsCatalog' | 'singularity' | 'astra', string>
   tools: {
     eyebrow: string
     title: string
@@ -13,7 +13,7 @@ export interface Translations {
     groups: Record<'ai' | 'desk' | 'trade', string>
     tags: Record<'ai' | 'desk' | 'trade', string>
     items: Record<
-      'singularity' | 'agent' | 'execution' | 'calculator' | 'super' | 'pearls' | 'fomo' | 'axiom' | 'launch' | 'news' | 'astra',
+      'singularity' | 'agent' | 'execution' | 'calculator' | 'super' | 'pearls' | 'fomo' | 'axiom' | 'aiHacking' | 'radar' | 'news' | 'astra',
       { name: string; blurb: string }
     >
   }
@@ -235,14 +235,15 @@ export interface Translations {
   pearl: Record<string, string>
   fomo: Record<string, string>
   axiom: Record<string, string>
-  launch: Record<string, string>
   execution: Record<string, string>
+  aiHacking: Record<'loading' | 'loadError', string>
   agent: {
     eyebrow: string
     title: string
     lead: string
     modeLlm: string
     modeLocal: string
+    freeChain: string
     knowledge: string
     learning: string
     symbol: string

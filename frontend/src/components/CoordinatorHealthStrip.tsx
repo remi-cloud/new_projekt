@@ -92,20 +92,14 @@ export function CoordinatorHealthStrip() {
       {error && <p className="empty-state">{error}</p>}
       {desks && (
         <div className="coordinator-desk-row">
-          {(['launch', 'axiom', 'fomo'] as const).map((key) => {
+          {(['axiom', 'fomo'] as const).map((key) => {
             const st = desks[key]
             return (
               <span
                 key={key}
                 className={`pres-season-chip telemetry-chip-${deskTone(st)}`}
               >
-                {t(
-                  key === 'launch'
-                    ? 'dashboard.coordinatorDeskLaunch'
-                    : key === 'axiom'
-                      ? 'dashboard.coordinatorDeskAxiom'
-                      : 'dashboard.coordinatorDeskFomo',
-                )}
+                {t(key === 'axiom' ? 'dashboard.coordinatorDeskAxiom' : 'dashboard.coordinatorDeskFomo')}
                 {': '}
                 {deskLabel(st, t)}
               </span>
@@ -132,8 +126,8 @@ export function CoordinatorHealthStrip() {
               })}
             </span>
           )}
-          <Link to="/launch" className="btn btn-ghost tap-target">
-            {t('dashboard.coordinatorMemeDesk')}
+          <Link to="/ai-hacking" className="btn btn-ghost tap-target">
+            {t('nav.aiHacking')}
           </Link>
           <Link to="/narzedzia" className="btn btn-ghost tap-target">
             {t('dashboard.coordinatorTools')}

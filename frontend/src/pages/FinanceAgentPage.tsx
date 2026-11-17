@@ -315,6 +315,9 @@ export function FinanceAgentPage() {
             </span>
             <span className="agent-meta">
               {status.provider && status.provider !== 'none' ? `${status.provider} · ${status.model}` : status.model}
+              {status.free_chain && status.free_chain.length > 0
+                ? ` · ${t('agent.freeChain')}: ${status.free_chain.join(' → ')}`
+                : ''}
               {' · '}
               {t('agent.knowledge')}: {status.knowledge_entries} · {t('agent.learning')}: {status.learning_notes}
             </span>

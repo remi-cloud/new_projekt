@@ -140,8 +140,8 @@ export function PortfolioPage() {
           <Link to="/axiom" className="btn btn-primary tap-target">
             {t('portfolio.karOpenAxiom')}
           </Link>
-          <Link to="/launch" className="btn btn-ghost tap-target">
-            {t('portfolio.karOpenLaunch')}
+          <Link to="/ai-hacking" className="btn btn-ghost tap-target">
+            {t('nav.aiHacking')}
           </Link>
         </div>
       </section>

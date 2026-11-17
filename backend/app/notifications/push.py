@@ -19,7 +19,8 @@ def vapid_configured() -> bool:
 
 
 def get_vapid_public_key() -> str:
-    return settings.vapid_public_key
+    key = settings.vapid_public_key
+    return key if isinstance(key, str) else ""
 
 
 async def send_push_alerts(events: list[AlertEvent]) -> int:

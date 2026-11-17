@@ -38,6 +38,18 @@ def test_ai_status(client: TestClient):
     data = r.json()
     assert "enabled" in data
     assert "features" in data
+    assert "free_chain" in data
+    assert "127.0.0.1:8080" not in (data.get("base_url") or "")
+
+
+def test_ai_academy(client: TestClient):
+    r = client.get("/api/ai/academy")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["parts"][1]["id"] == "security"
+    hrefs = [link["href"] for link in data["parts"][1]["links"]]
+    assert "https://www.ic3.gov/" in hrefs
+    assert "https://incydent.cert.pl/" in hrefs
 
 
 def test_macro_news(client: TestClient):

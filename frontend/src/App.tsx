@@ -39,9 +39,10 @@ const FomoGhostPage = lazy(() =>
   import('./pages/FomoGhostPage').then((m) => ({ default: m.FomoGhostPage })),
 )
 const AxiomPage = lazy(() => import('./pages/AxiomPage').then((m) => ({ default: m.AxiomPage })))
-const LaunchScoutPage = lazy(() =>
-  import('./pages/LaunchScoutPage').then((m) => ({ default: m.LaunchScoutPage })),
+const AiHackingPage = lazy(() =>
+  import('./pages/AiHackingPage').then((m) => ({ default: m.AiHackingPage })),
 )
+const RadarPage = lazy(() => import('./pages/RadarPage').then((m) => ({ default: m.RadarPage })))
 const ExecutionAgentPage = lazy(() =>
   import('./pages/ExecutionAgentPage').then((m) => ({ default: m.ExecutionAgentPage })),
 )
@@ -118,7 +119,9 @@ export default function App() {
                 <Route path="perly" element={<PearlHunterPage />} />
                 <Route path="fomo" element={<FomoGhostPage />} />
                 <Route path="axiom" element={<AxiomPage />} />
-                <Route path="launch" element={<LaunchScoutPage />} />
+                <Route path="ai-hacking" element={<AiHackingPage />} />
+                <Route path="radar" element={<RadarPage />} />
+                <Route path="launch" element={<Navigate to="/ai-hacking" replace />} />
                 <Route path="execution" element={<ExecutionAgentPage />} />
                 <Route path="portfel" element={<PortfolioPage />} />
                 <Route path="rynki" element={<MarketsPage />} />

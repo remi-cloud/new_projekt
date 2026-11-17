@@ -19,11 +19,12 @@ import type {
 } from './types'
 import { ChartPreset, ChartResponse, CHART_PRESETS } from './types/chart'
 import { ApiError, type ApiErrorCode } from './i18n/apiErrors'
+import { API_BASE } from './lib/sameOrigin'
 
 export { CHART_PRESETS }
 export type { ChartPreset, ChartResponse }
 
-export const API_BASE = '/api'
+export { API_BASE }
 
 export type HealthResponse = {
   status: string
@@ -362,6 +363,35 @@ export interface AiStatus {
   features: string[]
   knowledge_entries: number
   learning_notes: number
+  /** Free-mode failover, e.g. llm7:codestral-latest → ollama:llama3.2. Empty when paid OpenAI is active. */
+  free_chain?: string[]
+}
+
+export interface AiAcademySection {
+  title: string
+  body: string
+}
+
+export interface AiAcademyLink {
+  label: string
+  href: string
+  note?: string
+}
+
+export interface AiAcademyPart {
+  id: string
+  title: string
+  lead: string
+  sections: AiAcademySection[]
+  links?: AiAcademyLink[]
+}
+
+export interface AiAcademy {
+  title: string
+  eyebrow: string
+  lead: string
+  disclaimer: string
+  parts: AiAcademyPart[]
 }
 
 export interface AiChatRequest {
@@ -413,6 +443,12 @@ export interface AiAnalyzeResponse {
 export async function fetchAiStatus(): Promise<AiStatus> {
   const res = await fetch(`${API_BASE}/ai/status`)
   if (!res.ok) await throwApiError(res, 'fetchAiStatus')
+  return res.json()
+}
+
+export async function fetchAiAcademy(): Promise<AiAcademy> {
+  const res = await fetch(`${API_BASE}/ai/academy`)
+  if (!res.ok) await throwApiError(res, 'serverUnavailable')
   return res.json()
 }
 
@@ -1131,164 +1167,6 @@ export async function runAxiomTick() {
   return res.json()
 }
 
-export type LaunchCandidate = {
-  candidate_id: string
-  mint: string
-  symbol: string
-  name?: string
-  chain: string
-  dex_id?: string
-  pair_address?: string
-  market_cap?: number | null
-  liq_usd?: number | null
-  age_hours?: number | null
-  tier: string
-  score?: number
-  source?: string
-  url?: string
-  launchpad_url?: string
-  dex_home_url?: string | null
-  image_url?: string | null
-  tags?: string[]
-  updated_at?: string
-}
-
-export type LaunchStatus = {
-  enabled: boolean
-  flagship?: boolean
-  brand?: string
-  tagline?: string
-  entry_note?: string
-  interval_seconds?: number
-  thresholds?: Record<string, number>
-  chains?: string[]
-  last_tick_at?: string | null
-  last_error?: string | null
-  last_warnings?: string | null
-  wallet_scout?: { open_bags?: number; wallets_scanned?: number; top_n?: number } | null
-  counts?: { all?: number; seed?: number; fresh?: number; early?: number; watch?: number }
-  whispers_count?: number
-  whispers_enabled?: boolean
-  traders_count?: number
-  sources?: string[]
-  note?: string
-  dex_arena_enabled?: boolean
-}
-
-export type DexArenaPick = {
-  candidate_id?: string
-  mint?: string
-  symbol: string
-  chain?: string
-  dex_id?: string
-  tier?: string
-  market_cap?: number | null
-  score?: number | null
-  whale_boost?: number
-  arena_score?: number
-  url?: string | null
-  dex_home_url?: string | null
-  tags?: string[]
-  whale?: boolean
-}
-
-export type DexArenaBoard = {
-  dex_id: string
-  label?: string
-  home_url: string
-  candidate_count: number
-  whale_mints?: string[]
-  best: DexArenaPick[]
-}
-
-export type DexArenaSnapshot = {
-  ok?: boolean
-  enabled?: boolean
-  brand?: string
-  priority?: string
-  lanes?: string[]
-  top_n?: number
-  whale_mints_tracked?: number
-  boards?: DexArenaBoard[]
-  note?: string
-  reason?: string
-}
-
-export type MemeWhisper = {
-  id: string
-  author: string
-  text: string
-  url?: string
-  ts_unix?: number
-  keywords?: string[]
-  source?: string
-  created_at?: string
-}
-
-export type LaunchTraderBag = {
-  mint: string
-  symbol: string
-  chain?: string
-  status?: string
-  side?: string
-  net_usd?: number | null
-  last_action?: string | null
-  url?: string | null
-  amount?: number | null
-  source?: string
-}
-
-export type LaunchTrader = {
-  wallet: string
-  rank: number
-  score?: number
-  buys?: number
-  sells?: number
-  source?: string
-  updated_at?: string
-  mints?: string[]
-  open_bags?: number
-  last_side?: string | null
-  bags?: LaunchTraderBag[]
-  holdings?: LaunchTraderBag[]
-}
-
-export type LaunchTraderEvent = {
-  event_id: string
-  wallet: string
-  action: string
-  mint: string
-  symbol: string
-  chain: string
-  usd_amount?: number | null
-  ts_unix?: number
-  source?: string
-}
-
-export async function fetchLaunchStatus(): Promise<LaunchStatus> {
-  const res = await fetch(`${API_BASE}/launch/status`)
-  if (!res.ok) await throwApiError(res, 'serverUnavailable')
-  return res.json()
-}
-
-export async function fetchLaunchCandidates(
-  tier: 'seed' | 'fresh' | 'early' | 'watch' | 'all' = 'seed',
-  limit = 50,
-  dex?: string | null,
-): Promise<{ candidates: LaunchCandidate[]; dex?: string | null }> {
-  const qs = new URLSearchParams({ tier, limit: String(limit) })
-  if (dex) qs.set('dex', dex)
-  const res = await fetch(`${API_BASE}/launch/candidates?${qs}`)
-  if (!res.ok) await throwApiError(res, 'serverUnavailable')
-  return res.json()
-}
-
-export async function fetchDexArena(): Promise<DexArenaSnapshot> {
-  const res = await fetch(`${API_BASE}/launch/dex-arena`)
-  if (!res.ok) await throwApiError(res, 'serverUnavailable')
-  return res.json()
-}
-
 export type SessionClockHour = {
   hour_utc: number
   session?: string
@@ -1335,31 +1213,7 @@ export type SessionClockSnapshot = {
 }
 
 export async function fetchSessionClock(): Promise<SessionClockSnapshot> {
-  const res = await fetch(`${API_BASE}/launch/session-clock`)
-  if (!res.ok) await throwApiError(res, 'serverUnavailable')
-  return res.json()
-}
-
-export async function runLaunchScoutTick() {
-  const res = await fetch(`${API_BASE}/launch/run`, { method: 'POST' })
-  if (!res.ok) await throwApiError(res, 'serverUnavailable')
-  return res.json()
-}
-
-export async function fetchLaunchWhispers(limit = 20): Promise<{ whispers: MemeWhisper[] }> {
-  const res = await fetch(`${API_BASE}/launch/whispers?limit=${limit}`)
-  if (!res.ok) await throwApiError(res, 'serverUnavailable')
-  return res.json()
-}
-
-export async function fetchLaunchTraders(limit = 30): Promise<{ traders: LaunchTrader[] }> {
-  const res = await fetch(`${API_BASE}/launch/traders?limit=${limit}`)
-  if (!res.ok) await throwApiError(res, 'serverUnavailable')
-  return res.json()
-}
-
-export async function fetchLaunchTraderEvents(limit = 40): Promise<{ events: LaunchTraderEvent[] }> {
-  const res = await fetch(`${API_BASE}/launch/trader-events?limit=${limit}`)
+  const res = await fetch(`${API_BASE}/cycles/session-clock`)
   if (!res.ok) await throwApiError(res, 'serverUnavailable')
   return res.json()
 }

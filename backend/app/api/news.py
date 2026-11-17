@@ -15,6 +15,7 @@ from app.news.macro_news import (
     schedule_news_images,
 )
 from app.news.google_news_urls import ensure_clickable_url, is_unsafe_news_url, search_url_for_title
+from app.news.public_urls import strip_loopback_origin
 from app.news.news_alerts import news_alert_engine
 from app.notifications.news_dispatcher import dispatch_news_alerts
 from app.models.schemas import MacroCalendarMonthResponse, MacroNewsFeed
@@ -98,7 +99,10 @@ async def news_outbound(news_id: str):
     if not item:
         raise HTTPException(status_code=404, detail="News item not found")
     url = await ensure_clickable_url(item.url, item.title)
-    if is_unsafe_news_url(url):
+    cleaned = strip_loopback_origin(url) or ""
+    if cleaned.startswith("/") or not cleaned:
+        url = search_url_for_title(item.title or "markets")
+    elif is_unsafe_news_url(url):
         url = search_url_for_title(item.title or "markets")
     return RedirectResponse(url=url, status_code=307)
 
