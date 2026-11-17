@@ -312,6 +312,14 @@ export async function fetchSocialPosts(limit = 20): Promise<{
   return res.json()
 }
 
+export async function fetchSocialPublished(limit = 20): Promise<{
+  posts: { id?: number; body: string; published_at?: string | null; x_url?: string | null; source_name?: string }[]
+}> {
+  const res = await fetch(`${API_BASE}/social/published?limit=${limit}`)
+  if (!res.ok) await throwApiError(res, 'serverUnavailable')
+  return res.json()
+}
+
 export async function fetchSocialDecisions(limit = 30): Promise<{ decisions: SocialDecision[] }> {
   const res = await fetch(`${API_BASE}/social/decisions?limit=${limit}`)
   if (!res.ok) await throwApiError(res, 'serverUnavailable')

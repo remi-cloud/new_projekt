@@ -84,6 +84,7 @@ export function Layout({ scannerRunning, scanInProgress, liveMode, liveConnected
 
   return (
     <div className="app-shell">
+      <a className="skip-link" href="#app-content">{t('layout.skip')}</a>
       {toast && <div className="toast">{toast}</div>}
 
       <aside className="desktop-sidebar">
@@ -169,7 +170,7 @@ export function Layout({ scannerRunning, scanInProgress, liveMode, liveConnected
           <NavSections onNavigate={() => setMenuOpen(false)} />
         </nav>
 
-        <main className={`app-content ${isHome ? 'app-content-home' : ''}`}>
+        <main id="app-content" className={`app-content ${isHome ? 'app-content-home' : ''}`}>
           {!isHome && section && activeLink && section.labelKey !== activeLink.labelKey && (
             <p className="page-crumbs">
               <span>{t(section.labelKey)}</span>

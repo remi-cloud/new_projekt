@@ -173,7 +173,23 @@
   font-weight: 650;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--accent-gold);
+  color: #e4c98a;
+}
+
+.skip-link {
+  position: absolute;
+  left: 12px;
+  top: 8px;
+  z-index: 80;
+  transform: translateY(-150%);
+  padding: 8px 12px;
+  background: #fff;
+  color: #000;
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  transform: none;
 }
 
 .sidebar-nav-item {

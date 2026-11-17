@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   fetchSocialDecisions,
   fetchSocialPosts,
+  fetchSocialPublished,
   publishSocialPost,
   type SocialDecision,
   type SocialDeskStatus,
@@ -14,6 +15,7 @@ export function SocialDeskPanel({ refreshKey = 0 }: { refreshKey?: number }) {
   const { t } = useLocale()
   const [posts, setPosts] = useState<SocialPost[]>([])
   const [decisions, setDecisions] = useState<SocialDecision[]>([])
+  const [published, setPublished] = useState<{ id?: number; body: string; published_at?: string | null }[]>([])
   const [status, setStatus] = useState<SocialDeskStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [publishingId, setPublishingId] = useState<number | null>(null)
@@ -21,13 +23,19 @@ export function SocialDeskPanel({ refreshKey = 0 }: { refreshKey?: number }) {
 
   const load = useCallback(async () => {
     try {
-      const [data, log] = await Promise.all([fetchSocialPosts(16), fetchSocialDecisions(20)])
+      const [data, log, sent] = await Promise.all([
+        fetchSocialPosts(16),
+        fetchSocialDecisions(20),
+        fetchSocialPublished(12),
+      ])
       setPosts(data.posts)
       setStatus(data.status)
       setDecisions(log.decisions)
+      setPublished(sent.posts)
     } catch {
       setPosts([])
       setDecisions([])
+      setPublished([])
       setStatus(null)
     } finally {
       setLoading(false)
@@ -81,6 +89,20 @@ export function SocialDeskPanel({ refreshKey = 0 }: { refreshKey?: number }) {
           : ' · auto wyłączone'}
       </p>
       {msg && <p className="social-desk-msg">{msg}</p>}
+      <div className="social-desk-log">
+        <h4>{t('macro.social.monitor')}</h4>
+        {published.length === 0 ? (
+          <p className="social-desk-empty">{t('macro.social.publishedEmpty')}</p>
+        ) : (
+          <ul className="social-desk-list">
+            {published.map((row) => (
+              <li key={row.id ?? row.published_at} className="social-desk-item">
+                <p className="social-desk-body">{row.body}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
       {visible.length === 0 ? (
         <p className="empty-state social-desk-empty">{t('macro.social.empty')}</p>
       ) : (

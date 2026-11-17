@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { fetchSuperOpportunities, fetchSuperOpportunity, triggerScan } from '../api'
 import { AskAgentButton } from '../components/AskAgentButton'
@@ -15,23 +15,6 @@ import { positionPath } from '../lib/routes'
 import { formatPrice } from '../utils/format'
 import { SuperOpportunity, SuperOpportunitiesResponse } from '../types'
 
-async function mapPool<T, R>(
-  items: T[],
-  concurrency: number,
-  fn: (item: T) => Promise<R>,
-): Promise<R[]> {
-  const out: R[] = new Array(items.length)
-  let i = 0
-  async function worker() {
-    while (i < items.length) {
-      const idx = i++
-      out[idx] = await fn(items[idx])
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, () => worker()))
-  return out
-}
-
 function heatmapHasData(hm: SuperOpportunity['heatmap'] | undefined | null): boolean {
   if (!hm) return false
   const cols = hm.columns?.length ?? 0
@@ -47,8 +30,8 @@ export default function SuperOpportunitiesPage() {
   const [data, setData] = useState<SuperOpportunitiesResponse | null>(null)
   const [bySymbol, setBySymbol] = useState<Record<string, SuperOpportunity>>({})
   const [loading, setLoading] = useState(true)
-  const [hydrating, setHydrating] = useState(false)
   const [hydrateFailed, setHydrateFailed] = useState<Record<string, boolean>>({})
+  const hydrateStarted = useRef<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
   const [onlySuper, setOnlySuper] = useState(false)
   const [sideFilter, setSideFilter] = useState<'all' | 'long' | 'short'>('all')
@@ -75,53 +58,21 @@ export default function SuperOpportunitiesPage() {
     load()
   }, [load])
 
-  // Hydrate FULL 3D heatmap for every position (like original detail, for all cards)
-  useEffect(() => {
-    if (!data?.items?.length) return
-    let cancelled = false
-    ;(async () => {
-      setHydrating(true)
-      setHydrateFailed({})
-      try {
-        const results = await mapPool(data.items, 4, async (item) => {
-          try {
-            const full = await fetchSuperOpportunity(item.symbol)
-            return { ok: true as const, item, full }
-          } catch {
-            return { ok: false as const, item }
-          }
-        })
-        if (cancelled) return
-        const next: Record<string, SuperOpportunity> = {}
-        const failed: Record<string, boolean> = {}
-        for (const row of results) {
-          const key = row.item.symbol.toUpperCase()
-          if (!row.ok) {
-            failed[key] = true
-            continue
-          }
-          const full = row.full
-          if (!full) {
-            failed[key] = true
-            continue
-          }
-          // Keep seed (bins preview) unless detail actually has drawable heatmap data.
-          if (heatmapHasData(full.heatmap)) {
-            next[key] = full
-          } else {
-            failed[key] = true
-          }
-        }
-        setBySymbol((prev) => ({ ...prev, ...next }))
-        setHydrateFailed(failed)
-      } finally {
-        if (!cancelled) setHydrating(false)
+  const hydrateOne = useCallback(async (symbol: string) => {
+    const key = symbol.toUpperCase()
+    if (hydrateStarted.current.has(key)) return
+    hydrateStarted.current.add(key)
+    try {
+      const full = await fetchSuperOpportunity(symbol)
+      if (heatmapHasData(full.heatmap)) {
+        setBySymbol((prev) => ({ ...prev, [key]: full }))
+      } else {
+        setHydrateFailed((prev) => ({ ...prev, [key]: true }))
       }
-    })()
-    return () => {
-      cancelled = true
+    } catch {
+      setHydrateFailed((prev) => ({ ...prev, [key]: true }))
     }
-  }, [data])
+  }, [])
 
   const list = useMemo(() => {
     if (!data) return []
@@ -161,7 +112,6 @@ export default function SuperOpportunitiesPage() {
           <h1>{t('superDesk.title')}</h1>
           <p className="page-lead">
             {t('superDesk.lead')}{' '}
-            {hydrating ? t('superDesk.hydrating') : null}{' '}
             {t('superDesk.singularity')}: <Link to="/narzedzia">{t('superDesk.tools')}</Link>.
           </p>
         </div>
@@ -244,7 +194,8 @@ export default function SuperOpportunitiesPage() {
               key={item.symbol}
               item={item}
               focused={focusMatches(focusSymbol, item.symbol)}
-              hydrateFailed={!!hydrateFailed[item.symbol.toUpperCase()]}
+              hydrateFailed={hydrateFailed[item.symbol.toUpperCase()] === true}
+              onOpenMap={() => void hydrateOne(item.symbol)}
             />
           ))}
         </div>
@@ -257,11 +208,20 @@ function PositionCard({
   item,
   focused,
   hydrateFailed,
+  onOpenMap,
 }: {
   item: SuperOpportunity
   focused: boolean
   hydrateFailed?: boolean
+  onOpenMap: () => void
 }) {
+  const { t } = useLocale()
+  const [mapOpen, setMapOpen] = useState(focused)
+  useEffect(() => {
+    if (!focused) return
+    setMapOpen(true)
+    onOpenMap()
+  }, [focused, onOpenMap])
   const { levels } = item
   return (
     <article
@@ -392,19 +352,34 @@ function PositionCard({
       </div>
 
       <h3 className="mini-title">Heatmapa likwidacji · {item.symbol}</h3>
-      {hydrateFailed && (
-        <p className="inline-error" style={{ marginBottom: 8 }}>
-          Pełna mapa 3D nie dociągnęła się — pokazuję podgląd bins (odśwież kartę / skan).
-        </p>
+      {!mapOpen ? (
+        <button
+          type="button"
+          className="btn btn-ghost tap-target"
+          onClick={() => {
+            setMapOpen(true)
+            onOpenMap()
+          }}
+        >
+          {t('superDesk.showMap')}
+        </button>
+      ) : (
+        <>
+          {hydrateFailed && (
+            <p className="inline-error" style={{ marginBottom: 8 }}>
+              Pełna mapa 3D nie dociągnęła się — pokazuję podgląd bins.
+            </p>
+          )}
+          <LiquidationHeatmapBar
+            heatmap={item.heatmap}
+            entry={levels.entry}
+            stop={levels.stop_loss}
+            tp1={levels.take_profit_1}
+            tp2={levels.take_profit_2}
+            prediction={item.prediction}
+          />
+        </>
       )}
-      <LiquidationHeatmapBar
-        heatmap={item.heatmap}
-        entry={levels.entry}
-        stop={levels.stop_loss}
-        tp1={levels.take_profit_1}
-        tp2={levels.take_profit_2}
-        prediction={item.prediction}
-      />
 
       {item.reasons?.length > 0 && (
         <>
