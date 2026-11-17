@@ -14,10 +14,11 @@ from app.config import settings
 
 _HITS: dict[str, deque[float]] = defaultdict(deque)
 
+# The sha256 allows the one stylesheet lightweight-charts injects for the attribution mark.
 _CSP = (
     "default-src 'self'; "
     "script-src 'self'; "
-    "style-src 'self' https://fonts.googleapis.com; "
+    "style-src 'self' https://fonts.googleapis.com 'sha256-3pRED1tOXas1FXFoPb9TGCjmYe9XQsmO9OV23khV2nY='; "
     "style-src-attr 'unsafe-inline'; "
     "font-src 'self' https://fonts.gstatic.com data:; "
     "img-src 'self' data: blob: https:; "

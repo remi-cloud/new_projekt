@@ -161,7 +161,7 @@ export default function AgentsPage() {
     }
   }
 
-  if (loading) return <Loading message="Singularity…" />
+  if (loading) return <Loading message="Ładowanie Singularity…" />
   if (error && !data) return <ErrorState message={error} onRetry={load} />
   if (!data) return null
 

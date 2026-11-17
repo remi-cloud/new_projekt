@@ -32,70 +32,80 @@ export function RoiEquityChart({
   useEffect(() => {
     const el = wrapRef.current
     if (!el) return
-
-    const chart = createChart(el, {
-      height,
-      layout: {
-        background: { type: ColorType.Solid, color: 'transparent' },
-        textColor: 'rgba(200, 200, 210, 0.75)',
-        fontFamily: 'JetBrains Mono, monospace',
-        fontSize: 11,
-      },
-      grid: {
-        vertLines: { color: 'rgba(255,255,255,0.04)' },
-        horzLines: { color: 'rgba(255,255,255,0.04)' },
-      },
-      rightPriceScale: { borderVisible: false },
-      timeScale: { borderVisible: false, timeVisible: true },
-      crosshair: { mode: 1 },
-    })
-    chartRef.current = chart
-
-    equityRef.current = chart.addAreaSeries({
-      lineColor: '#d4af37',
-      topColor: 'rgba(212, 175, 55, 0.35)',
-      bottomColor: 'rgba(212, 175, 55, 0.02)',
-      lineWidth: 2,
-      priceLineVisible: false,
-    })
-    optRef.current = chart.addLineSeries({
-      color: 'rgba(52, 211, 153, 0.7)',
-      lineWidth: 1,
-      lineStyle: 2,
-      priceLineVisible: false,
-    })
-    pesRef.current = chart.addLineSeries({
-      color: 'rgba(248, 113, 113, 0.65)',
-      lineWidth: 1,
-      lineStyle: 2,
-      priceLineVisible: false,
-    })
-    bhRef.current = chart.addLineSeries({
-      color: 'rgba(148, 163, 184, 0.85)',
-      lineWidth: 1,
-      lineStyle: 2,
-      priceLineVisible: false,
-    })
-    priceRef.current = chart.addLineSeries({
-      color: 'rgba(96, 165, 250, 0.55)',
-      lineWidth: 1,
-      priceScaleId: 'price',
-      priceLineVisible: false,
-    })
-    chart.priceScale('price').applyOptions({
-      scaleMargins: { top: 0.72, bottom: 0 },
-      visible: false,
-    })
-
+    let chart: IChartApi | null = null
+    const mount = () => {
+      if (chart || el.clientWidth < 2) return
+      try {
+        chart = createChart(el, {
+          height,
+          width: el.clientWidth,
+          layout: {
+            background: { type: ColorType.Solid, color: 'transparent' },
+            textColor: 'rgba(200, 200, 210, 0.75)',
+            fontFamily: 'JetBrains Mono, monospace',
+            fontSize: 11,
+          },
+          grid: {
+            vertLines: { color: 'rgba(255,255,255,0.04)' },
+            horzLines: { color: 'rgba(255,255,255,0.04)' },
+          },
+          rightPriceScale: { borderVisible: false },
+          timeScale: { borderVisible: false, timeVisible: true },
+          crosshair: { mode: 1 },
+        })
+        chartRef.current = chart
+        equityRef.current = chart.addAreaSeries({
+          lineColor: '#d4af37',
+          topColor: 'rgba(212, 175, 55, 0.35)',
+          bottomColor: 'rgba(212, 175, 55, 0.02)',
+          lineWidth: 2,
+          priceLineVisible: false,
+        })
+        optRef.current = chart.addLineSeries({
+          color: 'rgba(52, 211, 153, 0.7)',
+          lineWidth: 1,
+          lineStyle: 2,
+          priceLineVisible: false,
+        })
+        pesRef.current = chart.addLineSeries({
+          color: 'rgba(248, 113, 113, 0.65)',
+          lineWidth: 1,
+          lineStyle: 2,
+          priceLineVisible: false,
+        })
+        bhRef.current = chart.addLineSeries({
+          color: 'rgba(148, 163, 184, 0.85)',
+          lineWidth: 1,
+          lineStyle: 2,
+          priceLineVisible: false,
+        })
+        priceRef.current = chart.addLineSeries({
+          color: 'rgba(96, 165, 250, 0.55)',
+          lineWidth: 1,
+          priceScaleId: 'price',
+          priceLineVisible: false,
+        })
+        chart.priceScale('price').applyOptions({
+          scaleMargins: { top: 0.72, bottom: 0 },
+          visible: false,
+        })
+      } catch {
+        chart = null
+      }
+    }
+    mount()
     const ro = new ResizeObserver(() => {
-      if (wrapRef.current) chart.applyOptions({ width: wrapRef.current.clientWidth })
+      try {
+        if (!chart) mount()
+        else if (el.clientWidth > 1) chart.applyOptions({ width: el.clientWidth })
+      } catch {
+        /* The scale can be null for one frame on a narrow phone. */
+      }
     })
     ro.observe(el)
-    chart.applyOptions({ width: el.clientWidth })
-
     return () => {
       ro.disconnect()
-      chart.remove()
+      try { chart?.remove() } catch { /* already gone */ }
       chartRef.current = null
       equityRef.current = null
       bhRef.current = null
@@ -107,12 +117,30 @@ export function RoiEquityChart({
 
   useEffect(() => {
     if (!equityRef.current || !equity.length) return
-    equityRef.current.setData(equity.map((p) => ({ time: p.time as UTCTimestamp, value: p.equity })))
-    optRef.current?.setData((optimistic ?? []).map((p) => ({ time: p.time as UTCTimestamp, value: p.equity })))
-    pesRef.current?.setData((pessimistic ?? []).map((p) => ({ time: p.time as UTCTimestamp, value: p.equity })))
-    bhRef.current?.setData((buyHold ?? []).map((p) => ({ time: p.time as UTCTimestamp, value: p.equity })))
-    priceRef.current?.setData((price ?? []).map((p) => ({ time: p.time as UTCTimestamp, value: p.value })))
-    chartRef.current?.timeScale().fitContent()
+    const points = (rows: RoiCurvePoint[]) => {
+      const seen = new Set<number>()
+      return rows
+        .filter((p) => Number.isFinite(p.time) && Number.isFinite(p.equity))
+        .sort((a, b) => a.time - b.time)
+        .filter((p) => (seen.has(p.time) ? false : (seen.add(p.time), true)))
+        .map((p) => ({ time: p.time as UTCTimestamp, value: p.equity }))
+    }
+    const put = (series: { setData: (data: { time: UTCTimestamp; value: number }[]) => void } | null, data: { time: UTCTimestamp; value: number }[]) => {
+      if (!series || data.length < 2) return
+      series.setData(data)
+    }
+    try {
+      put(equityRef.current, points(equity))
+      put(optRef.current, points(optimistic ?? []))
+      put(pesRef.current, points(pessimistic ?? []))
+      put(bhRef.current, points(buyHold ?? []))
+      const pricePoints = (price ?? [])
+        .filter((p) => Number.isFinite(p.time) && Number.isFinite(p.value))
+        .map((p) => ({ time: p.time as UTCTimestamp, value: p.value }))
+      if (priceRef.current && pricePoints.length >= 2) priceRef.current.setData(pricePoints)
+    } catch {
+      /* Mobile layout can report a zero-width scale before the first paint. */
+    }
   }, [equity, buyHold, optimistic, pessimistic, price])
 
   return <div ref={wrapRef} className="roi-chart" style={{ height }} />

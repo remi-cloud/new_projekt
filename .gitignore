@@ -1,6 +1,10 @@
 # Dependencies & build
 node_modules/
 dist/
+frontend/e2e-report/
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
 .venv/
 backend/.venv/
 venv/

@@ -14,6 +14,7 @@ def test_security_headers_and_hsts_when_https(client: TestClient):
     policy = response.headers["content-security-policy"]
     assert "default-src 'self'" in policy
     assert "script-src 'self'" in policy
+    assert "sha256-3pRED1tOXas1FXFoPb9TGCjmYe9XQsmO9OV23khV2nY=" in policy
     assert "unsafe-inline" not in policy.split("style-src-attr")[0]
     assert "max-age=" in response.headers["strict-transport-security"]
 
