@@ -91,18 +91,27 @@ class DryRunPublicationBlocked(RuntimeError):
 
 
 async def publish_post(post_id: int, *, force: bool = False) -> dict:
-    """Publish a stored post. `force` is ignored while social_dry_run is true."""
-    del force  # kept for callers; never overrides dry-run
-    if settings.social_dry_run:
-        raise DryRunPublicationBlocked(
-            "Publikacja zablokowana: tryb próbny (DRY-RUN). "
-            "Ustaw CYCLICAL_SOCIAL_DRY_RUN=false, aby wysłać post."
-        )
+    """Publish a stored post.
+
+    Dry-run callers (queue, scheduler, bots) pass force=False and only flip the
+    row to status dry_run. force=True is the manual button: it never reaches X
+    while dry-run is on — the API answers 409.
+    """
     post = await social_db.get_post(post_id)
     if not post:
         raise ValueError("Post not found")
     if post["status"] == "posted":
         return post
+
+    if settings.social_dry_run and not force:
+        await social_db.update_post_status(post_id, status="dry_run", error=None)
+        return {**(await social_db.get_post(post_id) or post), "dry_run": True}
+
+    if settings.social_dry_run:
+        raise DryRunPublicationBlocked(
+            "Publikacja zablokowana: tryb próbny (DRY-RUN). "
+            "Ustaw CYCLICAL_SOCIAL_DRY_RUN=false, aby wysłać post."
+        )
 
     try:
         assert_post_has_source(post.get("body") or "", post.get("source_name"), post.get("url"))
@@ -230,7 +239,21 @@ async def run_auto_x(items: list[MacroNewsItem], locale: str = "pl") -> dict:
             final = AutoDecision("reject", f"limit {max_per_hour} postów na godzinę", final.score, final.topic)
         if final.action == "publish" and not x_configured():
             final = AutoDecision("reject", "brak tokenów X", final.score, final.topic)
-        if final.action == "publish":
+        if final.action == "publish" and settings.social_dry_run:
+            composed = compose_x(item, locale)
+            if not await social_db.has_content_key(social_db.content_key("x", item.id, item.url)):
+                await social_db.insert_post(
+                    platform="x",
+                    news_id=item.id,
+                    url=item.url,
+                    title=composed.title,
+                    body=composed.body,
+                    media_path=None,
+                    status="dry_run",
+                    source_name=item.source,
+                )
+            final = AutoDecision("reject", "tryb próbny", final.score, final.topic)
+        elif final.action == "publish":
             composed = compose_x(item, locale)
             try:
                 assert_post_has_source(composed.body, item.source, item.url)
