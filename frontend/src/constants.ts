@@ -43,67 +43,90 @@ export const PHASE_LABELS: Record<string, string> = {
   neutralne: 'Neutralne',
 }
 
-/** Primary sidebar entries — hubs expand into section tabs, not extra sidebar rows. */
-export const NAV_ITEMS: { path: string; labelKey: TranslationPath }[] = [
-  { path: '/', labelKey: 'nav.start' },
-  { path: '/dashboard', labelKey: 'nav.panel' },
-  { path: '/live', labelKey: 'nav.live' },
-  { path: '/rynki', labelKey: 'nav.markets' },
-  { path: '/narzedzia', labelKey: 'nav.tools' },
-  { path: '/news', labelKey: 'nav.news' },
-  { path: '/ai-hacking', labelKey: 'nav.aiHacking' },
-  { path: '/radar', labelKey: 'nav.radar' },
-  { path: '/biznes', labelKey: 'nav.business' },
-  { path: '/powiadomienia', labelKey: 'nav.alerts' },
-  { path: '/o-nas', labelKey: 'nav.about' },
-]
+export type NavLink = { path: string; labelKey: TranslationPath }
 
-export type NavHub = {
+export type NavSection = {
   id: string
-  /** Sidebar path used for this hub entry */
-  root: string
-  tabs: { path: string; labelKey: TranslationPath }[]
+  labelKey: TranslationPath
+  items: NavLink[]
 }
 
-export const NAV_HUBS: NavHub[] = [
+/** Grouped desk navigation. Section tabs mirror the same items. */
+export const NAV_SECTIONS: NavSection[] = [
   {
-    id: 'markets',
-    root: '/rynki',
-    tabs: [
-      { path: '/rynki', labelKey: 'nav.markets' },
+    id: 'market',
+    labelKey: 'nav.sectionMarket',
+    items: [
+      { path: '/dashboard', labelKey: 'nav.panel' },
       { path: '/okazje', labelKey: 'nav.opportunities' },
       { path: '/superokazje', labelKey: 'nav.super' },
+      { path: '/rynki', labelKey: 'nav.scanner' },
       { path: '/perly', labelKey: 'nav.pearls' },
       { path: '/fomo', labelKey: 'nav.fomo' },
       { path: '/axiom', labelKey: 'nav.axiom' },
-      { path: '/cykle', labelKey: 'nav.cycles' },
     ],
   },
   {
-    id: 'tools',
-    root: '/narzedzia',
-    tabs: [
-      { path: '/narzedzia', labelKey: 'nav.toolsCatalog' },
-      { path: '/narzedzia/singularity', labelKey: 'nav.singularity' },
-      { path: '/narzedzia/astra', labelKey: 'nav.astra' },
-      { path: '/agent', labelKey: 'nav.agent' },
-      { path: '/fomo', labelKey: 'nav.fomo' },
-      { path: '/axiom', labelKey: 'nav.axiom' },
-      { path: '/ai-hacking', labelKey: 'nav.aiHacking' },
-      { path: '/radar', labelKey: 'nav.radar' },
-      { path: '/execution', labelKey: 'nav.execution' },
+    id: 'cycles',
+    labelKey: 'nav.sectionCycles',
+    items: [
+      { path: '/cykle', labelKey: 'nav.cycles' },
       { path: '/kalkulator', labelKey: 'nav.calculator' },
     ],
   },
   {
-    id: 'growth',
-    root: '/biznes',
-    tabs: [
+    id: 'news',
+    labelKey: 'nav.sectionNews',
+    items: [
+      { path: '/news', labelKey: 'nav.news' },
+      { path: '/live', labelKey: 'nav.live' },
+    ],
+  },
+  {
+    id: 'ai',
+    labelKey: 'nav.sectionAi',
+    items: [
+      { path: '/ai-hacking', labelKey: 'nav.aiHacking' },
+      { path: '/radar', labelKey: 'nav.radar' },
+    ],
+  },
+  {
+    id: 'agent',
+    labelKey: 'nav.sectionAgent',
+    items: [
+      { path: '/agent', labelKey: 'nav.agent' },
+      { path: '/narzedzia', labelKey: 'nav.tools' },
+      { path: '/narzedzia/singularity', labelKey: 'nav.singularity' },
+      { path: '/narzedzia/astra', labelKey: 'nav.astra' },
+      { path: '/execution', labelKey: 'nav.execution' },
+    ],
+  },
+  {
+    id: 'account',
+    labelKey: 'nav.sectionAccount',
+    items: [
+      { path: '/portfel', labelKey: 'nav.portfolio' },
+      { path: '/powiadomienia', labelKey: 'nav.alerts' },
       { path: '/biznes', labelKey: 'nav.business' },
       { path: '/partnerzy', labelKey: 'nav.partners' },
+      { path: '/o-nas', labelKey: 'nav.about' },
     ],
   },
 ]
+
+export const NAV_ITEMS: NavLink[] = NAV_SECTIONS.flatMap((section) => section.items)
+
+export type NavHub = {
+  id: string
+  root: string
+  tabs: NavLink[]
+}
+
+export const NAV_HUBS: NavHub[] = NAV_SECTIONS.map((section) => ({
+  id: section.id,
+  root: section.items[0].path,
+  tabs: section.items,
+}))
 
 export function hubForPath(pathname: string): NavHub | undefined {
   // Prefer hub whose tab is the longest match (avoid /narzedzia stealing /narzedzia/singularity incorrectly across hubs)
@@ -122,20 +145,28 @@ export function hubForPath(pathname: string): NavHub | undefined {
   return best
 }
 
-/** Resolve which sidebar item should look active for the current URL. */
+/** Resolve which nav link should look active for the current URL. */
 export function navActivePath(pathname: string): string {
-  const hub = hubForPath(pathname)
-  if (hub) return hub.root
   if (pathname.startsWith('/o-nas')) return '/o-nas'
   if (pathname.startsWith('/embed')) return '/biznes'
   if (pathname.startsWith('/instrument')) return '/rynki'
-  return pathname
+  if (pathname.startsWith('/pozycja')) return '/superokazje'
+  let best = ''
+  for (const item of NAV_ITEMS) {
+    const match = pathname === item.path || pathname.startsWith(`${item.path}/`)
+    if (match && item.path.length > best.length) best = item.path
+  }
+  return best || pathname
 }
 
-export const MOBILE_NAV = [
-  { path: '/', label: 'Start', icon: '⌂' },
-  { path: '/dashboard', label: 'Panel', icon: '◫' },
-  { path: '/portfel', label: 'Portfel', icon: '₿' },
-  { path: '/rynki', label: 'Rynki', icon: '▤' },
-  { path: '/okazje', label: 'Okazje', icon: '◎' },
+export function sectionForPath(pathname: string): NavSection | undefined {
+  const active = navActivePath(pathname)
+  return NAV_SECTIONS.find((section) => section.items.some((item) => item.path === active))
+}
+
+export const MOBILE_NAV: NavLink[] = [
+  { path: '/dashboard', labelKey: 'nav.panel' },
+  { path: '/okazje', labelKey: 'nav.opportunities' },
+  { path: '/rynki', labelKey: 'nav.scanner' },
+  { path: '/portfel', labelKey: 'nav.portfolio' },
 ]

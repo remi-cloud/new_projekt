@@ -1,0 +1,38 @@
+import { fireEvent, render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
+import { describe, expect, it } from 'vitest'
+import { LocaleProvider } from '../context/LocaleContext'
+import { LOCALE_STORAGE_KEY } from '../i18n'
+import { Layout } from './Layout'
+
+function renderAt(path: string) {
+  localStorage.setItem(LOCALE_STORAGE_KEY, 'pl')
+  return render(
+    <LocaleProvider>
+      <MemoryRouter initialEntries={[path]}>
+        <Layout />
+      </MemoryRouter>
+    </LocaleProvider>,
+  )
+}
+
+describe('Layout navigation', () => {
+  it('marks the current section link as active', () => {
+    renderAt('/okazje')
+    const current = screen.getAllByRole('link', { name: 'Okazje' }).find((link) => link.getAttribute('aria-current') === 'page')
+    expect(current).toBeTruthy()
+    expect(current?.className).toContain('active')
+  })
+
+  it('toggles the mobile menu', () => {
+    renderAt('/dashboard')
+    expect(screen.queryByRole('navigation', { name: 'Menu' })).toBeNull()
+    const toggle = screen.getAllByRole('button', { name: 'Menu' })[0]
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(toggle)
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
+    expect(screen.getByRole('navigation', { name: 'Menu' })).toBeTruthy()
+    fireEvent.click(screen.getAllByRole('button', { name: 'Zamknij' })[0])
+    expect(screen.queryByRole('navigation', { name: 'Menu' })).toBeNull()
+  })
+})

@@ -1,0 +1,168 @@
+/* Stage 3 — one desk scale. Dark theme stays the default. */
+
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5rem;
+  --content-max: 1180px;
+}
+
+.app-main,
+.app-content,
+.page-transition,
+.dashboard-columns,
+.dashboard-columns > *,
+.opportunities-grid,
+.opportunities-grid > *,
+.opp-card,
+.super-page,
+.super-feed,
+.super-card,
+.section-tabs {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.app-content {
+  overflow-x: clip;
+}
+
+@media (min-width: 1024px) {
+  .app-shell,
+  .app-main {
+    overflow-x: clip;
+  }
+
+  .app-main {
+    min-width: 0;
+  }
+}
+
+.nav-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: var(--space-4);
+}
+
+.nav-section-label {
+  margin: 0 0 var(--space-1);
+  padding: 0 var(--space-3);
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-gold);
+}
+
+.sidebar-nav-item {
+  display: block;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  text-decoration: none;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.sidebar-nav-item.active {
+  background: rgba(184, 151, 90, 0.16);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.page-crumbs {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin: 0 0 var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.page-crumbs-sep {
+  color: var(--border-strong);
+}
+
+.desktop-page-title {
+  font-size: var(--text-xl);
+  letter-spacing: -0.02em;
+}
+
+.mobile-menu-btn,
+.btn,
+.sidebar-scan-btn,
+.section-tab {
+  border-radius: var(--radius);
+}
+
+.mobile-menu-btn {
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 8px 10px;
+}
+
+.opp-card,
+.super-card,
+.side-panel,
+.section-tabs {
+  border-radius: var(--radius);
+}
+
+.opp-header,
+.opp-header-actions,
+.super-card-head,
+.super-dir-row,
+.section-header {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.opp-name,
+.opp-symbol,
+.super-card-head h2 {
+  overflow-wrap: anywhere;
+}
+
+.mobile-drawer {
+  display: none;
+}
+
+.mobile-drawer.is-open {
+  display: block;
+  position: fixed;
+  z-index: 30;
+  inset: var(--header-height) 0 var(--nav-height) 0;
+  overflow: auto;
+  padding: var(--space-4);
+  background: var(--bg-primary);
+  border-top: 1px solid var(--border);
+}
+
+@media (min-width: 1024px) {
+  .mobile-menu-btn,
+  .mobile-drawer {
+    display: none !important;
+  }
+}
+
+.bottom-nav-label {
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+}

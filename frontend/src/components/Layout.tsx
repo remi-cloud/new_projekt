@@ -1,10 +1,10 @@
 import { Link, Outlet, useLocation } from 'react-router-dom'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AutoRefreshToggle } from './AutoRefreshToggle'
 import { KarDigitalLogo } from './KarDigitalLogo'
 import { LanguageSwitcher } from './LanguageSwitcher'
 import { SectionTabs } from './SectionTabs'
-import { hubForPath, MOBILE_NAV, NAV_ITEMS, navActivePath } from '../constants'
+import { MOBILE_NAV, NAV_SECTIONS, navActivePath, sectionForPath } from '../constants'
 import { useLocale } from '../context/LocaleContext'
 import type { TranslationPath } from '../i18n'
 
@@ -45,20 +45,52 @@ const NAV_KEYS: Record<string, TranslationPath> = {
   '/axiom': 'nav.axiom',
 }
 
+function NavSections({ onNavigate }: { onNavigate?: () => void }) {
+  const { t } = useLocale()
+  const { pathname } = useLocation()
+  const active = navActivePath(pathname)
+
+  return (
+    <div className="nav-sections">
+      {NAV_SECTIONS.map((section) => (
+        <div key={section.id} className="nav-section">
+          <p className="nav-section-label">{t(section.labelKey)}</p>
+          {section.items.map((item) => {
+            const isActive = active === item.path
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`sidebar-nav-item tap-target ${isActive ? 'active' : ''}`}
+                aria-current={isActive ? 'page' : undefined}
+                onClick={onNavigate}
+              >
+                {t(item.labelKey)}
+              </Link>
+            )
+          })}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function Layout({ scannerRunning, scanInProgress, liveMode, liveConnected, onScan, scanning }: LayoutProps) {
   const location = useLocation()
   const { t } = useLocale()
   const [toast, setToast] = useState<string | null>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
   const activePath = navActivePath(location.pathname)
-  const hub = hubForPath(location.pathname)
-  const titleKey: TranslationPath =
-    location.pathname.startsWith('/o-nas')
-      ? 'nav.about'
-      : location.pathname === '/embed'
-        ? 'nav.embed'
-        : (NAV_KEYS[location.pathname] ?? NAV_KEYS[activePath] ?? 'nav.start')
+  const section = sectionForPath(location.pathname)
+  const activeLink = section?.items.find((item) => item.path === activePath)
+  const titleKey: TranslationPath = activeLink?.labelKey
+    ?? (location.pathname.startsWith('/o-nas') ? 'nav.about' : NAV_KEYS[location.pathname] ?? 'nav.start')
   const pageTitle = t(titleKey)
   const isHome = location.pathname === '/'
+
+  useEffect(() => {
+    setMenuOpen(false)
+  }, [location.pathname])
 
   const handleScan = async () => {
     if (!onScan || scanning) return
@@ -96,21 +128,7 @@ export function Layout({ scannerRunning, scanInProgress, liveMode, liveConnected
         </div>
 
         <nav className="sidebar-nav" aria-label={t('layout.navMain')}>
-          {NAV_ITEMS.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`sidebar-nav-item tap-target ${activePath === item.path ? 'active' : ''}`}
-            >
-              {t(item.labelKey)}
-            </Link>
-          ))}
-          <Link
-            to="/portfel"
-            className={`sidebar-nav-item tap-target ${activePath === '/portfel' ? 'active' : ''}`}
-          >
-            {t('nav.portfolio')}
-          </Link>
+          <NavSections />
         </nav>
 
         <div className="sidebar-footer">
@@ -138,6 +156,15 @@ export function Layout({ scannerRunning, scanInProgress, liveMode, liveConnected
             </div>
           </Link>
           <div className="mobile-header-actions">
+            <button
+              type="button"
+              className="mobile-menu-btn tap-target"
+              aria-expanded={menuOpen}
+              aria-controls="mobile-drawer"
+              onClick={() => setMenuOpen((open) => !open)}
+            >
+              {menuOpen ? t('layout.menuClose') : t('layout.menu')}
+            </button>
             <LanguageSwitcher compact />
             {onScan && (
               <button
@@ -172,8 +199,24 @@ export function Layout({ scannerRunning, scanInProgress, liveMode, liveConnected
           </div>
         </header>
 
+        <nav
+          id="mobile-drawer"
+          className={`mobile-drawer ${menuOpen ? 'is-open' : ''}`}
+          aria-label={t('layout.menu')}
+          hidden={!menuOpen}
+        >
+          <NavSections onNavigate={() => setMenuOpen(false)} />
+        </nav>
+
         <main className={`app-content ${isHome ? 'app-content-home' : ''}`}>
-          {hub && <SectionTabs tabs={hub.tabs} />}
+          {!isHome && section && activeLink && section.labelKey !== activeLink.labelKey && (
+            <p className="page-crumbs">
+              <span>{t(section.labelKey)}</span>
+              <span className="page-crumbs-sep" aria-hidden="true">/</span>
+              <span>{pageTitle}</span>
+            </p>
+          )}
+          {section && <SectionTabs tabs={section.items} />}
           <div key={location.pathname} className="page-transition">
             <Outlet />
           </div>
@@ -185,12 +228,21 @@ export function Layout({ scannerRunning, scanInProgress, liveMode, liveConnected
           <Link
             key={item.path}
             to={item.path}
-            className={`bottom-nav-item tap-target ${activePath === item.path || location.pathname === item.path ? 'active' : ''}`}
+            className={`bottom-nav-item tap-target ${activePath === item.path ? 'active' : ''}`}
+            aria-current={activePath === item.path ? 'page' : undefined}
           >
-            <span className="bottom-nav-icon">{item.icon}</span>
-            <span className="bottom-nav-label">{t(NAV_KEYS[item.path] ?? 'nav.start')}</span>
+            <span className="bottom-nav-label">{t(item.labelKey)}</span>
           </Link>
         ))}
+        <button
+          type="button"
+          className={`bottom-nav-item tap-target ${menuOpen ? 'active' : ''}`}
+          aria-expanded={menuOpen}
+          aria-controls="mobile-drawer"
+          onClick={() => setMenuOpen((open) => !open)}
+        >
+          <span className="bottom-nav-label">{menuOpen ? t('layout.menuClose') : t('layout.menu')}</span>
+        </button>
       </nav>
     </div>
   )
