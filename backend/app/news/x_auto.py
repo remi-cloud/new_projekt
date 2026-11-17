@@ -19,8 +19,15 @@ _UNCONFIRMED = re.compile(
     r"niepotwierdz\w*|anonimow\w*|niesprawdzon\w*)\b",
     re.IGNORECASE,
 )
-_FORBIDDEN_PLACE = re.compile(
-    r"\b(oslo|norway|norwegia|norwegii|cet|cest|europe/oslo)\b",
+_AUTHOR_CLOCK = re.compile(
+    r"\b(?:cet|cest|europe/oslo|europe/warsaw|czas lokalny|godzina lokalna|local time|strefa czasowa)\b",
+    re.IGNORECASE,
+)
+_AUTHOR_PLACE = re.compile(
+    r"\b(?:oslo|norway|norwegia|norwegii)\b"
+    r"|\b(?:z|ze|from)\s+(?:warszaw\w*|oslo|norwegi\w*|polsk\w*)\b"
+    r"|\b(?:w|in)\s+warszawie\b"
+    r"|\bautor\w*\s+(?:z|ze|w|from|in)\s+[^\s,.;]+",
     re.IGNORECASE,
 )
 _TOPIC_STOP = frozenset(
@@ -54,10 +61,11 @@ class AutoDecision:
 
 
 def strip_forbidden_place(text: str | None) -> str:
-    """Drop Oslo / Norway / CET. Posts do not carry that clock or place."""
+    """Drop the author's place and clock. Keep a story that is about Poland."""
     if not text:
         return ""
-    cleaned = _FORBIDDEN_PLACE.sub("", text)
+    cleaned = _AUTHOR_CLOCK.sub("", text)
+    cleaned = _AUTHOR_PLACE.sub("", cleaned)
     return re.sub(r"\s{2,}", " ", cleaned).strip(" ,;-")
 
 
@@ -140,10 +148,10 @@ def evaluate_auto(
     published_at: datetime,
     now: datetime,
     confirming_sources: int,
-    posted_last_hour: int,
+    posted_last_day: int,
     recent_topics: set[str],
     min_score: int,
-    max_per_hour: int,
+    max_per_day: int,
 ) -> AutoDecision:
     topic = topic_key(title)
     if not is_whitelisted(source, url):
@@ -159,8 +167,8 @@ def evaluate_auto(
         return AutoDecision("reject", "brak linku do oryginalnego artykułu", 0, topic)
     if topic and topic in recent_topics:
         return AutoDecision("reject", "duplikat tematu", 0, topic)
-    if posted_last_hour >= max_per_hour:
-        return AutoDecision("reject", f"limit {max_per_hour} postów na godzinę", 0, topic)
+    if posted_last_day >= max_per_day:
+        return AutoDecision("reject", f"limit {max_per_day} postów na dobę", 0, topic)
     score = score_item(
         title=title,
         summary=summary,

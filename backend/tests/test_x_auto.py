@@ -1,4 +1,4 @@
-"""Auto-publish rules: whitelist, score threshold, 2 posts per hour, source line."""
+"""Auto-publish rules: whitelist, score threshold, 2 posts per day, source line."""
 
 from datetime import datetime, timedelta, timezone
 
@@ -11,6 +11,7 @@ from app.news.x_auto import (
     evaluate_auto,
     is_whitelisted,
     score_item,
+    strip_forbidden_place,
 )
 
 
@@ -29,10 +30,10 @@ def _decide(**kwargs):
         published_at=_now() - timedelta(minutes=20),
         now=_now(),
         confirming_sources=1,
-        posted_last_hour=0,
+        posted_last_day=0,
         recent_topics=set(),
         min_score=70,
-        max_per_hour=2,
+        max_per_day=2,
     )
     base.update(kwargs)
     return evaluate_auto(**base)
@@ -83,10 +84,10 @@ def test_threshold_blocks_a_cold_item_and_passes_a_fresh_high_impact_one():
     assert "progu" in rejected.reason
 
 
-def test_two_per_hour_and_duplicate_topic_reject():
-    blocked = _decide(posted_last_hour=2)
+def test_two_per_day_and_duplicate_topic_reject():
+    blocked = _decide(posted_last_day=2)
     assert blocked.action == "reject"
-    assert "godzinę" in blocked.reason
+    assert "dobę" in blocked.reason
     duplicate = _decide(recent_topics={_decide().topic})
     assert duplicate.action == "reject"
     assert duplicate.reason == "duplikat tematu"
@@ -184,7 +185,7 @@ def test_compose_x_includes_source_name_and_article_url():
 
 
 @pytest.mark.asyncio
-async def test_hourly_limit_is_counted_from_the_database():
+async def test_daily_limit_is_counted_from_the_database():
     from app.news.social_db import count_posted_since, init_social_db, insert_post
 
     await init_social_db()
@@ -203,10 +204,25 @@ async def test_hourly_limit_is_counted_from_the_database():
             source_name="Reuters",
         )
     posted = await count_posted_since("x", since)
-    decision = _decide(posted_last_hour=posted)
+    decision = _decide(posted_last_day=posted)
     assert posted >= 2
     assert decision.action == "reject"
-    assert "godzinę" in decision.reason
+    assert "dobę" in decision.reason
+
+
+def test_author_place_is_stripped_but_poland_the_story_stays():
+    kept = strip_forbidden_place("Inflacja w Polsce spadła, NBP utrzymał stopy.")
+    assert "Polsce" in kept
+    assert "NBP" in kept
+    cleaned = strip_forbidden_place(
+        "Komentarz autora z Warszawy, czas lokalny 08:00 CET, Europe/Warsaw."
+    )
+    lowered = cleaned.lower()
+    assert "warszaw" not in lowered
+    assert "cet" not in lowered
+    assert "europe/warsaw" not in lowered
+    assert "czas lokalny" not in lowered
+    assert "oslo" not in strip_forbidden_place("Notatka z Oslo, Norway, CEST").lower()
 
 
 def test_publish_blocked_without_source_line():

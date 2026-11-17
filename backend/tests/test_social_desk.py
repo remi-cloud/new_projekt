@@ -56,12 +56,19 @@ def test_social_status_shape(client):
         assert key in data
 
 
-def test_social_posts_list(client):
-    r = client.get("/api/social/posts?limit=5")
-    assert r.status_code == 200
-    data = r.json()
+def test_social_posts_list_is_internal(client, monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "internal_api_token", "desk-test")
+    denied = client.get("/api/social/posts?limit=5")
+    assert denied.status_code == 403
+    opened = client.get("/api/social/posts?limit=5", headers={"X-Internal-Token": "desk-test"})
+    assert opened.status_code == 200
+    data = opened.json()
     assert "posts" in data
     assert "status" in data
+    public = client.get("/api/social/published")
+    assert public.status_code == 200
 
 
 @pytest.mark.asyncio
@@ -87,6 +94,7 @@ async def test_pipeline_dry_run_marks_posts_and_does_not_raise():
         patch.object(sd.settings, "social_auto_post", True),
         patch.object(sd.settings, "social_max_per_cycle", 2),
         patch.object(sd.settings, "social_platforms", "x"),
+        patch.object(sd.social_db, "count_posted_since", new_callable=AsyncMock, return_value=0),
     ):
         queued = await sd.queue_social_from_news_items([queued_item])
         auto = await sd.run_auto_x([auto_item])

@@ -135,7 +135,9 @@ class Settings(BaseSettings):
     social_max_per_cycle: int = 2
     # Automatic X posts stay off until CYCLICAL_SOCIAL_AUTO_POST=true.
     social_auto_min_score: int = 70
-    social_auto_max_per_hour: int = 2
+    social_auto_max_per_day: int = 2
+    # Shared secret for the queue and the decision log. Empty keeps both closed.
+    internal_api_token: str = ""
     social_webhook_url: str = ""
     public_base_url: str = ""
     x_api_key: str = ""
