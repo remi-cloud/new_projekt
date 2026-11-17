@@ -1,7 +1,7 @@
 import aiosqlite
 import logging
 import secrets
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.config import settings
 from app.db.paths import ensure_data_dir
@@ -105,7 +105,7 @@ async def _migrate_alert_settings(db: aiosqlite.Connection) -> None:
 
 
 async def save_opportunities(opportunities: list[Opportunity]) -> None:
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     async with db_session() as db:
         for opp in opportunities:
             await db.execute(
@@ -138,7 +138,7 @@ async def get_recent_opportunities(limit: int = 50) -> list[dict]:
 
 
 async def save_push_subscription(endpoint: str, p256dh: str, auth: str) -> None:
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     async with db_session() as db:
         await db.execute(
             """INSERT INTO push_subscriptions (endpoint, p256dh, auth, created_at)
@@ -223,7 +223,7 @@ async def update_alert_settings(data: dict) -> dict:
 
 
 async def log_notification(channel: str, symbol: str | None, message: str, success: bool) -> None:
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     async with db_session() as db:
         await db.execute(
             """INSERT INTO notification_log (channel, symbol, message, success, created_at)

@@ -256,6 +256,7 @@ export const en: Translations = {
     notFoundTitle: 'Page not found',
     notFoundLead: 'This address does not exist or was moved. Return to the home page.',
     notFoundHome: 'Home',
+    skip: 'Skip to content',
   },
   common: {
     retry: 'Try again', all: 'All', world: 'World', save: 'Save', saving: 'Saving…', cancel: 'Cancel',
@@ -393,6 +394,8 @@ export const en: Translations = {
       loading: 'Loading social queue…',
       empty: 'No queued posts. Refresh news — the agent drafts posts ready to publish on X.',
       modeDryRun: 'Dry-run',
+      monitor: 'Published posts',
+      publishedEmpty: 'No published posts yet.',
       modeAuto: 'Auto',
       modeManual: 'Ready to publish',
       ready: 'tokens OK',
@@ -984,6 +987,7 @@ export const en: Translations = {
     empty: 'No positions. Clear the SUPER filter or run a scan.',
     loading: 'Calculating super setups (bid/ask + liq heatmap)…',
     fetchError: 'Could not load super setups',
+    showMap: 'Show 3D map',
     tools: 'Tools',
   },
   radarPage: {

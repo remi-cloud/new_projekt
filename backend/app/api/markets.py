@@ -11,6 +11,7 @@ from app.data.community_links import resolve_community_links
 from app.models.schemas import (
     AssetClass,
     AssetCycleAssessment,
+    BrokerPurchaseInfo,
     ChartResponse,
     InstrumentCommunity,
     SignalAction,
@@ -27,7 +28,7 @@ def _with_broker(item: AssetCycleAssessment) -> AssetCycleAssessment:
         item.asset_class.value if hasattr(item.asset_class, "value") else str(item.asset_class),
         item.region,
     )
-    return item.model_copy(update={"broker_info": info})
+    return item.model_copy(update={"broker_info": BrokerPurchaseInfo.model_validate(info)})
 
 
 def _parse_asset_class(raw: str | None) -> AssetClass:

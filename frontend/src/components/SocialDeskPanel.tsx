@@ -1,17 +1,30 @@
 import { useCallback, useEffect, useState } from 'react'
-import { fetchSocialStatus, type SocialDeskStatus } from '../api'
+import { fetchSocialPublished, fetchSocialStatus, type SocialDeskStatus } from '../api'
 import { useLocale } from '../context/LocaleContext'
+
+type PublishedPost = {
+  id?: number
+  body: string
+  published_at?: string | null
+}
 
 export function SocialDeskPanel({ refreshKey = 0 }: { refreshKey?: number }) {
   const { t } = useLocale()
   const [status, setStatus] = useState<SocialDeskStatus | null>(null)
+  const [published, setPublished] = useState<PublishedPost[]>([])
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
     try {
-      setStatus(await fetchSocialStatus())
+      const [desk, sent] = await Promise.all([
+        fetchSocialStatus(),
+        fetchSocialPublished(12),
+      ])
+      setStatus(desk)
+      setPublished(sent.posts ?? [])
     } catch {
       setStatus(null)
+      setPublished([])
     } finally {
       setLoading(false)
     }
@@ -46,7 +59,20 @@ export function SocialDeskPanel({ refreshKey = 0 }: { refreshKey?: number }) {
           ? ` · auto ≤ ${status.auto_max_per_day ?? 2}/24h · próg ${status.auto_min_score ?? 70}`
           : ' · auto wyłączone'}
       </p>
-      <p className="empty-state social-desk-empty">{t('macro.social.empty')}</p>
+      <div className="social-desk-log">
+        <h4>{t('macro.social.monitor')}</h4>
+        {published.length === 0 ? (
+          <p className="social-desk-empty">{t('macro.social.publishedEmpty')}</p>
+        ) : (
+          <ul className="social-desk-list">
+            {published.map((row) => (
+              <li key={row.id ?? row.published_at ?? row.body} className="social-desk-item">
+                <p className="social-desk-body">{row.body}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </section>
   )
 }

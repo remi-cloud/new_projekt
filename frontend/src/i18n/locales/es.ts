@@ -221,6 +221,7 @@ export const es: Translations = {
     notFoundTitle: 'Página no encontrada',
     notFoundLead: 'Esta dirección no existe o fue movida.',
     notFoundHome: 'Inicio',
+    skip: 'Skip to content',
   },
   common: {
     retry: 'Reintentar', all: 'Todos', world: 'Mundo', save: 'Guardar', saving: 'Guardando…', cancel: 'Cancelar',
@@ -357,6 +358,8 @@ export const es: Translations = {
       title: 'Social desk · X / LinkedIn', loading: 'Cargando cola social…',
       empty: 'Sin posts. Actualice noticias — dry-run para high-impact / curated.',
       modeDryRun: 'Dry-run', modeAuto: 'Auto', modeManual: 'Manual',
+      monitor: 'Published posts',
+      publishedEmpty: 'No published posts yet.',
       ready: 'tokens OK', noTokens: 'sin tokens', publish: 'Publicar',
       confirmPublish: '¿Enviar este post a la plataforma (tokens en .env)?',
       published: 'Enviado / marcado como posted.', decisionsTitle: 'Registro de decisiones', decisionsEmpty: 'Aún no hay decisiones automáticas.', publishFailed: 'Error al publicar',
@@ -737,6 +740,7 @@ export const es: Translations = {
     empty: 'No positions. Clear the SUPER filter or run a scan.',
     loading: 'Calculating super setups (bid/ask + liq heatmap)…',
     fetchError: 'Could not load super setups',
+    showMap: 'Show 3D map',
     tools: 'Tools',
   },
   radarPage: {

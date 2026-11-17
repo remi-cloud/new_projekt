@@ -256,6 +256,7 @@ export const pl: Translations = {
     notFoundTitle: 'Strona nie znaleziona',
     notFoundLead: 'Adres nie istnieje lub został przeniesiony. Wróć na stronę główną.',
     notFoundHome: 'Strona główna',
+    skip: 'Przejdź do treści',
   },
   common: {
     retry: 'Spróbuj ponownie', all: 'Wszystkie', world: 'Świat', save: 'Zapisz', saving: 'Zapisywanie…', cancel: 'Anuluj',
@@ -393,6 +394,8 @@ export const pl: Translations = {
       loading: 'Ładowanie kolejki social…',
       empty: 'Brak postów w kolejce. Odśwież newsy — agent złoży wpisy gotowe do publikacji na X.',
       modeDryRun: 'Dry-run',
+      monitor: 'Monitoring wysłanych',
+      publishedEmpty: 'Brak wysłanych postów.',
       modeAuto: 'Auto',
       modeManual: 'Gotowe do publikacji',
       ready: 'tokeny OK',
@@ -983,6 +986,7 @@ export const pl: Translations = {
     empty: 'Brak pozycji. Odznacz filtr SUPER albo uruchom skan.',
     loading: 'Liczenie superokazji (bid/ask + heatmapa liq)…',
     fetchError: 'Nie udało się pobrać superokazji',
+    showMap: 'Pokaż mapę 3D',
     tools: 'Narzędzia',
   },
   radarPage: {

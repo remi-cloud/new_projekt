@@ -221,6 +221,7 @@ export const fil: Translations = {
     notFoundTitle: 'Hindi nahanap ang pahina',
     notFoundLead: 'Ang address na ito ay wala o nailipat na.',
     notFoundHome: 'Home',
+    skip: 'Skip to content',
   },
   common: {
     retry: 'Subukan muli', all: 'Lahat', world: 'Mundo', save: 'I-save', saving: 'Sine-save…', cancel: 'Kanselahin',
@@ -357,6 +358,8 @@ export const fil: Translations = {
       title: 'Social desk · X / LinkedIn', loading: 'Nilo-load ang social queue…',
       empty: 'Walang posts. I-refresh ang news — dry-run para sa high-impact / curated.',
       modeDryRun: 'Dry-run', modeAuto: 'Auto', modeManual: 'Manual',
+      monitor: 'Published posts',
+      publishedEmpty: 'No published posts yet.',
       ready: 'tokens OK', noTokens: 'walang tokens', publish: 'I-publish',
       confirmPublish: 'Ipadala ang post sa platform (kailangan ng tokens sa .env)?',
       published: 'Naipadala / marked as posted.', decisionsTitle: 'Log ng desisyon', decisionsEmpty: 'Wala pang awtomatikong desisyon.', publishFailed: 'Failed ang publish',
@@ -737,6 +740,7 @@ export const fil: Translations = {
     empty: 'No positions. Clear the SUPER filter or run a scan.',
     loading: 'Calculating super setups (bid/ask + liq heatmap)…',
     fetchError: 'Could not load super setups',
+    showMap: 'Show 3D map',
     tools: 'Tools',
   },
   radarPage: {
