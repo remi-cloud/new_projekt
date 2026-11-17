@@ -577,6 +577,7 @@ class AiStatusResponse(BaseModel):
     features: list[str]
     knowledge_entries: int = 0
     learning_notes: int = 0
+    free_chain: list[str] = Field(default_factory=list)
 
 
 class AiAnalyzeResponse(BaseModel):

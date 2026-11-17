@@ -65,8 +65,8 @@ export type TranslationPath =
   | `pearl.${keyof Translations['pearl']}`
   | `fomo.${keyof Translations['fomo']}`
   | `axiom.${keyof Translations['axiom']}`
-  | `launch.${keyof Translations['launch']}`
   | `execution.${keyof Translations['execution']}`
+  | `aiHacking.${keyof Translations['aiHacking']}`
   | `agent.${keyof Translations['agent']}`
   | `tools.${keyof Omit<Translations['tools'], 'groups' | 'tags' | 'items'>}`
   | `tools.groups.${keyof Translations['tools']['groups']}`

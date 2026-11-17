@@ -3,7 +3,8 @@ from fastapi import APIRouter, HTTPException
 from app.ai import agent as ai_agent
 from app.ai import db as ai_db
 from app.ai.learning import process_feedback
-from app.ai.llm import llm_configured, resolve_llm
+from app.ai.academy import academy_payload
+from app.ai.llm import free_chain_labels, llm_configured, resolve_llm
 from app.config import settings
 from app.models.schemas import (
     AiAnalyzeResponse,
@@ -16,17 +17,27 @@ from app.models.schemas import (
 router = APIRouter(tags=["ai"])
 
 
+@router.get("/api/ai/academy")
+async def ai_academy():
+    """Educational brief for the AI & security page. Static copy, no secrets."""
+    return academy_payload()
+
+
 @router.get("/api/ai/status", response_model=AiStatusResponse)
 async def ai_status():
     stats = await ai_db.get_stats()
     base_url, model, api_key, provider = resolve_llm()
+    shown_base = base_url if llm_configured() else ""
+    if shown_base.startswith("http://127.0.0.1") or shown_base.startswith("http://localhost"):
+        shown_base = ""
     return AiStatusResponse(
         enabled=settings.ai_enabled,
         llm_configured=llm_configured(),
         model=model,
         provider=provider if llm_configured() else "none",
-        base_url=base_url if llm_configured() else "",
+        base_url=shown_base,
         requires_api_key=provider == "openai",
+        free_chain=free_chain_labels(),
         features=[
             "finance_guard",
             "trend_analysis",

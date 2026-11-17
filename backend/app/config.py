@@ -60,7 +60,8 @@ class Settings(BaseSettings):
     pexels_api_key: str = ""
 
     # AI Finance Agent
-    # provider: auto (OpenAI if key set, else free LLM7) | openai | llm7 | ollama
+    # provider: auto (OpenAI if key set, else free chain) | openai | llm7 | ollama
+    # Free chain: every LLM7 model, then local Ollama if that call fails.
     ai_enabled: bool = True
     ai_provider: str = "auto"
     openai_api_key: str = ""

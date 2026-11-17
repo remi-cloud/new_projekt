@@ -6,6 +6,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from app.config import settings
+from app.news.public_urls import public_site_base
 from app.models.schemas import MacroNewsItem
 from app.news import social_db
 from app.news.image_agent import image_file_path
@@ -27,7 +28,7 @@ def social_status() -> dict:
         "auto_post": bool(settings.social_auto_post),
         "cooldown_minutes": settings.social_cooldown_minutes,
         "max_per_cycle": settings.social_max_per_cycle,
-        "public_base_url": settings.public_base_url or None,
+        "public_base_url": public_site_base() or None,
         "x_configured": x_configured(),
         "linkedin_configured": linkedin_configured(),
     }

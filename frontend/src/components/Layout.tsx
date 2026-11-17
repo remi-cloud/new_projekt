@@ -30,6 +30,8 @@ const NAV_KEYS: Record<string, TranslationPath> = {
   '/partnerzy': 'nav.partners',
   '/embed': 'nav.embed',
   '/news': 'nav.news',
+  '/ai-hacking': 'nav.aiHacking',
+  '/radar': 'nav.radar',
   '/agent': 'nav.agent',
   '/narzedzia': 'nav.tools',
   '/narzedzia/singularity': 'nav.singularity',
@@ -41,7 +43,6 @@ const NAV_KEYS: Record<string, TranslationPath> = {
   '/perly': 'nav.pearls',
   '/fomo': 'nav.fomo',
   '/axiom': 'nav.axiom',
-  '/launch': 'nav.launch',
 }
 
 export function Layout({ scannerRunning, scanInProgress, liveMode, liveConnected, onScan, scanning }: LayoutProps) {

@@ -5,8 +5,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from app.config import settings
 from app.models.schemas import MacroNewsItem
+from app.news.public_urls import public_site_base
 
 
 DISCLAIMER_PL = "Edukacja rynkowa · nie porada inwestycyjna · KAR Digital"
@@ -31,7 +31,7 @@ def _clean(text: str | None, limit: int) -> str:
 
 
 def _footer_link(item: MacroNewsItem) -> str:
-    base = (settings.public_base_url or "").rstrip("/")
+    base = public_site_base()
     if base:
         return f"{base}/news"
     if item.url:

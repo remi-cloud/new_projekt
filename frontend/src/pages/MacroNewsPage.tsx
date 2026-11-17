@@ -10,7 +10,7 @@ import { useLocale } from '../context/LocaleContext'
 import { useLiveFeed } from '../hooks/useLiveFeed'
 import type { TranslationPath } from '../i18n'
 import { MacroNewsCategory, MacroNewsFeed, MacroNewsItem } from '../types'
-import { newsOutboundUrl, newsShareUrl } from '../lib/newsUrl'
+import { newsAssetUrl, newsOutboundUrl, newsShareUrl } from '../lib/newsUrl'
 
 type ViewMode = 'news' | 'calendar'
 type TabId = 'all' | MacroNewsCategory
@@ -63,11 +63,11 @@ function NewsCard({
         {breaking && <span className="macro-news-live">{t('macro.now')}</span>}
         {item.impact === 'high' && <span className="macro-news-impact">{t('macro.highImpact')}</span>}
       </div>
-      {item.image_url && (
+      {newsAssetUrl(item.image_url) && (
         <div className="macro-news-image-wrap">
           <img
             className="macro-news-image"
-            src={item.image_url}
+            src={newsAssetUrl(item.image_url)}
             alt=""
             loading="lazy"
             decoding="async"
@@ -97,7 +97,7 @@ function NewsCard({
       <div className="macro-news-agent-row">
         <AskAgentButton mode="news" item={item} />
       </div>
-      <ShareMenu title={item.title} url={item.id ? newsShareUrl(item.id) : item.url} source={item.source} inline />
+      <ShareMenu title={item.title} url={item.id ? newsShareUrl(item.id) : newsAssetUrl(item.url)} source={item.source} inline />
     </article>
   )
 }

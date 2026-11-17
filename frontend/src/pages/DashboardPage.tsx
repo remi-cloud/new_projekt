@@ -5,7 +5,6 @@ import { InstrumentShareMenu } from '../components/InstrumentShareMenu'
 import { AgentTelemetryStrip } from '../components/AgentTelemetryStrip'
 import { CoordinatorHealthStrip } from '../components/CoordinatorHealthStrip'
 import { FomoGhostStrip } from '../components/FomoGhostStrip'
-import { LaunchScoutStrip } from '../components/LaunchScoutStrip'
 import { CycleCardBitcoin } from '../components/CycleCardBitcoin'
 import { CycleCardPresidential } from '../components/CycleCardPresidential'
 import { MarketSummaryBanner } from '../components/MarketAssessmentCard'
@@ -38,7 +37,6 @@ export function DashboardPage() {
       <AgentTelemetryStrip />
       <CoordinatorHealthStrip />
       <FomoGhostStrip />
-      <LaunchScoutStrip />
       <ProgramUsBacktestPanel />
 
       <section className="dashboard-section">
@@ -48,28 +46,6 @@ export function DashboardPage() {
         <div className="cycles-grid">
           <CycleCardBitcoin cycle={data.bitcoin_cycle} />
           <CycleCardPresidential cycle={data.presidential_cycle} />
-        </div>
-      </section>
-
-      <section className="dashboard-section desk-teaser">
-        <div className="section-header">
-          <h2 className="section-title">{t('launch.homeTitle')}</h2>
-          <Link to="/launch" className="link-btn tap-target card-nav-link">
-            {t('launch.openDesk')}
-          </Link>
-        </div>
-        <p className="pearl-lead launch-quote">{t('launch.quote')}</p>
-        <p className="page-lead">{t('launch.homeLead')}</p>
-        <div className="desk-teaser-actions">
-          <Link to="/launch" className="btn btn-primary tap-target card-nav-link">
-            {t('launch.homeCta')}
-          </Link>
-          <Link to="/superokazje" className="btn tap-target card-nav-link">
-            {t('nav.super')}
-          </Link>
-          <Link to="/narzedzia/singularity" className="btn tap-target card-nav-link">
-            Singularity
-          </Link>
         </div>
       </section>
 

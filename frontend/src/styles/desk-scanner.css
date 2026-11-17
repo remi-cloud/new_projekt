@@ -1486,3 +1486,92 @@ a.super-list-item,
 .astra-glossary-card strong {
   color: var(--text, #e8e4dc);
 }
+
+.ai-hack-part {
+  margin: 28px 0 8px;
+}
+
+.ai-hack-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.ai-hack-card {
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--border, #3a3630) 85%, transparent);
+  background: color-mix(in srgb, var(--panel, #161410) 92%, transparent);
+}
+
+.ai-hack-card h4 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.ai-hack-card p {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--text-muted, #9a958c);
+}
+
+.ai-hack-links {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.ai-hack-link {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--accent, #c4a35a) 45%, var(--border, #3a3630));
+  text-decoration: none;
+  color: inherit;
+}
+
+.ai-hack-link strong {
+  color: var(--accent, #c4a35a);
+}
+
+.ai-hack-link span {
+  font-size: 0.82rem;
+  color: var(--text-muted, #9a958c);
+}
+
+.page-intro .ai-hack-link {
+  margin-top: 16px;
+  max-width: 520px;
+}
+
+.radar-map {
+  margin: 8px 0 22px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--border, #3a3630) 85%, transparent);
+  background: #111;
+  overflow: auto;
+}
+
+.radar-map svg {
+  width: 100%;
+  min-width: 640px;
+  height: auto;
+}
+
+.radar-edge {
+  stroke: #555;
+  stroke-width: 1.2;
+}
+
+.radar-map text {
+  fill: #ddd;
+  font-size: 11px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+.radar-note {
+  margin: 8px 0 0;
+  font-size: 0.75rem;
+  color: #9a958c;
+}
