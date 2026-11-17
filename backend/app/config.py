@@ -7,6 +7,13 @@ class Settings(BaseSettings):
     # Lightweight price refresh (batch quotes) — co minutę
     price_poll_interval_seconds: int = 60
 
+    # production hides docs and sends HSTS behind HTTPS. Use dev for local OpenAPI.
+    app_env: str = "production"
+    # Comma-separated browser origins. public_base_url is added when set.
+    cors_origins: str = ""
+    post_rate_limit: int = 120
+    post_rate_window_seconds: int = 60
+
     database_path: str = "data/trader.db"
     portfolio_database_path: str = "data/baza_portfela/portfolio.db"
     coingecko_base_url: str = "https://api.coingecko.com/api/v3"
