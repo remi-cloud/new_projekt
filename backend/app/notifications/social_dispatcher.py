@@ -10,7 +10,15 @@ from app.news.public_urls import public_site_base
 from app.models.schemas import MacroNewsItem
 from app.news import social_db
 from app.news.image_agent import image_file_path
-from app.news.social_composer import compose_for_platforms
+from app.news.social_composer import compose_for_platforms, compose_x
+from app.news.x_auto import (
+    AutoDecision,
+    assert_post_has_source,
+    evaluate_auto,
+    is_whitelisted,
+    topic_key,
+    x_status_url,
+)
 from app.notifications.social_clients import (
     linkedin_configured,
     post_to_linkedin,
@@ -35,6 +43,8 @@ def social_status() -> dict:
         "dry_run": bool(settings.social_dry_run),
         "auto_post": bool(settings.social_auto_post),
         "platforms": social_platforms(),
+        "auto_min_score": int(getattr(settings, "social_auto_min_score", 70) or 70),
+        "auto_max_per_hour": int(getattr(settings, "social_auto_max_per_hour", 2) or 2),
         "cooldown_minutes": settings.social_cooldown_minutes,
         "max_per_cycle": settings.social_max_per_cycle,
         "public_base_url": public_site_base() or None,
@@ -87,6 +97,12 @@ async def publish_post(post_id: int, *, force: bool = False) -> dict:
         await social_db.update_post_status(post_id, status="dry_run", error=None)
         return {**(await social_db.get_post(post_id) or post), "dry_run": True}
 
+    try:
+        assert_post_has_source(post.get("body") or "", post.get("source_name"), post.get("url"))
+    except RuntimeError as exc:
+        await social_db.update_post_status(post_id, status=post["status"], error=str(exc)[:500])
+        raise
+
     platform = post["platform"]
     if platform == "x" and not x_configured():
         await social_db.update_post_status(post_id, status="failed", error="X credentials missing")
@@ -106,18 +122,157 @@ async def publish_post(post_id: int, *, force: bool = False) -> dict:
             posted_at=now,
         )
         logger.info("Social posted id=%s platform=%s ext=%s", post_id, platform, result.get("external_id"))
+        saved = await social_db.get_post(post_id) or post
+        await _notify_webhook(public_x_record(saved))
+        return saved
     except Exception as exc:
         await social_db.update_post_status(post_id, status="failed", error=str(exc)[:500])
         logger.warning("Social publish failed id=%s: %s", post_id, exc)
         raise
 
-    return await social_db.get_post(post_id) or post
+
+def public_x_record(post: dict) -> dict:
+    """Read-only view of a published X post. No tokens, no webhook URL."""
+    external_id = post.get("external_id") or None
+    return {
+        "id": post.get("id"),
+        "x_post_id": external_id,
+        "x_url": x_status_url(external_id),
+        "body": post.get("body") or "",
+        "source_name": post.get("source_name") or "",
+        "source_url": post.get("url") or "",
+        "published_at": post.get("posted_at"),
+    }
+
+
+async def _notify_webhook(record: dict) -> None:
+    url = (getattr(settings, "social_webhook_url", None) or "").strip()
+    if not url:
+        return
+    import httpx
+
+    try:
+        async with httpx.AsyncClient(timeout=8) as client:
+            await client.post(url, json={"event": "x_published", "post": record})
+    except Exception as exc:
+        logger.warning("Social webhook failed: %s", type(exc).__name__)
+
+
+async def run_auto_x(items: list[MacroNewsItem], locale: str = "pl") -> dict:
+    """Publish at most the hourly allowance. Logs every whitelist decision."""
+    now = datetime.now(timezone.utc)
+    hour_ago = (now - timedelta(hours=1)).isoformat()
+    day_ago = (now - timedelta(hours=24)).isoformat()
+    posted = await social_db.count_posted_since("x", hour_ago)
+    topics = await social_db.posted_topic_keys("x", day_ago)
+    min_score = int(getattr(settings, "social_auto_min_score", 70) or 70)
+    max_per_hour = int(getattr(settings, "social_auto_max_per_hour", 2) or 2)
+
+    pool: list[MacroNewsItem] = []
+    outside = 0
+    for item in items:
+        if is_whitelisted(item.source, item.url):
+            pool.append(item)
+        else:
+            outside += 1
+    if outside and not pool:
+        await social_db.insert_decision(
+            news_id="",
+            title="",
+            source="",
+            action="odrzucono",
+            reason=f"poza białą listą ({outside})",
+            score=0,
+        )
+
+    groups: dict[str, set[str]] = {}
+    for item in pool:
+        key = topic_key(item.title)
+        groups.setdefault(key, set()).add((item.source or "").strip().lower())
+
+    ranked: list[tuple[AutoDecision, MacroNewsItem]] = []
+    for item in pool:
+        key = topic_key(item.title)
+        decision = evaluate_auto(
+            source=item.source,
+            url=item.url,
+            title=item.title,
+            summary=item.summary,
+            impact=item.impact,
+            category=item.category,
+            published_at=item.published_at,
+            now=now,
+            confirming_sources=max(1, len(groups.get(key) or ())),
+            posted_last_hour=posted,
+            recent_topics=topics,
+            min_score=min_score,
+            max_per_hour=max_per_hour,
+        )
+        ranked.append((decision, item))
+    ranked.sort(key=lambda pair: pair[0].score, reverse=True)
+
+    published = 0
+    for decision, item in ranked:
+        final = decision
+        if final.action == "publish" and posted + published >= max_per_hour:
+            final = AutoDecision("reject", f"limit {max_per_hour} postów na godzinę", final.score, final.topic)
+        if final.action == "publish" and not x_configured():
+            final = AutoDecision("reject", "brak tokenów X", final.score, final.topic)
+        if final.action == "publish":
+            composed = compose_x(item, locale)
+            try:
+                assert_post_has_source(composed.body, item.source, item.url)
+                result = await _publish_live("x", composed.body)
+            except Exception as exc:
+                final = AutoDecision("reject", str(exc)[:180], final.score, final.topic)
+            else:
+                posted_at = datetime.now(timezone.utc).isoformat()
+                if not await social_db.has_content_key(social_db.content_key("x", item.id, item.url)):
+                    await social_db.insert_post(
+                        platform="x",
+                        news_id=item.id,
+                        url=item.url,
+                        title=composed.title,
+                        body=composed.body,
+                        media_path=None,
+                        status="posted",
+                        external_id=result.get("external_id"),
+                        posted_at=posted_at,
+                        source_name=item.source,
+                    )
+                published += 1
+                topics.add(final.topic)
+                await _notify_webhook(
+                    public_x_record(
+                        {
+                            "id": None,
+                            "external_id": result.get("external_id"),
+                            "body": composed.body,
+                            "source_name": item.source,
+                            "url": item.url,
+                            "posted_at": posted_at,
+                        }
+                    )
+                )
+        await social_db.insert_decision(
+            news_id=item.id,
+            title=item.title,
+            source=item.source or "",
+            action="opublikowano" if final.action == "publish" else "odrzucono",
+            reason=final.reason,
+            score=final.score,
+        )
+    return {"considered": len(pool), "published": published, "outside_whitelist": outside}
 
 
 async def queue_social_from_news_items(items: list[MacroNewsItem], locale: str = "pl") -> dict:
-    """Compose + store posts; auto-publish only when configured and not dry-run."""
+    """Compose + store posts. Auto-send only when the switch is on and rules pass."""
     if not settings.social_enabled:
         return {"queued": 0, "skipped": "disabled"}
+
+    auto = {"published": 0}
+    if settings.social_auto_post and not settings.social_dry_run and "x" in social_platforms():
+        auto = await run_auto_x(items, locale)
 
     selected = _select_items(items)
     queued = 0
@@ -184,7 +339,14 @@ async def queue_social_from_news_items(items: list[MacroNewsItem], locale: str =
                 error=error,
                 external_id=external_id,
                 posted_at=posted_at,
+                source_name=item.source,
             )
             queued += 1
 
-    return {"queued": queued, "posted": posted, "skipped": skipped, "selected": len(selected)}
+    return {
+        "queued": queued,
+        "posted": posted + int(auto.get("published") or 0),
+        "skipped": skipped,
+        "selected": len(selected),
+        "auto": auto,
+    }

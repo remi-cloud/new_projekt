@@ -275,6 +275,19 @@ export interface SocialDeskStatus {
   public_base_url: string | null
   x_configured: boolean
   linkedin_configured: boolean
+  auto_min_score?: number
+  auto_max_per_hour?: number
+}
+
+export interface SocialDecision {
+  id: number
+  news_id: string
+  title: string
+  source: string
+  action: string
+  reason: string
+  score: number
+  created_at: string
 }
 
 export interface SocialPost {
@@ -304,6 +317,12 @@ export async function fetchSocialPosts(limit = 20): Promise<{
   status: SocialDeskStatus
 }> {
   const res = await fetch(`${API_BASE}/social/posts?limit=${limit}`)
+  if (!res.ok) await throwApiError(res, 'serverUnavailable')
+  return res.json()
+}
+
+export async function fetchSocialDecisions(limit = 30): Promise<{ decisions: SocialDecision[] }> {
+  const res = await fetch(`${API_BASE}/social/decisions?limit=${limit}`)
   if (!res.ok) await throwApiError(res, 'serverUnavailable')
   return res.json()
 }

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
+  fetchSocialDecisions,
   fetchSocialPosts,
   publishSocialPost,
+  type SocialDecision,
   type SocialDeskStatus,
   type SocialPost,
 } from '../api'
@@ -11,6 +13,7 @@ import { formatThrownError } from '../i18n/utils'
 export function SocialDeskPanel({ refreshKey = 0 }: { refreshKey?: number }) {
   const { t } = useLocale()
   const [posts, setPosts] = useState<SocialPost[]>([])
+  const [decisions, setDecisions] = useState<SocialDecision[]>([])
   const [status, setStatus] = useState<SocialDeskStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [publishingId, setPublishingId] = useState<number | null>(null)
@@ -18,11 +21,13 @@ export function SocialDeskPanel({ refreshKey = 0 }: { refreshKey?: number }) {
 
   const load = useCallback(async () => {
     try {
-      const data = await fetchSocialPosts(16)
+      const [data, log] = await Promise.all([fetchSocialPosts(16), fetchSocialDecisions(20)])
       setPosts(data.posts)
       setStatus(data.status)
+      setDecisions(log.decisions)
     } catch {
       setPosts([])
+      setDecisions([])
       setStatus(null)
     } finally {
       setLoading(false)
@@ -71,6 +76,9 @@ export function SocialDeskPanel({ refreshKey = 0 }: { refreshKey?: number }) {
       <p className="social-desk-meta">
         X: {status.x_configured ? t('macro.social.ready') : t('macro.social.noTokens')} · LinkedIn:{' '}
         {status.linkedin_configured ? t('macro.social.ready') : t('macro.social.noTokens')}
+        {status.auto_post
+          ? ` · auto ≤ ${status.auto_max_per_hour ?? 2}/h · próg ${status.auto_min_score ?? 70}`
+          : ' · auto wyłączone'}
       </p>
       {msg && <p className="social-desk-msg">{msg}</p>}
       {visible.length === 0 ? (
@@ -101,6 +109,28 @@ export function SocialDeskPanel({ refreshKey = 0 }: { refreshKey?: number }) {
           ))}
         </ul>
       )}
+      <div className="social-desk-log">
+        <h4>{t('macro.social.decisionsTitle')}</h4>
+        {decisions.length === 0 ? (
+          <p className="social-desk-empty">{t('macro.social.decisionsEmpty')}</p>
+        ) : (
+          <ul className="social-desk-list">
+            {decisions.map((row) => (
+              <li key={row.id} className="social-desk-item">
+                <div className="social-desk-item-top">
+                  <strong>{row.action}</strong>
+                  <span>{row.source || '—'}</span>
+                </div>
+                <p className="social-desk-body">
+                  {row.title ? `${row.title} — ` : ''}
+                  {row.reason}
+                  {row.score ? ` · ${row.score}` : ''}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </section>
   )
 }

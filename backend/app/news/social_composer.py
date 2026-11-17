@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from app.models.schemas import MacroNewsItem
 from app.news.public_urls import public_site_base
+from app.news.x_auto import X_MAX_CHARS, strip_forbidden_place
 
 
 DISCLAIMER_PL = "Edukacja rynkowa · nie porada inwestycyjna · KAR Digital"
@@ -39,49 +40,59 @@ def _footer_link(item: MacroNewsItem) -> str:
     return ""
 
 
+def _source_block(item: MacroNewsItem) -> tuple[str, str]:
+    name = strip_forbidden_place(item.source or "").strip()
+    url = (item.url or "").strip()
+    return name, url
+
+
 def compose_x(item: MacroNewsItem, locale: str = "pl") -> ComposedPost:
     disc = DISCLAIMER_PL if locale.startswith("pl") else DISCLAIMER_EN
-    title = _clean(item.title, 120)
-    summary = _clean(item.summary, 100)
-    link = _footer_link(item)
-    parts = [f"📰 {title}"]
-    if summary and summary.lower() not in title.lower():
-        parts.append(summary)
-    parts.append(f"#{item.category.upper()} · {disc}")
-    if link:
-        parts.append(link)
-    body = "\n".join(parts)
-    if len(body) > 280:
-        # Trim summary first
-        budget = 280 - len(f"📰 {title}\n#{item.category.upper()} · {disc}\n{link}") - 2
-        summary = _clean(item.summary, max(40, budget))
-        parts = [f"📰 {title}"]
-        if summary:
-            parts.append(summary)
-        parts.append(f"#{item.category.upper()} · {disc}")
-        if link:
-            parts.append(link)
-        body = "\n".join(parts)[:280]
+    name, url = _source_block(item)
+    title = _clean(strip_forbidden_place(item.title), 180)
+    summary = _clean(strip_forbidden_place(item.summary), 160)
+    tag = f"#{item.category.upper()} · {disc}"
+    source_lines = [line for line in (f"Źródło: {name}" if name else "", url) if line]
+    tail = "\n".join([*source_lines, tag])
+
+    def pack(head: str, blurb: str) -> str:
+        chunks = [f"📰 {head}"]
+        if blurb and blurb.lower() not in head.lower():
+            chunks.append(blurb)
+        chunks.append(tail)
+        return "\n".join(chunks)
+
+    body = pack(title, summary)
+    if len(body) > X_MAX_CHARS:
+        body = pack(title, "")
+    if len(body) > X_MAX_CHARS:
+        budget = X_MAX_CHARS - len(f"📰 \n{tail}") - 1
+        body = pack(_clean(title, max(40, budget)), "")
+    if len(body) > X_MAX_CHARS:
+        body = body[: X_MAX_CHARS - 1].rstrip() + "…"
     return ComposedPost(platform="x", body=body, title=title)
 
 
 def compose_linkedin(item: MacroNewsItem, locale: str = "pl") -> ComposedPost:
     disc = DISCLAIMER_PL if locale.startswith("pl") else DISCLAIMER_EN
-    title = _clean(item.title, 200)
-    summary = _clean(item.summary, 500)
+    name, url = _source_block(item)
+    title = _clean(strip_forbidden_place(item.title), 200)
+    summary = _clean(strip_forbidden_place(item.summary), 500)
     link = _footer_link(item)
-    source = item.source or "desk"
+    source = name or "desk"
     reason = f"Impact: {item.impact} · {item.category}"
     lines = [
         title,
         "",
         summary or reason,
         "",
-        f"Źródło: {source}" if locale.startswith("pl") else f"Source: {source}",
-        disc,
+        f"Źródło: {source}",
     ]
-    if link:
-        lines.extend(["", link])
+    if url:
+        lines.append(url)
+    elif link:
+        lines.append(link)
+    lines.append(disc)
     body = "\n".join(lines).strip()
     if len(body) > 1300:
         body = body[:1299] + "…"

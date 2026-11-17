@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 
 from app.news import social_db
-from app.notifications.social_dispatcher import publish_post, social_platforms, social_status
+from app.notifications.social_dispatcher import public_x_record, publish_post, social_platforms, social_status
 
 router = APIRouter(tags=["social"])
 
@@ -23,6 +23,19 @@ async def get_social_posts(limit: int = 40):
     posts = await social_db.list_posts(limit=limit)
     posts = [post for post in posts if post.get("platform") in platforms]
     return {"count": len(posts), "posts": posts, "status": social_status()}
+
+
+@router.get("/api/social/published")
+async def published_posts(limit: int = 30):
+    """Public read-only list of posts that were actually sent to X."""
+    rows = await social_db.list_published(limit)
+    return {"posts": [public_x_record(row) for row in rows]}
+
+
+@router.get("/api/social/decisions")
+async def social_decisions(limit: int = 40):
+    """Why the automatic publisher sent or skipped a story."""
+    return {"decisions": await social_db.list_decisions(limit)}
 
 
 @router.post("/api/social/posts/{post_id}/publish")

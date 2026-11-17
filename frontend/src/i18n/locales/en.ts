@@ -398,7 +398,7 @@ export const en: Translations = {
       publish: 'Publish',
       confirmPublish: 'Send this post to the platform (requires tokens in .env)?',
       published: 'Sent / marked as posted.',
-      publishFailed: 'Publish failed',
+      decisionsTitle: 'Decision log', decisionsEmpty: 'No automatic decisions yet.', publishFailed: 'Publish failed',
     },
   },
   home: {

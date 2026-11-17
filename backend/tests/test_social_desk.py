@@ -26,10 +26,11 @@ def _item(**kwargs) -> MacroNewsItem:
     return MacroNewsItem(**base)
 
 
-def test_compose_x_under_280():
+def test_compose_x_includes_source_within_limit():
     body = compose_x(_item()).body
-    assert len(body) <= 280
-    assert "📰" in body
+    assert len(body) <= 500
+    assert "Źródło: TestWire" in body
+    assert "https://example.com/fed" in body
 
 
 def test_compose_linkedin_has_disclaimer():
@@ -117,12 +118,41 @@ async def test_publish_force_without_tokens(client):
     post_id = await insert_post(
         platform="x",
         news_id="force-uniq-1",
-        url="https://example.com/force-x",
+        url="https://www.reuters.com/markets/fed",
         title="T",
-        body="Dry run body for X publish test",
+        body="Źródło: Reuters\nhttps://www.reuters.com/markets/fed\nFed holds rates",
+        source_name="Reuters",
         media_path=None,
         status="dry_run",
     )
     with patch("app.notifications.social_dispatcher.x_configured", return_value=False):
         r = client.post(f"/api/social/posts/{post_id}/publish")
     assert r.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_publish_rejects_post_without_source(client):
+    await init_social_db()
+    post_id = await insert_post(
+        platform="x",
+        news_id="force-no-source",
+        url="https://www.reuters.com/markets/fed",
+        title="T",
+        body="Fed holds rates with no attribution",
+        source_name="Reuters",
+        media_path=None,
+        status="ready",
+    )
+    with patch("app.notifications.social_dispatcher.x_configured", return_value=True):
+        r = client.post(f"/api/social/posts/{post_id}/publish")
+    assert r.status_code == 400
+    assert "źródł" in r.json()["detail"].lower()
+
+
+def test_published_endpoint_has_no_secrets(client):
+    r = client.get("/api/social/published")
+    assert r.status_code == 200
+    body = r.json()
+    assert "posts" in body
+    assert "webhook" not in r.text.lower()
+    assert "api_key" not in r.text.lower()

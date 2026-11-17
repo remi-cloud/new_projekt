@@ -1575,3 +1575,12 @@ a.super-list-item,
   font-size: 0.75rem;
   color: #9a958c;
 }
+
+.social-desk-log {
+  margin-top: 16px;
+}
+
+.social-desk-log h4 {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+}

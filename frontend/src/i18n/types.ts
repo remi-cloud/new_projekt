@@ -172,6 +172,8 @@ export interface Translations {
       confirmPublish: string
       published: string
       publishFailed: string
+      decisionsTitle: string
+      decisionsEmpty: string
     }
   }
   home: Record<string, string>

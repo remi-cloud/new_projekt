@@ -65,6 +65,16 @@ Nie wstawiaj tu `*.trycloudflare.com` — URL się zmienia przy każdym quick tu
    ```
 4. Restart kontenera / procesu.
 
+## Auto-publikacja na X
+
+Domyślnie wyłączona (`CYCLICAL_SOCIAL_AUTO_POST=false`). Włączenie: ustaw `true` i zrestartuj proces. Ręczny przycisk Publikuj zostaje.
+
+Reguły (serwer): biała lista w `backend/app/news/x_publish_whitelist.py`, próg `CYCLICAL_SOCIAL_AUTO_MIN_SCORE` (70), maksymalnie `CYCLICAL_SOCIAL_AUTO_MAX_PER_HOUR` (2) w oknie godziny, deduplikacja tematu, odrzucenie niepotwierdzonych. Dziennik: `GET /api/social/decisions`.
+
+Publiczny odczyt wysłanych postów (bez sekretów): `GET /api/social/published`.
+
+Opcjonalny webhook po udanej wysyłce: `CYCLICAL_SOCIAL_WEBHOOK_URL` (nie jest zwracany w API).
+
 ## Status API
 
 - `GET /api/social/status` — enabled, dry_run, auto_post, x_configured, linkedin_configured

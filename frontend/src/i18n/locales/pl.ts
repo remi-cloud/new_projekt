@@ -398,7 +398,7 @@ export const pl: Translations = {
       publish: 'Publikuj',
       confirmPublish: 'Wysłać ten post na platformę (wymaga tokenów w .env)?',
       published: 'Wysłano / oznaczono jako posted.',
-      publishFailed: 'Publikacja nieudana',
+      decisionsTitle: 'Dziennik decyzji', decisionsEmpty: 'Brak decyzji automatu.', publishFailed: 'Publikacja nieudana',
     },
   },
   home: {
