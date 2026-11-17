@@ -36,8 +36,9 @@ export function useDashboard(options: UseDashboardOptions = {}) {
     } catch (err) {
       // Keep previous markets if a transient 503 hits mid-scan; only error on first load.
       if (!dataRef.current) {
+        const detail = err instanceof ApiError ? err.detail : ''
         const code = err instanceof ApiError ? err.code : null
-        setError(resolveApiMessage(code === 'serverUnavailable' ? 'serverUnavailable' : 'noConnection'))
+        setError(detail || resolveApiMessage(code === 'serverUnavailable' ? 'serverUnavailable' : 'noConnection'))
       }
     } finally {
       setLoading(false)

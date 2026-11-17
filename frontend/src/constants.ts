@@ -51,8 +51,18 @@ export type NavSection = {
   items: NavLink[]
 }
 
-/** Grouped desk navigation. Section tabs mirror the same items. */
+/** Grouped desk navigation. Section tabs mirror the same items.
+ * AI stays first: PR #11 (07755c7) buried it under the long market list.
+ */
 export const NAV_SECTIONS: NavSection[] = [
+  {
+    id: 'ai',
+    labelKey: 'nav.sectionAi',
+    items: [
+      { path: '/ai-hacking', labelKey: 'nav.aiHacking' },
+      { path: '/radar', labelKey: 'nav.radar' },
+    ],
+  },
   {
     id: 'market',
     labelKey: 'nav.sectionMarket',
@@ -81,14 +91,6 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { path: '/news', labelKey: 'nav.news' },
       { path: '/live', labelKey: 'nav.live' },
-    ],
-  },
-  {
-    id: 'ai',
-    labelKey: 'nav.sectionAi',
-    items: [
-      { path: '/ai-hacking', labelKey: 'nav.aiHacking' },
-      { path: '/radar', labelKey: 'nav.radar' },
     ],
   },
   {
@@ -167,6 +169,7 @@ export function sectionForPath(pathname: string): NavSection | undefined {
 
 export const MOBILE_NAV: NavLink[] = [
   { path: '/dashboard', labelKey: 'nav.panel' },
+  { path: '/ai-hacking', labelKey: 'nav.aiHacking' },
   { path: '/okazje', labelKey: 'nav.opportunities' },
   { path: '/rynki', labelKey: 'nav.scanner' },
   { path: '/portfel', labelKey: 'nav.portfolio' },

@@ -13,8 +13,10 @@ def test_reads_stay_open_and_writes_need_the_desk_token(client: TestClient, monk
 
     missing = client.post("/api/social/posts/1/publish", headers={"X-Desk-Token": ""})
     assert missing.status_code == 401
+    assert "zaloguj" in missing.json()["detail"].lower()
     wrong = client.post("/api/social/posts/1/publish", headers={"X-Desk-Token": "nie-ten"})
     assert wrong.status_code == 401
+    assert "zły token" in wrong.json()["detail"].lower()
     opened = client.post(
         "/api/social/posts/1/publish",
         headers={"X-Desk-Token": "pytest-desk"},

@@ -60,6 +60,11 @@ class DeskAuthMiddleware(BaseHTTPMiddleware):
                 content={"detail": "Biurko zamknięte. Ustaw CYCLICAL_DESK_TOKEN."},
             )
         supplied = request.headers.get("x-desk-token", "")
+        if not supplied:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Zaloguj biurko, żeby zmienić stan."},
+            )
         if not tokens_match(supplied, expected):
             return JSONResponse(status_code=401, content={"detail": "Zły token biurka."})
         return await call_next(request)
