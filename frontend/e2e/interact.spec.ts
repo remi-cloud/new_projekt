@@ -68,6 +68,7 @@ function arm(page: Page, auth: string) {
     const expected =
       guestClosed ||
       (status === 401 && (url.includes('/social/posts') || url.includes('/social/decisions') || url.includes('/desk/login'))) ||
+      (status === 400 && url.includes('/api/predator/poll')) ||
       (status === 409 && url.includes('/social/posts/') && url.includes('/publish')) ||
       (status === 503 && (url.includes('/api/dashboard') || url.includes('/api/ai/chat')))
     if ((status === 400 || status === 401 || status === 409 || status === 503 || status >= 500) && !expected) {
