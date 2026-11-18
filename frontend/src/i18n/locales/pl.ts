@@ -569,11 +569,12 @@ export const pl: Translations = {
     empty: 'Brak instrumentów dla wybranych filtrów.',
   },
   instrument: {
-    notFound: 'Instrument nie znaleziony: {{symbol}}',
+    notFound: 'Nie znaleziono instrumentu: {{symbol}}',
+    bookAria: 'Księga zleceń i heatmapa',
     backToMarkets: 'Wróć do rynków',
     backMarkets: '← Rynki',
     eyebrow: 'Instrument · Analiza cykliczna',
-    tapExpand: 'Stuknij aby powiększyć →',
+    tapExpand: 'Stuknij, aby powiększyć →',
     confidenceTooltip: 'Pewność sygnału {{n}}% — im wyżej, tym silniejsza okazja {{action}}',
     confidenceBuy: 'kupna',
     confidenceSell: 'sprzedaży',
@@ -982,6 +983,7 @@ export const pl: Translations = {
   },
   superDesk: {
     title: 'Superokazje',
+    bookAria: 'Księga bid i ask',
     lead: 'Heatmapa likwidacji jest na każdej pozycji (IN / SL / TP + liq).',
     hydrating: 'Dociąganie pełnej mapy 3D…',
     singularity: 'Singularity',

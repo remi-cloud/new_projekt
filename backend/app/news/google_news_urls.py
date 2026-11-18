@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Callable
 from urllib.parse import quote_plus
 
 logger = logging.getLogger(__name__)
@@ -11,7 +12,18 @@ logger = logging.getLogger(__name__)
 _CACHE: dict[str, str] = {}
 _CACHE_MISS = "__MISS__"
 _MAX_CACHE = 2000
-_SEM = asyncio.Semaphore(6)
+_SEM: asyncio.Semaphore | None = None
+_SEM_LOOP: asyncio.AbstractEventLoop | None = None
+
+
+def _gate() -> asyncio.Semaphore:
+    """One semaphore per running loop. A module-level lock breaks pytest's next loop."""
+    global _SEM, _SEM_LOOP
+    loop = asyncio.get_running_loop()
+    if _SEM is None or _SEM_LOOP is not loop:
+        _SEM = asyncio.Semaphore(6)
+        _SEM_LOOP = loop
+    return _SEM
 
 
 def is_google_news_url(url: str | None) -> bool:
@@ -52,7 +64,7 @@ def _search_fallback(title: str = "") -> str:
     return search_url_for_title(title or "markets")
 
 
-def decoder_from_module(module) -> object | None:
+def decoder_from_module(module) -> Callable[..., object] | None:
     for name in ("new_decoderv1", "new_decoderv2", "gnewsdecoder"):
         candidate = getattr(module, name, None)
         if callable(candidate):
@@ -99,7 +111,7 @@ async def ensure_clickable_url(url: str | None, title: str = "") -> str:
     if cached:
         return cached
 
-    async with _SEM:
+    async with _gate():
         cached = _CACHE.get(url)
         if cached == _CACHE_MISS:
             return _search_fallback(title)

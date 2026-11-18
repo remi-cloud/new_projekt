@@ -497,7 +497,7 @@ export const fil: Translations = {
     world: 'Mundo', all: 'Lahat', count: '{{n}} instrumento', empty: 'Walang instrumento para sa napiling filter.',
   },
   instrument: {
-    notFound: 'Hindi nahanap ang instrumento: {{symbol}}', backToMarkets: 'Bumalik sa merkado', backMarkets: '← Merkado',
+    notFound: 'Hindi nahanap ang instrumento: {{symbol}}', bookAria: 'Order book at heatmap', backToMarkets: 'Bumalik sa merkado', backMarkets: '← Merkado',
     eyebrow: 'Instrumento · Cyclical analysis', tapExpand: 'I-tap para palakihin →',
     confidenceTooltip: 'Signal confidence {{n}}% — mas mataas, mas malakas ang {{action}} opportunity',
     confidenceBuy: 'pagbili', confidenceSell: 'pagbebenta', momentumTag: 'Momentum + siklo',
@@ -736,6 +736,7 @@ export const fil: Translations = {
   },
   superDesk: {
     title: 'Super setups',
+    bookAria: 'Bid at ask book',
     lead: 'A liquidation heatmap sits on every position (entry / stop / target + liq).',
     hydrating: 'Loading the full 3D map…',
     singularity: 'Singularity',

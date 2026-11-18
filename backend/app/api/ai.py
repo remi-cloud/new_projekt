@@ -1,6 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from app.ai import agent as ai_agent
+from app.ai.visibility import desk_portfolio_visible
+from app.desk_auth import supplied_desk_token, tokens_match
 from app.ai import db as ai_db
 from app.ai.learning import process_feedback
 from app.ai.academy import academy_payload
@@ -15,6 +17,12 @@ from app.models.schemas import (
 )
 
 router = APIRouter(tags=["ai"])
+
+
+def _desk_open(request: Request) -> bool:
+    expected = (settings.desk_token or "").strip()
+    supplied = supplied_desk_token(request)
+    return bool(expected and supplied and tokens_match(supplied, expected))
 
 
 @router.get("/api/ai/academy")
@@ -57,9 +65,10 @@ async def ai_status():
 
 
 @router.post("/api/ai/chat", response_model=AiChatResponse)
-async def ai_chat(body: AiChatRequest):
+async def ai_chat(body: AiChatRequest, request: Request):
     if not body.message.strip():
         raise HTTPException(status_code=400, detail="Message required")
+    token = desk_portfolio_visible.set(_desk_open(request))
     try:
         result = await ai_agent.chat(
             message=body.message.strip(),
@@ -75,6 +84,8 @@ async def ai_chat(body: AiChatRequest):
                 detail="Zewnętrzny czat AI jest wyłączony. Ustaw klucz albo CYCLICAL_AI_EXTERNAL=true.",
             ) from None
         raise HTTPException(status_code=502, detail="Czat AI nie odpowiedział.") from None
+    finally:
+        desk_portfolio_visible.reset(token)
     return AiChatResponse(**result)
 
 
@@ -95,6 +106,10 @@ async def ai_history(session_id: str, limit: int = 40):
 
 
 @router.post("/api/ai/analyze/{symbol}", response_model=AiAnalyzeResponse)
-async def ai_analyze_symbol(symbol: str, lang: str | None = None):
-    result = await ai_agent.analyze_symbol(symbol, locale=lang or "pl")
+async def ai_analyze_symbol(symbol: str, request: Request, lang: str | None = None):
+    token = desk_portfolio_visible.set(_desk_open(request))
+    try:
+        result = await ai_agent.analyze_symbol(symbol, locale=lang or "pl")
+    finally:
+        desk_portfolio_visible.reset(token)
     return AiAnalyzeResponse(**result)

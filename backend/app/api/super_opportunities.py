@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from app.data.whale_flows import fetch_whale_snapshot
 from app.models.schemas import SuperOpportunitiesResponse, SuperOpportunity
+from app.read_guard import forced_refresh_due
 from app.scanners.super_opportunities import (
     build_super_opportunities,
     build_super_opportunity,
@@ -37,9 +38,11 @@ async def get_super_opportunity(symbol: str):
 
 @router.get("/api/whale-flows")
 async def whale_flows(force: bool = False):
-    by_sym = await fetch_whale_snapshot(force=force)
+    use_force = bool(force and forced_refresh_due("whale"))
+    by_sym = await fetch_whale_snapshot(force=use_force)
     return {
         "count": len(by_sym),
         "items": list(by_sym.values()),
         "by_symbol": by_sym,
+        "refresh_cached": bool(force and not use_force),
     }

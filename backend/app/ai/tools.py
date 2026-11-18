@@ -611,14 +611,18 @@ async def run_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
             stop_dist = float(atr) * 1.5 if atr else price * 0.02
             risk_pct = float(arguments.get("risk_pct") or 1.0)
             risk_pct = max(0.25, min(2.0, risk_pct))
+            from app.ai.visibility import portfolio_visible
+
             equity = arguments.get("account_equity")
-            if equity is None:
+            equity_basis = "request" if equity is not None else "example"
+            if equity is None and portfolio_visible():
                 try:
                     from app.paper.portfolio_memory import get_agent_portfolio_context
 
                     paper = await get_agent_portfolio_context()
                     summary = (paper or {}).get("summary") or paper or {}
                     equity = summary.get("total_equity_pln") or summary.get("equity")
+                    equity_basis = "paper"
                 except Exception:
                     equity = None
             try:
@@ -653,6 +657,7 @@ async def run_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
                 "suggested_stop_distance": round(stop_dist, 6),
                 "suggested_stop_price": round(stop_price, 6),
                 "account_equity": round(equity_f, 2),
+                "equity_basis": equity_basis,
                 "risk_pct": risk_pct,
                 "risk_budget": round(risk_budget, 2),
                 "suggested_size_units": round(size_units, 6) if size_units is not None else None,
@@ -980,6 +985,10 @@ async def run_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
                 "note": "Meme Universe flagship — educational, not investment advice.",
             }
         if name == "get_binance_portfolio_sync":
+            from app.ai.visibility import hidden_portfolio, portfolio_visible
+
+            if not portfolio_visible():
+                return hidden_portfolio()
             from app.integrations.portfolio_binance_bridge import build_binance_sync
 
             return await build_binance_sync()
@@ -1003,6 +1012,10 @@ async def run_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
                 "short_sample": (report.get("short_verdicts") or [])[:5],
             }
         if name == "get_paper_portfolio":
+            from app.ai.visibility import hidden_portfolio, portfolio_visible
+
+            if not portfolio_visible():
+                return hidden_portfolio()
             from app.paper.portfolio_memory import get_agent_portfolio_context
 
             return await get_agent_portfolio_context()
@@ -1257,6 +1270,8 @@ async def auto_tools_for_question(
             }
         )
 
+    from app.ai.visibility import portfolio_visible
+
     if any(k in low for k in ("binance", "listing radar", "cz binance", "binance trade", "portfel binance", "portfolio binance")):
         results.append(
             {
@@ -1264,12 +1279,13 @@ async def auto_tools_for_question(
                 "result": await run_tool("get_binance_ai_support", {}),
             }
         )
-        results.append(
-            {
-                "tool": "get_binance_portfolio_sync",
-                "result": await run_tool("get_binance_portfolio_sync", {}),
-            }
-        )
+        if portfolio_visible():
+            results.append(
+                {
+                    "tool": "get_binance_portfolio_sync",
+                    "result": await run_tool("get_binance_portfolio_sync", {}),
+                }
+            )
 
     if any(
         k in low
@@ -1285,7 +1301,8 @@ async def auto_tools_for_question(
             "konto paper",
         )
     ):
-        results.append({"tool": "get_paper_portfolio", "result": await run_tool("get_paper_portfolio", {})})
+        if portfolio_visible():
+            results.append({"tool": "get_paper_portfolio", "result": await run_tool("get_paper_portfolio", {})})
 
     if any(k in low for k in ("roi", "backtest", "rentown", "cagr", "zysk", "profit", "inwest", "invest")):
         sym_roi = sym or "BTC-USD"

@@ -284,7 +284,7 @@ function PositionCard({
         </div>
       )}
 
-      <div className="book-strip" aria-label="Bid Ask">
+      <div className="book-strip" aria-label={t('superDesk.bookAria')}>
         <div className="super-grid">
           <div className="stat bid-stat">
             <div className="stat-label">Bid</div>

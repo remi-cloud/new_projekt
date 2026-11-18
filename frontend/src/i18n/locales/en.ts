@@ -571,6 +571,7 @@ export const en: Translations = {
   },
   instrument: {
     notFound: 'Instrument not found: {{symbol}}',
+    bookAria: 'Order book and heatmap',
     backToMarkets: 'Back to markets',
     backMarkets: '← Markets',
     eyebrow: 'Instrument · Cyclical analysis',
@@ -983,6 +984,7 @@ export const en: Translations = {
   },
   superDesk: {
     title: 'Super setups',
+    bookAria: 'Bid and ask book',
     lead: 'A liquidation heatmap sits on every position (entry / stop / target + liq).',
     hydrating: 'Loading the full 3D map…',
     singularity: 'Singularity',
