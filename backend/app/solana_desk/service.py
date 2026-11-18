@@ -18,20 +18,23 @@ from app.solana_desk.db import (
     list_trades,
     load_book,
     save_book,
+    read_armed,
     save_report,
     trades_csv,
     update_trade,
     upsert_position,
     worker_online,
+    write_armed,
 )
 from app.solana_desk.execution import simulate_buy, simulate_sell
 from app.solana_desk.limits import opening_block
+from app.solana_desk.live import execute_swap
 from app.solana_desk.market import MarketClient
 from app.solana_desk.models import MarketSnapshot, TokenView, finite
-from app.solana_desk.real_gate import real_mode_view
+from app.solana_desk.real_gate import RealTradingLocked, gate_reason, real_mode_view, redact
 from app.solana_desk.risk import assess_risk
 
-_INT_KEYS = {"time_stop_minutes", "max_open", "slippage_base_bps"}
+_INT_KEYS = {"time_stop_minutes", "max_open", "slippage_base_bps", "max_slippage_bps"}
 _BOUNDS: dict[str, tuple[float, float]] = {
     "starting_sol": (0.05, 100),
     "position_sol": (0.01, 10),
@@ -53,7 +56,9 @@ _BOUNDS: dict[str, tuple[float, float]] = {
     "max_tax_pct": (0, 50),
     "priority_fee_sol": (0, 0.01),
     "pump_fee_rate": (0, 0.05),
-    "slippage_base_bps": (0, 300),
+    "slippage_base_bps": (1, 300),
+    "max_slippage_bps": (1, 300),
+    "min_reserve_sol": (0, 5),
 }
 
 
@@ -155,15 +160,50 @@ async def _fill_pending(
         await add_event("sniper", f"Anulowano wejście — {block}.", row["mint"], row.get("symbol") or "")
         return
     sol = finite(book.get("sol_usd"))
-    fill = simulate_buy(
-        next_price=quote.price_usd,
-        spend_sol=finite(row.get("size_sol")),
-        sol_usd=sol,
-        liquidity_usd=quote.liquidity_usd or finite(row.get("liquidity_usd")),
-        priority_fee_sol=finite(settings.get("priority_fee_sol"), 0.00005),
-        pump_fee_rate=finite(settings.get("pump_fee_rate"), 0.01),
-        slippage_base_bps=finite(settings.get("slippage_base_bps"), 50),
-    )
+    armed = await read_armed()
+    mode = "paper"
+    signature = None
+    token_atoms = None
+    if gate_reason(armed) == "":
+        try:
+            live = await execute_swap(
+                armed=True,
+                side="buy",
+                mint=row["mint"],
+                amount_sol=finite(row.get("size_sol")),
+                token_atoms=None,
+                sol_usd=sol,
+                price_usd=quote.price_usd,
+                slippage_bps=finite(settings.get("slippage_base_bps"), 50),
+                priority_fee_sol=finite(settings.get("priority_fee_sol"), 0.00005),
+                reserve_sol=finite(settings.get("min_reserve_sol"), 0.05),
+                cash_sol=finite(book.get("cash_sol")),
+                reserved_sol=others,
+                day_pnl_sol=_day_pnl(book, rows, prices),
+                open_count=0,
+                running=bool(book.get("running", True)),
+                kill_switch=bool(book.get("kill_switch")),
+                settings=settings,
+            )
+        except RealTradingLocked as exc:
+            await delete_position(row["mint"])
+            _bump(book, "sniper", "skipped")
+            await add_event("sniper", redact(str(exc))[:240], row["mint"], row.get("symbol") or "")
+            return
+        fill = live
+        mode = "real"
+        signature = live.signature
+        token_atoms = live.token_atoms
+    else:
+        fill = simulate_buy(
+            next_price=quote.price_usd,
+            spend_sol=finite(row.get("size_sol")),
+            sol_usd=sol,
+            liquidity_usd=quote.liquidity_usd or finite(row.get("liquidity_usd")),
+            priority_fee_sol=finite(settings.get("priority_fee_sol"), 0.00005),
+            pump_fee_rate=finite(settings.get("pump_fee_rate"), 0.01),
+            slippage_base_bps=finite(settings.get("slippage_base_bps"), 50),
+        )
     opened = _iso(now)
     trade_id = await insert_trade(
         {
@@ -184,8 +224,8 @@ async def _fill_pending(
             "pnl_sol": None,
             "entry_reason": row.get("entry_reason") or "",
             "exit_reason": "",
-            "mode": "paper",
-            "signature": None,
+            "mode": mode,
+            "signature": signature,
         }
     )
     book["cash_sol"] = finite(book.get("cash_sol")) - fill.debit_sol
@@ -204,14 +244,16 @@ async def _fill_pending(
             "liquidity_usd": quote.liquidity_usd or row.get("liquidity_usd"),
             "reserved_sol": 0,
             "trade_id": trade_id,
+            "token_atoms": token_atoms,
         }
     )
     await upsert_position(row)
     _bump(book, "sniper", "entries")
-    _note(book, "sniper", f"Papierowe wejście {row.get('symbol')} po {fill.price:.8f} USD.")
+    label = "Realne" if mode == "real" else "Papierowe"
+    _note(book, "sniper", f"{label} wejście {row.get('symbol')} po {fill.price:.8f} USD.")
     await add_event(
         "sniper",
-        f"Wejście papierowe. Cena {fill.price:.8f}, opłaty {fill.fee_sol:.6f} SOL, poślizg {fill.slippage:.2%}.",
+        f"{label} wejście. Cena {fill.price:.8f}, opłaty {fill.fee_sol:.6f} SOL, poślizg {fill.slippage:.2%}.",
         row["mint"],
         row.get("symbol") or "",
     )
@@ -220,18 +262,55 @@ async def _fill_pending(
 async def _close_position(book: dict, row: dict, quote: TokenView, reason: str, now: datetime) -> None:
     settings = _settings(book)
     sol = finite(book.get("sol_usd"))
-    fill = simulate_sell(
-        next_price=quote.price_usd,
-        tokens=finite(row.get("tokens")),
-        sol_usd=sol,
-        liquidity_usd=quote.liquidity_usd or finite(row.get("liquidity_usd")),
-        priority_fee_sol=finite(settings.get("priority_fee_sol"), 0.00005),
-        pump_fee_rate=finite(settings.get("pump_fee_rate"), 0.01),
-        slippage_base_bps=finite(settings.get("slippage_base_bps"), 50),
-    )
-    pnl = fill.proceeds_sol - finite(row.get("size_sol"))
-    book["cash_sol"] = finite(book.get("cash_sol")) + fill.proceeds_sol
-    book["fees_sol"] = finite(book.get("fees_sol")) + fill.fee_sol
+    exit_signature = None
+    armed = await read_armed()
+    if gate_reason(armed) == "":
+        try:
+            live = await execute_swap(
+                armed=True,
+                side="sell",
+                mint=row["mint"],
+                amount_sol=0,
+                token_atoms=str(row.get("token_atoms") or ""),
+                sol_usd=sol,
+                price_usd=quote.price_usd,
+                tokens=finite(row.get("tokens")),
+                slippage_bps=finite(settings.get("slippage_base_bps"), 50),
+                priority_fee_sol=finite(settings.get("priority_fee_sol"), 0.00005),
+                reserve_sol=finite(settings.get("min_reserve_sol"), 0.05),
+                cash_sol=finite(book.get("cash_sol")),
+                reserved_sol=0,
+                day_pnl_sol=0,
+                open_count=0,
+                running=True,
+                kill_switch=False,
+                settings=settings,
+            )
+        except RealTradingLocked as exc:
+            await add_event("exit", redact(str(exc))[:240], row["mint"], row.get("symbol") or "")
+            return
+        proceeds = live.proceeds_sol
+        fee = live.fee_sol
+        price = live.price or quote.price_usd
+        slip = live.slippage
+        exit_signature = live.signature
+    else:
+        paper = simulate_sell(
+            next_price=quote.price_usd,
+            tokens=finite(row.get("tokens")),
+            sol_usd=sol,
+            liquidity_usd=quote.liquidity_usd or finite(row.get("liquidity_usd")),
+            priority_fee_sol=finite(settings.get("priority_fee_sol"), 0.00005),
+            pump_fee_rate=finite(settings.get("pump_fee_rate"), 0.01),
+            slippage_base_bps=finite(settings.get("slippage_base_bps"), 50),
+        )
+        proceeds = paper.proceeds_sol
+        fee = paper.fee_sol
+        price = paper.price
+        slip = paper.slippage
+    pnl = proceeds - finite(row.get("size_sol"))
+    book["cash_sol"] = finite(book.get("cash_sol")) + proceeds
+    book["fees_sol"] = finite(book.get("fees_sol")) + fee
     book["realized_pnl_sol"] = finite(book.get("realized_pnl_sol")) + pnl
     book["closed_trades"] = int(book.get("closed_trades") or 0) + 1
     if pnl > 0:
@@ -244,11 +323,12 @@ async def _close_position(book: dict, row: dict, quote: TokenView, reason: str, 
             {
                 "closed_at": _iso(now),
                 "status": "closed",
-                "exit_price": fill.price,
-                "exit_fee_sol": fill.fee_sol,
-                "exit_slippage": fill.slippage,
+                "exit_price": price,
+                "exit_fee_sol": fee,
+                "exit_slippage": slip,
                 "pnl_sol": pnl,
                 "exit_reason": text,
+                "exit_signature": exit_signature,
             },
         )
     await delete_position(row["mint"])
@@ -256,7 +336,7 @@ async def _close_position(book: dict, row: dict, quote: TokenView, reason: str, 
     _note(book, "exit", f"{row.get('symbol')}: {text}.")
     await add_event(
         "exit",
-        f"{text}. Cena wyjścia {fill.price:.8f}, PnL {pnl:.6f} SOL.",
+        f"{text}. Cena wyjścia {price:.8f}, PnL {pnl:.6f} SOL.",
         row["mint"],
         row.get("symbol") or "",
     )
@@ -495,6 +575,13 @@ async def run_tick(snapshot: MarketSnapshot | None = None) -> dict:
     return await apply_snapshot(snapshot)
 
 
+async def set_arm(armed: bool) -> dict:
+    await ensure_book()
+    await write_armed(bool(armed))
+    await add_event("sniper", "Zamek realny: uzbrojony." if armed else "Zamek realny: rozbrojony.")
+    return await status_view()
+
+
 async def set_running(action: str) -> dict:
     book = await ensure_book()
     if action == "start":
@@ -580,7 +667,7 @@ async def status_view() -> dict:
                 "unrealized_pnl_sol": unrealized,
             }
         )
-    view = real_mode_view()
+    view = real_mode_view(await read_armed())
     view.update(
         {
             "running": bool(book.get("running", True)),

@@ -5,6 +5,7 @@ import { readDeskToken } from '../lib/deskAuth'
 import {
   fetchSolanaJournal,
   fetchSolanaStatus,
+  postSolanaArm,
   postSolanaControl,
   postSolanaSettings,
   solanaCsvUrl,
@@ -267,7 +268,19 @@ export function SolanaDeskPage() {
         <button type="button" className="btn btn-ghost" disabled={!desk || !status.kill_switch} onClick={() => void command('clear_kill')}>
           Zdejmij wyłącznik
         </button>
+        <button
+          type="button"
+          className="btn btn-ghost"
+          disabled={!desk}
+          onClick={() => void postSolanaArm(!status.armed).then(setStatus).catch((err: unknown) => setNotice(err instanceof Error ? err.message : 'Zamek odrzucony.'))}
+        >
+          {status.armed ? 'Rozbrój handel realny' : 'Uzbrój handel realny'}
+        </button>
       </div>
+      <p className="solana-note">
+        Zamek realny: {status.armed ? 'uzbrojony' : 'rozbrojony'}. Po restarcie serwera sam schodzi.
+        Trasa: Jupiter Swap API. Bez flagi, klucza, RPC i zamka nic nie wychodzi na łańcuch.
+      </p>
       <form className="solana-form" onSubmit={(event) => void onSave(event)}>
         <label>
           Start SOL

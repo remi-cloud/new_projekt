@@ -53,7 +53,8 @@ def test_flag_and_key_still_do_not_broadcast(monkeypatch):
     blob = str(view)
     assert SECRET not in blob
     assert view["real_trading_active"] is False
-    assert "nie podpisuje" in view["lock_reason"]
+    assert view["armed"] is False
+    assert "SOLANA_RPC_URL" in view["lock_reason"]
     with pytest_raises():
         JupiterSwapGateway().execute({"mint": "Mintpump"})
 

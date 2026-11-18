@@ -51,6 +51,9 @@ async def lifespan(app: FastAPI):
     from app.solana_desk.db import init_solana_desk_db
 
     await init_solana_desk_db()
+    from app.solana_desk.db import disarm
+
+    await disarm()
     from app.solana_desk.worker import start_embedded
 
     await start_embedded()

@@ -6,7 +6,6 @@ import asyncio
 import logging
 import os
 
-from app.solana_desk.db import init_solana_desk_db
 from app.solana_desk.real_gate import install_secret_filter
 from app.solana_desk.service import run_tick
 
@@ -30,8 +29,10 @@ def interval_seconds() -> float:
 
 
 async def run_forever() -> None:
-    await init_solana_desk_db()
-    log.info("Solana Desk: pętla papierowa działa co %.0f s.", interval_seconds())
+    from app.solana_desk.db import disarm
+
+    await disarm()
+    log.info("Solana Desk: pętla papierowa działa co %.0f s. Realny handel startuje rozbrojony.", interval_seconds())
     while True:
         try:
             await run_tick()

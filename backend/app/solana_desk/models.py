@@ -88,6 +88,8 @@ DEFAULT_SETTINGS: dict[str, float | int] = {
     "priority_fee_sol": 0.00005,
     "pump_fee_rate": 0.01,
     "slippage_base_bps": 50.0,
+    "max_slippage_bps": 100.0,
+    "min_reserve_sol": 0.05,
 }
 
 

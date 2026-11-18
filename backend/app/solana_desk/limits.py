@@ -1,4 +1,4 @@
-"""Position, daily-loss and kill-switch gates for the paper book."""
+"""Position, daily-loss, reserve and fee caps for paper and real sends."""
 
 from __future__ import annotations
 
@@ -36,3 +36,49 @@ def opening_block(
     if open_count >= int(finite(settings.get("max_open"), 3)):
         return "limit otwartych pozycji"
     return ""
+
+
+def cap_block(*, slippage_bps: float, priority_fee_sol: float, settings: dict) -> str:
+    """Hard caps. A value above the cap aborts the send instead of being clipped."""
+    max_slip = finite(settings.get("max_slippage_bps"), 100)
+    if finite(slippage_bps) > min(max_slip, 300) or finite(slippage_bps) <= 0:
+        return "limit poślizgu"
+    if finite(priority_fee_sol) > 0.01 or finite(priority_fee_sol) < 0:
+        return "limit opłaty priorytetowej"
+    return ""
+
+
+def live_buy_block(
+    *,
+    slippage_bps: float,
+    priority_fee_sol: float,
+    balance_sol: float,
+    reserve_sol: float,
+    size_sol: float,
+    cash_sol: float,
+    reserved_sol: float,
+    day_pnl_sol: float,
+    open_count: int,
+    running: bool,
+    kill_switch: bool,
+    settings: dict,
+) -> str:
+    capped = cap_block(
+        slippage_bps=slippage_bps,
+        priority_fee_sol=priority_fee_sol,
+        settings=settings,
+    )
+    if capped:
+        return capped
+    if finite(balance_sol) - finite(size_sol) < finite(reserve_sol) - 1e-12:
+        return "rezerwa portfela"
+    return opening_block(
+        kill_switch=kill_switch,
+        running=running,
+        size_sol=size_sol,
+        cash_sol=cash_sol,
+        reserved_sol=reserved_sol,
+        day_pnl_sol=day_pnl_sol,
+        open_count=open_count,
+        settings=settings,
+    )

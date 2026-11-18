@@ -6,13 +6,17 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
-from app.solana_desk.service import journal_csv, journal_view, set_running, status_view, update_settings
+from app.solana_desk.service import journal_csv, journal_view, set_arm, set_running, status_view, update_settings
 
 router = APIRouter(prefix="/api/solana", tags=["solana-desk"])
 
 
 class ControlBody(BaseModel):
     action: str = Field(min_length=4, max_length=20)
+
+
+class ArmBody(BaseModel):
+    armed: bool
 
 
 class SettingsBody(BaseModel):
@@ -38,6 +42,8 @@ class SettingsBody(BaseModel):
     priority_fee_sol: float | None = None
     pump_fee_rate: float | None = None
     slippage_base_bps: float | None = None
+    max_slippage_bps: int | None = None
+    min_reserve_sol: float | None = None
 
 
 @router.get("/status")
@@ -58,6 +64,11 @@ async def solana_trades_csv():
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": "attachment; filename=solana-desk.csv"},
     )
+
+
+@router.post("/arm")
+async def solana_arm(body: ArmBody):
+    return await set_arm(body.armed)
 
 
 @router.post("/control")

@@ -1,6 +1,6 @@
 # Solana Desk
 
-Papierowe biurko memecoinów Solany. Cztery agenty czytają publiczne rynki i prowadzą symulowany portfel. Nic nie jest podpisywane ani wysyłane na łańcuch.
+Biurko memecoinów Solany. Cztery agenty czytają publiczne rynki. Domyślnie prowadzą papier. Wysyłka na łańcuch jest osobną, wyłączoną ścieżką.
 
 ## Agenty
 
@@ -41,10 +41,12 @@ Gość widzi saldo, PnL, win rate, dziennik i raport. Start, stop, wyłącznik i
 
 Dziennik (czas UTC, mint, ceny, opłaty, poślizg, PnL, powody) siedzi w SQLite i schodzi jako CSV z panelu.
 
-## Tryb realny — wyłączony
+## Handel realny — domyślnie wyłączony
 
-`SOLANA_REAL_TRADING` domyślnie nie jest `true`. Bez `SOLANA_BOT_PRIVATE_KEY` w `.env` właściciela i tak zostaje papier. Klucza nie ma w repozytorium, w logu ani w odpowiedzi API.
+Wysyłka idzie przez **Jupiter Swap API v1** (`https://lite-api.jup.ag/swap/v1`): kwotowanie, podpis lokalny (`solders`), `simulateTransaction` na `SOLANA_RPC_URL`, potem `sendTransaction` i potwierdzenie. Sygnatura i link Solscan lądują w dzienniku i w CSV.
 
-Nawet gdy oba warunki są spełnione, ta wersja **nie podpisuje i nie wysyła**. `JupiterSwapGateway` buduje tylko intencję (quote/swap Jupiter, zapasowo pump.fun, podpis lokalny). Prawdziwy podpis da link `https://solscan.io/tx/…`. W papierze pole jest puste.
+Żeby cokolwiek wyszło na łańcuch, naraz muszą być: `SOLANA_REAL_TRADING=true`, niepusty `SOLANA_BOT_PRIVATE_KEY` (base58), `SOLANA_RPC_URL` i zamek **Uzbrój handel realny** w panelu (token biurka). Zamek jest w bazie i każdy start procesu ustawia go na rozbrojony. Bez kompletu bramek funkcja wysyłki wraca zanim dotknie Jupitera i RPC.
 
-Czego brakuje do żywego handlu: implementacji podpisu lokalnego, wysłania transakcji Jupiter albo pump.fun, potwierdzenia na RPC i wpisania sygnatury do dziennika. Do tego czasu bramka rzuca `RealTradingLocked`.
+Limity wspólne z papierem, plus rezerwa SOL na portfelu, sufit poślizgu (domyślnie 100 bps, twardo 300) i sufit opłaty priorytetowej (0,01 SOL). Wyłącznik awaryjny blokuje nowe kupna. Otwarta pozycja realna schodzi sprzedażą Jupitera; pozycja papierowa bez ilości w jednostkach mint nie jest sprzedawana „na ślepo”.
+
+Klucz nie wchodzi do logu, odpowiedzi API ani repozytorium. W `.env.example` są tylko puste pola. Ryzyko i sposób stopu: README, sekcja „Solana Desk — handel realny”.

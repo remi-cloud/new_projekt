@@ -14,6 +14,8 @@ vi.mock('../lib/solanaDeskApi', () => ({
     real_trading_flag: false,
     wallet_configured: false,
     real_trading_active: false,
+    rpc_configured: false,
+    armed: false,
     lock_reason: 'Handel realny jest wyłączony.',
     cash_sol: 1,
     equity_sol: 1,
@@ -72,6 +74,7 @@ vi.mock('../lib/solanaDeskApi', () => ({
     ],
     events: [{ id: 7, ts: '2026-11-18T07:05:00Z', agent: 'exit', mint: 'Mint111pump', symbol: 'FLOW', message: 'Stop po luce.' }],
   })),
+  postSolanaArm: vi.fn(),
   postSolanaControl: vi.fn(),
   postSolanaSettings: vi.fn(),
 }))
@@ -96,6 +99,7 @@ describe('Solana Desk', () => {
     expect(screen.getByText(/Stop po luce/)).toBeTruthy()
     expect((screen.getByRole('button', { name: 'Start' }) as HTMLButtonElement).disabled).toBe(true)
     expect((screen.getByRole('button', { name: 'Zapisz' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: 'Uzbrój handel realny' }) as HTMLButtonElement).disabled).toBe(true)
     expect(screen.getByRole('link', { name: 'Eksport CSV' })).toBeTruthy()
   })
 

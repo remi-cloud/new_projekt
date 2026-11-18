@@ -18,7 +18,10 @@ export type SolanaStatus = {
   real_trading_flag: boolean
   wallet_configured: boolean
   real_trading_active: boolean
+  rpc_configured: boolean
+  armed: boolean
   lock_reason: string
+  route?: string
   cash_sol: number
   equity_sol: number
   equity_usd: number
@@ -77,6 +80,7 @@ export type SolanaJournal = {
     exit_reason: string
     mode: string
     solscan_url: string | null
+    exit_signature?: string | null
   }>
   events: Array<{
     id: number
@@ -108,6 +112,14 @@ export function fetchSolanaStatus(): Promise<SolanaStatus> {
 
 export function fetchSolanaJournal(): Promise<SolanaJournal> {
   return apiFetch(`${API_BASE}/solana/journal?limit=40`).then((res) => readJson<SolanaJournal>(res))
+}
+
+export function postSolanaArm(armed: boolean): Promise<SolanaStatus> {
+  return apiFetch(`${API_BASE}/solana/arm`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ armed }),
+  }).then((res) => readJson<SolanaStatus>(res))
 }
 
 export function postSolanaControl(action: string): Promise<SolanaStatus> {

@@ -175,6 +175,16 @@ Zapis trafia do `backups/session_YYYYMMDD_HHMMSS/` (wskaźnik: `backups/LATEST_S
 Co **20 s** backend kopiuje postęp do `backups/progress/current/` (portfel, trader.db, static).  
 W UI: przełącznik **Auto-odświeżanie 20s** (sidebar) — dashboard odświeża dane co 20 s.
 
+## Solana Desk — handel realny
+
+Domyślnie jest papier. Żeby właściciel sam włączył wysyłkę na łańcuch, w `.env` (nigdy w repozytorium) muszą być naraz: `SOLANA_REAL_TRADING=true`, `SOLANA_BOT_PRIVATE_KEY` (base58) i `SOLANA_RPC_URL`. Potem w panelu Solana Desk, po tokenie biurka, przycisk **Uzbrój handel realny**. Bez któregoś z tych zamków kod wysyłki się nie wykonuje. Restart serwera sam rozbraja zamek.
+
+Trasa: Jupiter Swap API v1 (`lite-api.jup.ag`) — kwotowanie, lokalny podpis, `simulateTransaction`, dopiero potem `sendTransaction` i potwierdzenie. Sygnatura i link Solscan trafiają do dziennika. Limity: maks. SOL na transakcję, dzienny limit straty, liczba pozycji, rezerwa SOL na portfelu, sufit poślizgu i opłaty priorytetowej. Wyłącznik awaryjny zatrzymuje nowe kupna i sprzedaje otwarte pozycje. Checker jest ten sam co na papierze.
+
+Ryzyko: to prawdziwe SOL. Symulacja może przejść, a transakcja i tak się nie udać albo potwierdzić za późno. Token bez kwotowania Jupitera nie jest wysyłany.
+
+Stop: **Rozbrój handel realny**, albo `SOLANA_REAL_TRADING=false` i restart. Wyłącznik awaryjny w panelu zamyka nowe wejścia.
+
 ## Disclaimer
 
 Aplikacja edukacyjno-analityczna — nie stanowi porady inwestycyjnej. Trading wiąże się z ryzykiem utraty kapitału.

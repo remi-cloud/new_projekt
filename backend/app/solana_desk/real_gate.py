@@ -1,7 +1,7 @@
-"""Real trading stays off unless the owner flips the env flag and supplies a key.
+"""Real swaps stay unreachable until every gate is open.
 
-This build still refuses to sign or broadcast. The gateway only describes the
-Jupiter / pump.fun swap the live path would send later.
+Gates: SOLANA_REAL_TRADING=true, SOLANA_BOT_PRIVATE_KEY, SOLANA_RPC_URL,
+and the in-panel arm switch. The arm switch is cleared on every process start.
 """
 
 from __future__ import annotations
@@ -12,6 +12,9 @@ import re
 
 FLAG = "SOLANA_REAL_TRADING"
 KEY = "SOLANA_BOT_PRIVATE_KEY"
+RPC = "SOLANA_RPC_URL"
+JUPITER_QUOTE = "https://lite-api.jup.ag/swap/v1/quote"
+JUPITER_SWAP = "https://lite-api.jup.ag/swap/v1/swap"
 _TRUE = {"1", "true", "yes", "on"}
 _SOLSCAN = re.compile(r"^[1-9A-HJ-NP-Za-km-z]{32,100}$")
 
@@ -56,25 +59,44 @@ def wallet_configured() -> bool:
     return bool(os.environ.get(KEY, "").strip())
 
 
-def lock_reason() -> str:
+def rpc_configured() -> bool:
+    return bool(os.environ.get(RPC, "").strip())
+
+
+def redact(text: str) -> str:
+    """Remove the wallet secret from a message. The value is never logged here."""
+    secret = os.environ.get(KEY, "").strip()
+    if len(secret) >= 16 and secret in text:
+        return text.replace(secret, "[redacted]")
+    return text
+
+
+def gate_reason(armed: bool) -> str:
+    """Empty string only when a real send is allowed."""
     if not flag_on():
         return "SOLANA_REAL_TRADING nie jest true. Handel realny jest wyłączony."
     if not wallet_configured():
         return "Brak SOLANA_BOT_PRIVATE_KEY. Zostaje sam papier."
-    return (
-        "Klucz jest ustawiony, ale ta wersja nie podpisuje i nie wysyła transakcji. "
-        "Aktywny zostaje papier."
-    )
+    if not rpc_configured():
+        return "Brak SOLANA_RPC_URL. Zostaje sam papier."
+    if not armed:
+        return "Handel realny jest rozbrojony. Uzbrój go w panelu. Po restarcie zamek sam schodzi."
+    return ""
 
 
-def real_mode_view() -> dict:
+def real_mode_view(armed: bool = False) -> dict:
     """Public view. The key value is never copied into this dict."""
+    reason = gate_reason(armed)
+    active = reason == ""
     return {
-        "mode": "paper",
+        "mode": "real" if active else "paper",
         "real_trading_flag": flag_on(),
         "wallet_configured": wallet_configured(),
-        "real_trading_active": False,
-        "lock_reason": lock_reason(),
+        "rpc_configured": rpc_configured(),
+        "armed": bool(armed),
+        "real_trading_active": active,
+        "lock_reason": reason,
+        "route": "Jupiter Swap API v1 (lite-api.jup.ag)",
     }
 
 
@@ -86,14 +108,13 @@ def solscan_tx_url(signature: str | None) -> str | None:
 
 
 class JupiterSwapGateway:
-    """Local-sign architecture. execute() never broadcasts in this version."""
+    """Describes the route. The sync execute() never broadcasts."""
 
     def build_intent(self, *, mint: str, side: str, amount_sol: float) -> dict:
         return {
             "venue": "jupiter",
-            "fallback_venue": "pump.fun",
-            "quote_path": "https://lite-api.jup.ag/swap/v1/quote",
-            "swap_path": "https://lite-api.jup.ag/swap/v1/swap",
+            "quote_path": JUPITER_QUOTE,
+            "swap_path": JUPITER_SWAP,
             "mint": mint,
             "side": side,
             "amount_sol": amount_sol,
@@ -103,9 +124,9 @@ class JupiterSwapGateway:
         }
 
     def execute(self, intent: dict) -> dict:
-        reason = lock_reason()
+        reason = gate_reason(False)
         log.info("Odrzucono swap realny dla %s: bramka zamknięta.", intent.get("mint", ""))
-        raise RealTradingLocked(reason)
+        raise RealTradingLocked(reason or "Brak zamka. Nic nie wysłano.")
 
 
 install_secret_filter()

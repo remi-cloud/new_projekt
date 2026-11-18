@@ -49,7 +49,8 @@ async def init_solana_desk_db() -> None:
                 opened_at TEXT,
                 liquidity_usd REAL DEFAULT 0,
                 reserved_sol REAL DEFAULT 0,
-                trade_id INTEGER
+                trade_id INTEGER,
+                token_atoms TEXT
             )
             """
         )
@@ -76,7 +77,8 @@ async def init_solana_desk_db() -> None:
                 exit_reason TEXT DEFAULT '',
                 mode TEXT NOT NULL DEFAULT 'paper',
                 signature TEXT,
-                solscan_url TEXT
+                solscan_url TEXT,
+                exit_signature TEXT
             )
             """
         )
@@ -101,6 +103,14 @@ async def init_solana_desk_db() -> None:
             )
             """
         )
+        for statement in (
+            "ALTER TABLE solana_desk_positions ADD COLUMN token_atoms TEXT",
+            "ALTER TABLE solana_desk_trades ADD COLUMN exit_signature TEXT",
+        ):
+            try:
+                await db.execute(statement)
+            except Exception:
+                pass
         await db.commit()
 
 
@@ -198,7 +208,7 @@ async def upsert_position(row: dict) -> None:
     columns = [
         "mint", "symbol", "venue", "status", "signal_price", "entry_price", "last_price",
         "peak_price", "tokens", "size_sol", "entry_fee_sol", "entry_slippage", "entry_reason",
-        "signal_at", "opened_at", "liquidity_usd", "reserved_sol", "trade_id",
+        "signal_at", "opened_at", "liquidity_usd", "reserved_sol", "trade_id", "token_atoms",
     ]
     values = [row.get(name) for name in columns]
     placeholders = ", ".join("?" for _ in columns)
@@ -226,7 +236,7 @@ async def insert_trade(row: dict) -> int:
         "opened_at", "closed_at", "mint", "symbol", "venue", "status", "entry_price",
         "exit_price", "tokens", "size_sol", "entry_fee_sol", "exit_fee_sol", "entry_slippage",
         "exit_slippage", "pnl_sol", "entry_reason", "exit_reason", "mode", "signature",
-        "solscan_url",
+        "solscan_url", "exit_signature",
     ]
     row = dict(row)
     row["solscan_url"] = solscan_tx_url(row.get("signature"))
@@ -358,6 +368,7 @@ def trades_csv(rows: list[dict]) -> str:
             "powod_wyjscia",
             "tryb",
             "solscan",
+            "solscan_wyjscie",
         ]
     )
     for row in rows:
@@ -378,11 +389,39 @@ def trades_csv(rows: list[dict]) -> str:
                 row.get("pnl_sol") if row.get("pnl_sol") is not None else "",
                 row.get("entry_reason") or "",
                 row.get("exit_reason") or "",
-                row.get("mode") or "paper",
-                row.get("solscan_url") or "",
-            ]
-        )
+            row.get("mode") or "paper",
+            row.get("solscan_url") or "",
+            solscan_tx_url(row.get("exit_signature")) or "",
+        ]
+    )
     return buffer.getvalue()
+
+
+async def read_armed() -> bool:
+    """Arm switch. Missing row means disarmed."""
+    async with db_session() as db:
+        cur = await db.execute("SELECT value FROM solana_desk_state WHERE key = 'armed'")
+        row = await cur.fetchone()
+    return bool(row and row[0] == "1")
+
+
+async def write_armed(value: bool) -> None:
+    flag = "1" if value else "0"
+    async with db_session() as db:
+        await db.execute(
+            """
+            INSERT INTO solana_desk_state (key, value) VALUES ('armed', ?)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value
+            """,
+            (flag,),
+        )
+        await db.commit()
+
+
+async def disarm() -> None:
+    """Every process start clears the arm switch."""
+    await init_solana_desk_db()
+    await write_armed(False)
 
 
 async def wipe_solana_desk() -> None:
