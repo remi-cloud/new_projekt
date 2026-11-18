@@ -51,6 +51,7 @@ export function LaunchScoutPage() {
         <p className="page-lead">{t('launchPage.lead')}</p>
       </header>
       {quiet && <p className="desk-source-down" role="status">{t('launchPage.sourceDown')}</p>}
+      <p className="desk-source-down" role="status">{t('launchPage.blockedSources')}</p>
       <div className="filter-chips" role="tablist">
         {TIERS.map((id) => (
           <button

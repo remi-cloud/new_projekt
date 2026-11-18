@@ -164,7 +164,6 @@ PL_TOP_ETFS = [
     {"symbol": "ETFSP500.WA", "name": "Beta ETF S&P 500 (PL)", "asset_class": "etf", "region": "pl"},
     {"symbol": "ETFDAX.WA", "name": "Beta ETF DAX (PL)", "asset_class": "etf", "region": "pl"},
     {"symbol": "WIG20TR.WA", "name": "WIG20TR Portfel (PL)", "asset_class": "etf", "region": "pl"},
-    {"symbol": "WIG20LEV.WA", "name": "WIG20 Leverage (PL)", "asset_class": "etf", "region": "pl"},
 ]
 
 PL_TOP_BONDS = [

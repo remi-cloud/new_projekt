@@ -1,6 +1,8 @@
 name: Pylint
 
-on: [push]
+on:
+  push:
+  pull_request:
 
 jobs:
   build:
@@ -18,7 +20,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pylint
+          pip install pylint 'pytest==8.3.4' 'pytest-asyncio==0.25.2'
       - name: Analysing the code with pylint
         env:
           PYTHONPATH: .
@@ -29,3 +31,7 @@ jobs:
             --fail-under=7.5 \
             --disable=duplicate-code,cyclic-import,import-error \
             --ignore-paths='^app/static'
+      - name: Pytest
+        env:
+          PYTHONPATH: .
+        run: python -m pytest -q --tb=line

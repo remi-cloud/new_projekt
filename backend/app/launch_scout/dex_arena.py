@@ -158,6 +158,11 @@ def rank_dex_arena(
                 "label": lane,
                 "home_url": dex_home_url(lane, chain_hint),
                 "candidate_count": len(rows),
+                "status": (
+                    "źródło niedostępne"
+                    if not rows and lane in {"pumpfun", "4meme"}
+                    else "ok"
+                ),
                 "whale_mints": whale_on_lane[:12],
                 "best": best,
             }

@@ -1,8 +1,27 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+def dotenv_paths() -> tuple[str, ...]:
+    """Repo-root and backend .env files. Existing process env still wins."""
+    here = Path(__file__).resolve()
+    found: list[str] = []
+    for root in (Path.cwd(), here.parents[2], here.parents[1]):
+        path = root / ".env"
+        text = str(path)
+        if path.is_file() and text not in found:
+            found.append(text)
+    return tuple(found)
+
+
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="CYCLICAL_")
+    model_config = SettingsConfigDict(
+        env_prefix="CYCLICAL_",
+        env_file=dotenv_paths(),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
     # Full analysis scan (52w stats + signals)
     scan_interval_minutes: int = 5
     # Lightweight price refresh (batch quotes) — co minutę
@@ -46,6 +65,7 @@ class Settings(BaseSettings):
     news_article_max_age_days: int = 1
     news_poll_interval_seconds: int = 60
     news_refresh_interval_seconds: int = 60
+    news_refresh_min_gap_seconds: int = 300
     news_alert_cooldown_minutes: int = 30
     news_images_enabled: bool = True
     news_images_use_dalle: bool = True
@@ -73,6 +93,8 @@ class Settings(BaseSettings):
     openai_image_size: str = "1792x1024"
     openai_image_quality: str = "standard"
     openai_base_url: str = "https://api.openai.com/v1"
+    # Off: chat stays local (Ollama) or refuses. On: keyless llm7.io is allowed.
+    ai_external_enabled: bool = False
     # Free keyless OpenAI-compatible gateway (no signup / no key)
     free_llm_base_url: str = "https://api.llm7.io/v1"
     free_llm_model: str = "codestral-latest"
@@ -100,9 +122,9 @@ class Settings(BaseSettings):
     pearl_min_score: float = 55.0
     pearl_max_store_per_run: int = 15
 
-    # Auto-save progress to backups/progress every N seconds
+    # Auto-save progress to backups/progress. SQLite uses the backup API.
     auto_backup_enabled: bool = True
-    auto_backup_interval_seconds: int = 20
+    auto_backup_interval_seconds: int = 900
     auto_backup_rotate_every: int = 15
     auto_backup_keep: int = 2
 
@@ -138,15 +160,16 @@ class Settings(BaseSettings):
     portfolio_restore_backup: bool = False
     portfolio_migrate_legacy: bool = False
 
-    # Social desk — news → X first (manual publish). LinkedIn stays off until listed.
+    # Social desk — auto-X is on, but nothing is sent until PUBLIC_BASE_URL is a real https domain.
     social_enabled: bool = True
     social_dry_run: bool = True
-    social_auto_post: bool = False
+    social_auto_post: bool = True
     social_platforms: str = "x"
     social_cooldown_minutes: int = 60
     social_max_per_cycle: int = 2
-    # Automatic X posts stay off until CYCLICAL_SOCIAL_AUTO_POST=true.
+    # Hottest topics only. Hourly cap and the daily cap both apply.
     social_auto_min_score: int = 70
+    social_auto_max_per_hour: int = 2
     social_auto_max_per_day: int = 2
     # Shared secret for the queue and the decision log. Empty keeps both closed.
     internal_api_token: str = ""

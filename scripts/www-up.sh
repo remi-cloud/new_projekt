@@ -4,8 +4,11 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=load-dotenv.sh
+source "$ROOT/scripts/load-dotenv.sh"
+load_dotenv "$ROOT/.env"
 PORT="${PORT:-8080}"
-HOST="${HOST:-0.0.0.0}"
+HOST="${HOST:-127.0.0.1}"
 RUN_DIR="$ROOT/backend/.run"
 PIDFILE="$RUN_DIR/uvicorn.pid"
 LOG_FILE="${WWW_LOG:-/tmp/kar-uvicorn.log}"

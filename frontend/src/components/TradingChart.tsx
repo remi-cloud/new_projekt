@@ -527,7 +527,6 @@ export function TradingChart({
       macdSignalRef.current = null
       macdHistRef.current = null
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -752,7 +751,7 @@ export function ChartLoader({
           setLoadError(t('chart.refreshFailed', { preset: requestedPreset }))
         }
       } finally {
-        if (gen === loadGenRef.current && !silent) setLoading(false)
+        if (gen === loadGenRef.current) setLoading(false)
       }
     },
     [enabled, symbol, onData, t],

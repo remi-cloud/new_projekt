@@ -60,12 +60,21 @@ async def ai_status():
 async def ai_chat(body: AiChatRequest):
     if not body.message.strip():
         raise HTTPException(status_code=400, detail="Message required")
-    result = await ai_agent.chat(
-        message=body.message.strip(),
-        session_id=body.session_id,
-        locale=body.locale or "pl",
-        symbol=body.symbol,
-    )
+    try:
+        result = await ai_agent.chat(
+            message=body.message.strip(),
+            session_id=body.session_id,
+            locale=body.locale or "pl",
+            symbol=body.symbol,
+        )
+    except RuntimeError as exc:
+        text = str(exc)
+        if "not configured" in text.lower() or text.startswith("LLM"):
+            raise HTTPException(
+                status_code=503,
+                detail="Zewnętrzny czat AI jest wyłączony. Ustaw klucz albo CYCLICAL_AI_EXTERNAL=true.",
+            ) from None
+        raise HTTPException(status_code=502, detail="Czat AI nie odpowiedział.") from None
     return AiChatResponse(**result)
 
 

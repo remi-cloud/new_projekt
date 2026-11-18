@@ -5,6 +5,9 @@ set -eo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+# shellcheck source=load-dotenv.sh
+source "$ROOT/scripts/load-dotenv.sh"
+load_dotenv "$ROOT/.env"
 # shellcheck source=_mac_python.sh
 source "$ROOT/scripts/_mac_python.sh"
 ensure_brew_path || true
@@ -116,5 +119,5 @@ if [ "$OPEN_BROWSER" = "1" ] && command -v open >/dev/null 2>&1; then
   (sleep 1.5 && open "http://localhost:${PORT}") &
 fi
 
-# 0.0.0.0 — dostęp z telefonu w LAN (nie tylko localhost)
-exec uvicorn app.main:app --host 0.0.0.0 --port "$PORT"
+# Domyślnie tylko pętla zwrotna. LAN: HOST=0.0.0.0 ./scripts/mac-start.sh
+exec uvicorn app.main:app --host "${HOST:-127.0.0.1}" --port "$PORT"

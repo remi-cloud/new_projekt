@@ -46,8 +46,8 @@ def test_ai_academy(client: TestClient):
     r = client.get("/api/ai/academy")
     assert r.status_code == 200
     data = r.json()
-    assert data["parts"][1]["id"] == "security"
-    hrefs = [link["href"] for link in data["parts"][1]["links"]]
+    assert [part["id"] for part in data["parts"]] == ["ai", "nauka", "security"]
+    hrefs = [link["href"] for part in data["parts"] for link in part.get("links") or []]
     assert "https://www.ic3.gov/" in hrefs
     assert "https://incydent.cert.pl/" in hrefs
 

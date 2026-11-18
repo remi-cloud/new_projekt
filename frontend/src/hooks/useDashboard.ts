@@ -115,9 +115,9 @@ export function useDashboard(options: UseDashboardOptions = {}) {
           }
         }
       })()
-    } catch {
-      setError(resolveApiMessage('scanFailed'))
-      throw new Error('scan failed')
+    } catch (err) {
+      const detail = err instanceof ApiError ? err.detail : ''
+      setError(detail || resolveApiMessage('scanFailed'))
     } finally {
       setScanning(false)
     }

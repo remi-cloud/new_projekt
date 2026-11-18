@@ -9,13 +9,16 @@ def test_auto_uses_llm7_without_openai_key(monkeypatch):
     monkeypatch.setattr(settings, "ai_enabled", True)
     monkeypatch.setattr(settings, "ai_provider", "auto")
     monkeypatch.setattr(settings, "openai_api_key", "")
+    monkeypatch.setattr(settings, "ai_external_enabled", False)
+    monkeypatch.setattr(settings, "ollama_base_url", "http://127.0.0.1:11434/v1")
+    monkeypatch.setattr(settings, "ollama_model", "llama3.2")
     assert llm_configured() is True
-    assert llm_provider() == "llm7"
+    assert llm_provider() == "ollama"
     base, model, key, provider = resolve_llm()
-    assert provider == "llm7"
-    assert key is None
-    assert "llm7.io" in base
+    assert provider == "ollama"
+    assert "127.0.0.1" in base
     assert model
+    assert key == "ollama"
 
 
 def test_free_chain_lists_llm7_models_then_ollama(monkeypatch):
@@ -67,6 +70,7 @@ async def test_free_chat_uses_next_model_when_needed(monkeypatch):
 
     monkeypatch.setattr(settings, "ai_enabled", True)
     monkeypatch.setattr(settings, "ai_provider", "llm7")
+    monkeypatch.setattr(settings, "ai_external_enabled", True)
     monkeypatch.setattr(settings, "openai_api_key", "")
     monkeypatch.setattr(settings, "free_llm_model", "primary-model")
     monkeypatch.setattr(settings, "free_llm_fallback_models", "second-model")

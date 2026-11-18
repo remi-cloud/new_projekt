@@ -1,6 +1,7 @@
 import { ChangeEvent, FocusEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { calculateRoi, fetchRoiAssets } from '../api'
+import { isApiError } from '../i18n/apiErrors'
 import { ErrorState } from '../components/Loading'
 import { RoiEquityChart } from '../components/RoiEquityChart'
 import { RoiShareCard } from '../components/RoiShareCard'
@@ -134,8 +135,8 @@ export function RoiCalculatorPage() {
         window.setTimeout(() => {
           resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
         }, 120)
-      } catch {
-        setError(t('roi.errors.calculate'))
+      } catch (err) {
+        setError(isApiError(err) && err.detail ? err.detail : t('roi.errors.calculate'))
       } finally {
         setCalculating(false)
       }

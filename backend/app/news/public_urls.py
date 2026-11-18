@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import ipaddress
 import re
+from urllib.parse import urlparse
 
 from app.config import settings
 
@@ -38,3 +40,23 @@ def public_site_base() -> str:
     if not stripped or stripped.startswith("/"):
         return ""
     return stripped.rstrip("/")
+
+
+def live_domain_ready() -> bool:
+    """True only when the public site URL is https on a real hostname.
+
+    Loopback, raw IPs and quick tunnels are not Robi's domain, so auto-X waits.
+    """
+    base = public_site_base()
+    if not base.lower().startswith("https://"):
+        return False
+    host = (urlparse(base).hostname or "").lower().rstrip(".")
+    if not host or "." not in host:
+        return False
+    if host in {"localhost"} or host.endswith(".local") or host.endswith(".trycloudflare.com"):
+        return False
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        return True
+    return False

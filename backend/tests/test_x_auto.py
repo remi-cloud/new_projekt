@@ -84,6 +84,12 @@ def test_threshold_blocks_a_cold_item_and_passes_a_fresh_high_impact_one():
     assert "progu" in rejected.reason
 
 
+def test_two_per_hour_rejects_before_another_send():
+    blocked = _decide(posted_last_hour=2)
+    assert blocked.action == "reject"
+    assert "godzinę" in blocked.reason
+
+
 def test_two_per_day_and_duplicate_topic_reject():
     blocked = _decide(posted_last_day=2)
     assert blocked.action == "reject"
@@ -146,6 +152,7 @@ async def test_auto_unwraps_google_news_to_publisher_host():
     with (
         patch.object(sd, "ensure_clickable_url", new=_unwrap),
         patch.object(sd, "x_configured", return_value=False),
+        patch.object(sd.settings, "public_base_url", "https://kardigital.example"),
     ):
         await sd.run_auto_x([item])
     rows = await list_decisions(10)

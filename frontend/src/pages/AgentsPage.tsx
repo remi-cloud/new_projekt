@@ -100,8 +100,8 @@ function MergeBoard({ stats, lastScan }: { stats?: Record<string, unknown> | nul
     <section className="sing-merge">
       <div className="sing-merge-head">
         <div>
-          <span className="sing-kicker">Final developer</span>
-          <h3>Merge → Superokazje</h3>
+          <span className="sing-kicker">Składanie sygnału</span>
+          <h3>Złóż → Superokazje</h3>
           <p>
             LONG i SHORT 1:1, deduplikacja symboli, torpeda do sygnałów KUP · SPRZEDAJ.
           </p>
@@ -161,7 +161,7 @@ export default function AgentsPage() {
     }
   }
 
-  if (loading) return <Loading message="Singularity…" />
+  if (loading) return <Loading message="Ładowanie Singularity…" />
   if (error && !data) return <ErrorState message={error} onRetry={load} />
   if (!data) return null
 

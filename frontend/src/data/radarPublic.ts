@@ -31,7 +31,7 @@ export const RADAR_EDGES: [number, number][] = [
 export const RADAR_NODES: RadarNode[] = [
   { id: 1, kind: 'konto', label: '@E___m2677', net: 'S1', score: 100, x: 150, y: 70 },
   { id: 2, kind: 'xid', label: '1290490287345643522', net: 'S1', score: 100, x: 40, y: 150 },
-  { id: 3, kind: 'tel', label: '+1 541 452 0848', net: 'S1', score: 100, x: 150, y: 230 },
+  { id: 3, kind: 'tel', label: '+1 ••• ••• 0848', net: 'S1', score: 100, x: 150, y: 230 },
   { id: 4, kind: 'tg', label: 'XXXXX029ELON', net: 'S1', score: 100, x: 280, y: 150 },
   { id: 5, kind: 'nick', label: 'Elon101020', net: 'S1', score: 100, x: 260, y: 50 },
   { id: 6, kind: 'zangi', label: 'Zangi', net: 'S1', score: 100, x: 40, y: 50 },

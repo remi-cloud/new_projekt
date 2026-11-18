@@ -106,6 +106,10 @@ async def get_launch_status() -> dict[str, Any]:
         "chains": sorted(_allowed_chains()),
         "last_tick_at": last_tick,
         "last_error": last_error or None,
+        "blocked_sources": [
+            {"id": "pump.fun", "status": "często zablokowane — pusta kolumna oznacza brak odpowiedzi źródła"},
+            {"id": "four.meme", "status": "często zablokowane — pusta kolumna oznacza brak odpowiedzi źródła"},
+        ],
         "last_warnings": last_warnings or None,
         "wallet_scout": wallet_scout or None,
         "counts": counts,

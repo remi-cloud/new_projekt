@@ -14,7 +14,6 @@ TOKENIZED_UNIVERSE: list[dict] = [
     {"symbol": "GOOGLX-USD", "name": "Alphabet xStock", "asset_class": "tokenized", "region": "us", "underlying": "GOOGL"},
     {"symbol": "AMZNX-USD", "name": "Amazon xStock", "asset_class": "tokenized", "region": "us", "underlying": "AMZN"},
     {"symbol": "NVDAX-USD", "name": "NVIDIA xStock", "asset_class": "tokenized", "region": "us", "underlying": "NVDA"},
-    {"symbol": "METAX-USD", "name": "Meta xStock", "asset_class": "tokenized", "region": "us", "underlying": "META"},
     {"symbol": "TSLAX-USD", "name": "Tesla xStock", "asset_class": "tokenized", "region": "us", "underlying": "TSLA"},
     # ── Tech / growth ──
     {"symbol": "AVGOX-USD", "name": "Broadcom xStock", "asset_class": "tokenized", "region": "us", "underlying": "AVGO"},
@@ -26,7 +25,6 @@ TOKENIZED_UNIVERSE: list[dict] = [
     {"symbol": "CRCLX-USD", "name": "Circle xStock", "asset_class": "tokenized", "region": "us", "underlying": "CRCL"},
     {"symbol": "HOODX-USD", "name": "Robinhood xStock", "asset_class": "tokenized", "region": "us", "underlying": "HOOD"},
     {"symbol": "MSTRX-USD", "name": "MicroStrategy xStock", "asset_class": "tokenized", "region": "us", "underlying": "MSTR"},
-    {"symbol": "GMEX-USD", "name": "GameStop xStock", "asset_class": "tokenized", "region": "us", "underlying": "GME"},
     {"symbol": "COINX-USD", "name": "Coinbase xStock", "asset_class": "tokenized", "region": "us", "underlying": "COIN"},
     # ── Finance / energy / consumer ──
     {"symbol": "JPMX-USD", "name": "JPMorgan xStock", "asset_class": "tokenized", "region": "us", "underlying": "JPM"},
@@ -40,7 +38,6 @@ TOKENIZED_UNIVERSE: list[dict] = [
     {"symbol": "SPYX-USD", "name": "SPDR S&P 500 xStock", "asset_class": "tokenized", "region": "us", "underlying": "SPY"},
     {"symbol": "QQQX-USD", "name": "Invesco QQQ xStock", "asset_class": "tokenized", "region": "us", "underlying": "QQQ"},
     {"symbol": "VTIX-USD", "name": "Vanguard Total Market xStock", "asset_class": "tokenized", "region": "us", "underlying": "VTI"},
-    {"symbol": "GLDX-USD", "name": "SPDR Gold Shares xStock", "asset_class": "tokenized", "region": "us", "underlying": "GLD"},
 ]
 
 # Spot crypto ETFs (traditional wrappers — asset_class etf)

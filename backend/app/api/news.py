@@ -1,9 +1,11 @@
 import asyncio
 import logging
+import time
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, RedirectResponse
 
+from app.config import settings
 from app.news.image_agent import has_image as news_has_image, image_file_path, purge_legacy_images
 from app.news.macro_news import (
     get_macro_news,
@@ -21,6 +23,7 @@ from app.realtime.broadcaster import broadcaster
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["news"])
+_last_full_refresh = 0.0
 
 
 async def on_news_image_ready(news_id: str, image_url: str) -> None:
@@ -63,6 +66,12 @@ async def macro_news(category: str | None = None, limit: int = 50, lang: str | N
 
 @router.post("/api/news/macro/refresh", response_model=MacroNewsFeed)
 async def macro_news_refresh(lang: str | None = None):
+    global _last_full_refresh
+    gap = max(30, int(getattr(settings, "news_refresh_min_gap_seconds", 300) or 300))
+    now = time.monotonic()
+    if _last_full_refresh and now - _last_full_refresh < gap:
+        return await get_macro_news(limit=100, locale=lang)
+    _last_full_refresh = now
     feed, all_items = await refresh_macro_news()
     events = news_alert_engine.diff(all_items)
     if events:

@@ -70,20 +70,16 @@ async def init_db() -> None:
         """)
         await _migrate_alert_settings(db)
         default_phone = settings.alert_phone_number or ""
-        ntfy_topic = f"cyclical-{secrets.token_hex(8)}"
         await db.execute("""
             INSERT OR IGNORE INTO alert_settings
             (id, phone, sms_enabled, push_enabled, min_confidence, ntfy_enabled, ntfy_topic)
-            VALUES (1, ?, 1, 1, ?, 1, ?)
-        """, (default_phone, settings.alert_min_confidence, ntfy_topic))
+            VALUES (1, ?, 0, 1, ?, 0, '')
+        """, (default_phone, settings.alert_min_confidence))
         await db.execute(
             """UPDATE alert_settings SET
-               phone = CASE WHEN phone = '' OR phone IS NULL THEN ? ELSE phone END,
-               sms_enabled = 1,
-               ntfy_enabled = COALESCE(ntfy_enabled, 1),
-               ntfy_topic = CASE WHEN ntfy_topic = '' OR ntfy_topic IS NULL THEN ? ELSE ntfy_topic END
+               phone = CASE WHEN phone = '' OR phone IS NULL THEN ? ELSE phone END
                WHERE id = 1""",
-            (default_phone, ntfy_topic),
+            (default_phone,),
         )
         await db.commit()
     await init_ai_db()
@@ -102,6 +98,13 @@ async def _migrate_alert_settings(db: aiosqlite.Connection) -> None:
         await db.execute("ALTER TABLE alert_settings ADD COLUMN ntfy_enabled INTEGER DEFAULT 1")
     if "alert_on_macro_news" not in cols:
         await db.execute("ALTER TABLE alert_settings ADD COLUMN alert_on_macro_news INTEGER DEFAULT 1")
+    if "alerts_customized" not in cols:
+        await db.execute("ALTER TABLE alert_settings ADD COLUMN alerts_customized INTEGER DEFAULT 0")
+        await db.execute(
+            """UPDATE alert_settings
+               SET sms_enabled = 0, ntfy_enabled = 0, ntfy_topic = ''
+               WHERE id = 1 AND COALESCE(alerts_customized, 0) = 0"""
+        )
 
 
 async def save_opportunities(opportunities: list[Opportunity]) -> None:
@@ -171,9 +174,9 @@ async def get_alert_settings() -> dict:
         if not row:
             return {
                 "phone": settings.alert_phone_number,
-                "sms_enabled": True,
+                "sms_enabled": False,
                 "push_enabled": True,
-                "ntfy_enabled": True,
+                "ntfy_enabled": False,
                 "ntfy_topic": "",
                 "min_confidence": settings.alert_min_confidence,
                 "alert_on_signal_change": True,
@@ -185,7 +188,7 @@ async def get_alert_settings() -> dict:
             "phone": row["phone"] or settings.alert_phone_number,
             "sms_enabled": bool(row["sms_enabled"]),
             "push_enabled": bool(row["push_enabled"]),
-            "ntfy_enabled": bool(row["ntfy_enabled"]) if "ntfy_enabled" in keys else True,
+            "ntfy_enabled": bool(row["ntfy_enabled"]) if "ntfy_enabled" in keys else False,
             "ntfy_topic": (row["ntfy_topic"] or "") if "ntfy_topic" in keys else "",
             "min_confidence": float(row["min_confidence"]),
             "alert_on_signal_change": bool(row["alert_on_signal_change"]),
@@ -195,6 +198,13 @@ async def get_alert_settings() -> dict:
 
 
 async def update_alert_settings(data: dict) -> dict:
+    current = await get_alert_settings()
+    merged = dict(current)
+    for key, value in data.items():
+        if key in merged and value is not None:
+            merged[key] = value
+    if merged.get("ntfy_enabled") and not str(merged.get("ntfy_topic") or "").strip():
+        merged["ntfy_topic"] = f"cyclical-{secrets.token_hex(8)}"
     async with db_session() as db:
         await db.execute(
             """UPDATE alert_settings SET
@@ -202,20 +212,23 @@ async def update_alert_settings(data: dict) -> dict:
                sms_enabled = ?,
                push_enabled = ?,
                ntfy_enabled = ?,
+               ntfy_topic = ?,
                min_confidence = ?,
                alert_on_signal_change = ?,
                alert_on_new_opportunity = ?,
-               alert_on_macro_news = ?
+               alert_on_macro_news = ?,
+               alerts_customized = 1
                WHERE id = 1""",
             (
-                data.get("phone", ""),
-                1 if data.get("sms_enabled") else 0,
-                1 if data.get("push_enabled", True) else 0,
-                1 if data.get("ntfy_enabled", True) else 0,
-                float(data.get("min_confidence", settings.alert_min_confidence)),
-                1 if data.get("alert_on_signal_change", True) else 0,
-                1 if data.get("alert_on_new_opportunity", True) else 0,
-                1 if data.get("alert_on_macro_news", True) else 0,
+                merged.get("phone") or "",
+                1 if merged.get("sms_enabled") else 0,
+                1 if merged.get("push_enabled") else 0,
+                1 if merged.get("ntfy_enabled") else 0,
+                merged.get("ntfy_topic") or "",
+                float(merged.get("min_confidence", settings.alert_min_confidence)),
+                1 if merged.get("alert_on_signal_change", True) else 0,
+                1 if merged.get("alert_on_new_opportunity", True) else 0,
+                1 if merged.get("alert_on_macro_news", True) else 0,
             ),
         )
         await db.commit()

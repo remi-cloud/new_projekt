@@ -1,5 +1,8 @@
-from fastapi import APIRouter, HTTPException
+import re
 
+from fastapi import APIRouter, HTTPException, Request
+
+from app.config import settings
 from app.db.database import (
     get_alert_settings,
     get_notification_log,
@@ -12,35 +15,67 @@ from app.notifications.credentials import save_twilio_credentials, twilio_is_con
 from app.notifications.ntfy import send_ntfy_test
 from app.notifications.push import get_vapid_public_key, vapid_configured
 from app.notifications.sms_test import send_sms_test
+from app.desk_auth import tokens_match
 
 router = APIRouter(tags=["notifications"])
 
+_PHONE = re.compile(r"\+?\d[\d\s\-()]{6,}\d")
+
+
+def _desk_open(request: Request) -> bool:
+    expected = (settings.desk_token or "").strip()
+    supplied = request.headers.get("x-desk-token", "")
+    return bool(expected) and tokens_match(supplied, expected)
+
+
+def _mask_phone(phone: str) -> str:
+    digits = "".join(ch for ch in phone or "" if ch.isdigit())
+    if len(digits) < 4:
+        return ""
+    return f"•••{digits[-2:]}"
+
+
+def _redact_text(text: str) -> str:
+    return _PHONE.sub("•••", text or "")
+
+
+def _public_settings(data: dict) -> dict:
+    hidden = dict(data)
+    hidden["phone"] = _mask_phone(str(hidden.get("phone") or ""))
+    hidden["ntfy_topic"] = ""
+    return hidden
+
 
 @router.get("/api/notifications/status", response_model=NotificationStatus)
-async def notification_status():
+async def notification_status(request: Request):
     settings_data = await get_alert_settings()
     subs = await get_push_subscriptions()
-    topic = settings_data.get("ntfy_topic", "")
+    open_desk = _desk_open(request)
+    topic = settings_data.get("ntfy_topic", "") if open_desk else ""
+    visible = settings_data if open_desk else _public_settings(settings_data)
     return NotificationStatus(
         push_configured=vapid_configured(),
         sms_configured=twilio_is_configured(),
-        ntfy_configured=bool(topic),
+        ntfy_configured=bool(settings_data.get("ntfy_topic")) if open_desk else False,
         ntfy_subscribe_url=f"https://ntfy.sh/{topic}" if topic else "",
         ntfy_app_url=f"ntfy://{topic}" if topic else "",
         vapid_public_key=get_vapid_public_key(),
         push_subscriptions=len(subs),
-        settings=AlertSettings(**settings_data),
+        settings=AlertSettings(**visible),
     )
 
 
 @router.get("/api/notifications/settings", response_model=AlertSettings)
-async def get_notifications_settings():
-    return AlertSettings(**await get_alert_settings())
+async def get_notifications_settings(request: Request):
+    data = await get_alert_settings()
+    if not _desk_open(request):
+        data = _public_settings(data)
+    return AlertSettings(**data)
 
 
 @router.put("/api/notifications/settings", response_model=AlertSettings)
 async def put_notifications_settings(body: AlertSettings):
-    updated = await update_alert_settings(body.model_dump())
+    updated = await update_alert_settings(body.model_dump(exclude_unset=True))
     return AlertSettings(**updated)
 
 
@@ -55,8 +90,12 @@ async def push_subscribe(body: PushSubscriptionRequest):
 
 
 @router.get("/api/notifications/log")
-async def notification_log(limit: int = 30):
-    return await get_notification_log(limit)
+async def notification_log(request: Request, limit: int = 30):
+    clamped = max(1, min(int(limit), 100))
+    rows = await get_notification_log(clamped)
+    if _desk_open(request):
+        return rows
+    return [{**row, "message": _redact_text(str(row.get("message") or ""))} for row in rows]
 
 
 @router.post("/api/notifications/twilio")

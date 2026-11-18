@@ -5,11 +5,13 @@ from __future__ import annotations
 import json
 import logging
 import shutil
+import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from app.config import settings
+from app.db.paths import database_path, portfolio_database_path
 
 logger = logging.getLogger(__name__)
 
@@ -17,22 +19,19 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 PROGRESS_DIR = REPO_ROOT / "backups" / "progress"
 SESSIONS_DIR = REPO_ROOT / "backups" / "sessions_auto"
 
-_BACKUP_ITEMS: list[tuple[str, str]] = [
-    ("backend/data/baza_portfela", "baza_portfela"),
-    ("backend/data/trader.db", "trader.db"),
-    ("backend/static", "static_www"),
-    (".env.example", "env.example"),
-]
-
-
-def _resolve(rel: str) -> Path:
-    p = REPO_ROOT / rel
-    if p.exists():
-        return p
-    alt = Path.cwd() / rel.replace("backend/", "", 1)
-    if alt.exists():
-        return alt
-    return p
+def _sqlite_backup(src: Path, dest: Path) -> None:
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    tmp = dest.with_suffix(dest.suffix + ".tmp")
+    source = sqlite3.connect(f"file:{src}?mode=ro", uri=True)
+    try:
+        target = sqlite3.connect(tmp)
+        try:
+            source.backup(target)
+        finally:
+            target.close()
+    finally:
+        source.close()
+    tmp.replace(dest)
 
 
 def backup_enabled() -> bool:
@@ -44,7 +43,7 @@ def progress_status() -> dict[str, Any]:
     payload: dict[str, Any] = {
         "enabled": backup_enabled(),
         "interval_seconds": int(getattr(settings, "auto_backup_interval_seconds", 20)),
-        "progress_dir": str(PROGRESS_DIR),
+        "progress_dir": "backups/progress",
         "latest": None,
     }
     if latest.is_file():
@@ -63,28 +62,37 @@ def save_progress(*, reason: str = "scheduled") -> dict[str, Any]:
 
     copied: list[str] = []
     missing: list[str] = []
-    for rel, name in _BACKUP_ITEMS:
-        src = _resolve(rel)
-        dest = current / name
-        if not src.exists():
-            missing.append(rel)
+    db_sources = [
+        (database_path(), "trader.db"),
+        (portfolio_database_path(), "portfolio.db"),
+    ]
+    for src, name in db_sources:
+        if not src.is_file():
+            missing.append(name)
             continue
         try:
-            if src.is_dir():
-                if dest.exists():
-                    shutil.rmtree(dest)
-                shutil.copytree(
-                    src,
-                    dest,
-                    ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store"),
-                )
-            else:
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(src, dest)
+            _sqlite_backup(src, current / name)
             copied.append(name)
-        except OSError as exc:
-            logger.warning("Autosave failed for %s: %s", rel, exc)
-            missing.append(f"{rel}:{exc}")
+        except sqlite3.Error as exc:
+            logger.warning("Autosave failed for %s: %s", name, type(exc).__name__)
+            missing.append(name)
+    static = REPO_ROOT / "backend" / "static"
+    if static.is_dir():
+        dest = current / "static_www"
+        try:
+            if dest.exists():
+                shutil.rmtree(dest)
+            shutil.copytree(static, dest, ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store"))
+            copied.append("static_www")
+        except OSError:
+            missing.append("static_www")
+    example = REPO_ROOT / ".env.example"
+    if example.is_file():
+        try:
+            shutil.copy2(example, current / "env.example")
+            copied.append("env.example")
+        except OSError:
+            missing.append("env.example")
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     rotate_every = max(1, int(getattr(settings, "auto_backup_rotate_every", 15)))
@@ -116,7 +124,7 @@ def save_progress(*, reason: str = "scheduled") -> dict[str, Any]:
         "missing": missing,
         "rotated": rotated,
         "counter": count,
-        "progress_path": str(current),
+        "progress_path": "backups/progress/current",
     }
     (PROGRESS_DIR / "latest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2),

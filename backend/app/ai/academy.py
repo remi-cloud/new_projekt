@@ -58,11 +58,10 @@ def academy_payload() -> dict:
                         ),
                     },
                     {
-                        "title": "Darmowy łańcuch na tym biurku",
+                        "title": "Czat na tym biurku",
                         "body": (
-                            "Bez klucza płatnego dostawcy agent próbuje po kolei darmowych modeli na bramie LLM7. "
-                            "Gdy żadna nie odpowie, sięga po lokalne Ollama — tylko jeśli ta usługa działa na serwerze. "
-                            "Kolejny model wchodzi dopiero, gdy poprzedni nie zwróci odpowiedzi. "
+                            "Zewnętrzny czat jest wyłączony, dopóki nie ustawisz własnego klucza albo "
+                            "świadomie nie włączysz CYCLICAL_AI_EXTERNAL. Lokalne Ollama działa tylko na serwerze. "
                             "Do czatu nie wkleja się kluczy API, haseł ani frazy odzyskiwania portfela."
                         ),
                     },
@@ -74,6 +73,26 @@ def academy_payload() -> dict:
                             "zysku ani nie zna Twojej sytuacji."
                         ),
                     },
+                ],
+            },
+            {
+                "id": "nauka",
+                "title": "Nauka na biurku",
+                "lead": "Krótkie ścieżki do stron, które już działają. Każdy link zostaje w terminalu.",
+                "sections": [
+                    {
+                        "title": "Od newsa do decyzji",
+                        "body": (
+                            "Najpierw wire, potem kalkulator, na końcu agent. Żaden z tych kroków nie wysyła zlecenia "
+                            "na giełdę. Broker zostaje papierowy."
+                        ),
+                    },
+                ],
+                "links": [
+                    {"label": "News", "href": "/news", "note": "Wire z pamięci. Pełne odświeżenie jest ograniczone."},
+                    {"label": "Kalkulator", "href": "/kalkulator", "note": "Symulacja bez tokenu biurka."},
+                    {"label": "Agent", "href": "/agent", "note": "Czat. Zewnętrzny model jest opt-in."},
+                    {"label": "Radar", "href": "/radar", "note": "Mapa edukacyjna, telefon zamaskowany."},
                 ],
             },
             {

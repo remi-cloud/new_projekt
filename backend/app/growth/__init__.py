@@ -146,14 +146,14 @@ async def top_watchlist(limit: int = 12) -> list[dict]:
         ]
     # Seed defaults so UI is not empty on fresh installs
     defaults = [
-        ("BTC-USD", "Bitcoin", 42),
-        ("ETH-USD", "Ethereum", 31),
-        ("^GSPC", "S&P 500", 28),
-        ("AAPL", "Apple", 22),
-        ("NVDA", "NVIDIA", 21),
-        ("TSLA", "Tesla", 19),
-        ("GOLD", "Gold", 15),
-        ("PKO.WA", "PKO BP", 12),
+        ("BTC-USD", "Bitcoin", 0),
+        ("ETH-USD", "Ethereum", 0),
+        ("^GSPC", "S&P 500", 0),
+        ("AAPL", "Apple", 0),
+        ("NVDA", "NVIDIA", 0),
+        ("TSLA", "Tesla", 0),
+        ("GOLD", "Gold", 0),
+        ("PKO.WA", "PKO BP", 0),
     ]
     now = datetime.now(timezone.utc).isoformat()
     async with db_session() as db:
@@ -167,7 +167,7 @@ async def top_watchlist(limit: int = 12) -> list[dict]:
             )
         await db.commit()
     return [
-        {"symbol": s, "name": n, "votes": v, "updated_at": now}
+        {"symbol": s, "name": n, "votes": v, "updated_at": now, "suggested": True}
         for s, n, v in defaults[:limit]
     ]
 

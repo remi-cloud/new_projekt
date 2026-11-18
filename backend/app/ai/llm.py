@@ -6,6 +6,7 @@ import base64
 import logging
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 
@@ -58,13 +59,25 @@ def free_chain_labels() -> list[str]:
     """Labels for the UI. Empty when a paid OpenAI key is the active provider."""
     if _provider_name() == "openai" and settings.openai_api_key.strip():
         return []
-    return [f"{target.provider}:{target.model}" for target in free_targets()]
+    return [
+        f"{target.provider}:{target.model}"
+        for target in _targets_for_request()
+        if target.provider != "openai"
+    ]
+
+
+def _local_target(target: LlmTarget) -> bool:
+    host = (urlparse(target.base_url).hostname or "").lower()
+    return host in {"127.0.0.1", "localhost", "::1"}
 
 
 def _targets_for_request() -> list[LlmTarget]:
     provider = _provider_name()
+    external = bool(getattr(settings, "ai_external_enabled", False))
     if provider == "openai":
         key = settings.openai_api_key.strip() or None
+        if not key:
+            return []
         return [
             LlmTarget(
                 settings.openai_base_url.rstrip("/"),
@@ -77,8 +90,10 @@ def _targets_for_request() -> list[LlmTarget]:
     if provider == "ollama":
         local = [target for target in chain if target.provider == "ollama"]
         remote = [target for target in chain if target.provider != "ollama"]
-        return local + remote
-    return chain
+        chain = local + remote
+    if external:
+        return chain
+    return [target for target in chain if _local_target(target)]
 
 
 def resolve_llm() -> tuple[str, str, str | None, str]:
@@ -94,10 +109,7 @@ def llm_provider() -> str:
 def llm_configured() -> bool:
     if not settings.ai_enabled:
         return False
-    provider = _provider_name()
-    if provider == "openai":
-        return bool(settings.openai_api_key.strip())
-    return bool(free_targets())
+    return bool(_targets_for_request())
 
 
 def image_generation_configured() -> bool:
