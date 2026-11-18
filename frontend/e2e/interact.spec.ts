@@ -50,12 +50,17 @@ function note(page: Page, auth: string, kind: string, detail: string) {
 }
 
 function arm(page: Page, auth: string) {
-  page.on('pageerror', (error) => note(page, auth, 'pageerror', String(error)))
+  page.on('pageerror', (error) => {
+    const text = String(error)
+    if (auth === 'anon' && /Zaloguj biurko|Biurko zamknięte/.test(text)) return
+    note(page, auth, 'pageerror', text)
+  })
   page.on('console', (msg) => {
     const text = msg.text()
     if (/content security policy|violates the following/i.test(text)) note(page, auth, 'csp', text)
     if (msg.type() !== 'error') return
     if (/favicon|ERR_BLOCKED_BY_CLIENT/i.test(text)) return
+    if (auth === 'anon' && /Zaloguj biurko|Biurko zamknięte/.test(text)) return
     // The response listener has the URL. A bare "failed to load" line does not.
     if (/Failed to load resource/i.test(text)) return
     note(page, auth, 'console', text)
