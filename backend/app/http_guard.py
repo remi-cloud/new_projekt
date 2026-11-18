@@ -81,6 +81,21 @@ def _trusted_proxy(host: str) -> bool:
     return False
 
 
+def request_is_https(request: Request) -> bool:
+    """True when the browser connection is HTTPS.
+
+    Nginx talks HTTP to the app. X-Forwarded-Proto is honored only from a
+    trusted proxy, so a visitor cannot turn on the Secure cookie or HSTS.
+    """
+    scheme = (request.url.scheme or "").lower()
+    peer = request.client.host if request.client else ""
+    if _trusted_proxy(peer):
+        forwarded = (request.headers.get("x-forwarded-proto") or "").split(",")[0].strip().lower()
+        if forwarded in {"https", "http"}:
+            scheme = forwarded
+    return scheme == "https"
+
+
 def client_key(request: Request) -> str:
     """Socket peer, unless that peer is a trusted proxy.
 
@@ -105,8 +120,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
         response.headers["Content-Security-Policy"] = _CSP
-        proto = (request.headers.get("x-forwarded-proto") or request.url.scheme or "").lower()
-        if proto == "https" and not is_dev():
+        if request_is_https(request) and not is_dev():
             response.headers["Strict-Transport-Security"] = "max-age=15552000; includeSubDomains"
         return response
 

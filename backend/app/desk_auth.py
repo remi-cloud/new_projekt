@@ -19,7 +19,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from app.config import settings
-from app.http_guard import _trusted_proxy, cors_origin_list
+from app.http_guard import cors_origin_list, request_is_https
 from app.public_surface import PUBLIC_WRITE_PATHS
 
 router = APIRouter(tags=["desk"])
@@ -83,17 +83,6 @@ def session_valid(sid: str | None) -> bool:
 def drop_session(sid: str | None) -> None:
     if sid:
         _SESSIONS.pop(sid, None)
-
-
-def request_is_https(request: Request) -> bool:
-    """Secure cookies only on HTTPS. Loopback HTTP would drop a Secure cookie."""
-    scheme = (request.url.scheme or "").lower()
-    peer = request.client.host if request.client else ""
-    if _trusted_proxy(peer):
-        forwarded = (request.headers.get("x-forwarded-proto") or "").split(",")[0].strip().lower()
-        if forwarded:
-            scheme = forwarded
-    return scheme == "https"
 
 
 def _set_session_cookie(response: Response, request: Request, sid: str) -> None:

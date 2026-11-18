@@ -25,4 +25,4 @@ RUN nginx -t
 EXPOSE 8080
 
 HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=5 \
-    CMD curl -fsS http://127.0.0.1:8080/ >/dev/null || exit 1
+    CMD curl -fsS http://127.0.0.1:8080/healthz >/dev/null || exit 1

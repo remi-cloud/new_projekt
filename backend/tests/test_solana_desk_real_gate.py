@@ -59,6 +59,31 @@ def test_flag_and_key_still_do_not_broadcast(monkeypatch):
         JupiterSwapGateway().execute({"mint": "Mintpump"})
 
 
+def test_child_logger_and_traceback_drop_the_wallet_secret(monkeypatch):
+    monkeypatch.setenv(KEY, SECRET)
+    logger = logging.getLogger("app.solana_desk.live")
+    lines: list[str] = []
+
+    class _Grab(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            lines.append(logging.Formatter().format(record))
+
+    handler = _Grab(level=logging.ERROR)
+    logger.addHandler(handler)
+    logger.setLevel(logging.ERROR)
+    try:
+        logger.error("portfel %s", SECRET)
+        try:
+            raise RuntimeError(f"podpis {SECRET}")
+        except RuntimeError:
+            logger.exception("awaria podpisu")
+    finally:
+        logger.removeHandler(handler)
+    assert lines
+    assert all(SECRET not in line for line in lines)
+    assert any("[redacted]" in line for line in lines)
+
+
 def test_log_line_is_scrubbed(monkeypatch):
     monkeypatch.setenv(KEY, SECRET)
     logger = logging.getLogger("app.solana_desk")
@@ -85,6 +110,32 @@ def test_solscan_link_only_for_a_real_signature():
     assert solscan_tx_url("not a sig") is None
     url = solscan_tx_url("5" * 64)
     assert url == "https://solscan.io/tx/" + "5" * 64
+
+
+def test_worker_process_configures_logging(monkeypatch):
+    import logging
+
+    from app.solana_desk import worker
+
+    ran = {}
+
+    def fake_run(coro):
+        ran["ok"] = True
+        coro.close()
+
+    monkeypatch.setattr(worker.asyncio, "run", fake_run)
+    root = logging.getLogger()
+    previous_handlers = list(root.handlers)
+    previous_level = root.level
+    root.handlers.clear()
+    try:
+        worker.main()
+        assert ran.get("ok") is True
+        assert root.level == logging.INFO
+        assert root.handlers
+    finally:
+        root.handlers[:] = previous_handlers
+        root.setLevel(previous_level)
 
 
 def test_compose_worker_defaults_to_paper_and_has_no_key():

@@ -4,6 +4,20 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 
 
+async def test_super_list_is_empty_when_the_scan_fails(monkeypatch):
+    from app.scanners.opportunity_scanner import scanner
+    from app.scanners.super_opportunities import build_super_opportunities
+
+    async def boom() -> None:
+        raise RuntimeError("feed down")
+
+    monkeypatch.setattr(scanner, "opportunities", [])
+    monkeypatch.setattr(scanner, "scan", boom)
+    data = await build_super_opportunities()
+    assert data["count"] == 0
+    assert data["items"] == []
+
+
 def test_super_opportunities_list_mocked(client):
     payload = {
         "generated_at": datetime.now(timezone.utc).isoformat(),

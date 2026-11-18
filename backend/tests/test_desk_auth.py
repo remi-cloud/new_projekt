@@ -5,6 +5,10 @@ from fastapi.testclient import TestClient
 from app.config import settings
 
 
+def _secure_flag(header: str) -> bool:
+    return "secure" in {part.strip().lower() for part in header.split(";")}
+
+
 def test_reads_stay_open_and_writes_need_the_desk_token(client: TestClient, monkeypatch):
     monkeypatch.setattr(settings, "desk_token", "pytest-desk")
     assert client.get("/api/health").status_code == 200
@@ -46,10 +50,34 @@ def test_login_checks_the_token_without_changing_state(client: TestClient, monke
     cookie = good.headers.get("set-cookie", "")
     assert "httponly" in cookie.lower()
     assert "samesite=strict" in cookie.lower()
+    assert _secure_flag(cookie) is False
     client.cookies.clear()
     monkeypatch.setattr(settings, "desk_token", "  ")
     shut = client.post("/api/desk/login", json={"token": "pytest-desk"}, headers={"X-Desk-Token": ""})
     assert shut.status_code == 403
+
+
+def test_session_cookie_is_secure_only_behind_https(client: TestClient, monkeypatch):
+    from app.desk_auth import reset_login_guard
+
+    reset_login_guard()
+    monkeypatch.setattr(settings, "desk_token", "pytest-desk")
+    monkeypatch.setattr(settings, "trusted_proxies", "testclient")
+    plain = client.post(
+        "/api/desk/login",
+        json={"token": "pytest-desk"},
+        headers={"X-Desk-Token": "", "X-Forwarded-Proto": "http"},
+    )
+    assert plain.status_code == 200
+    assert _secure_flag(plain.headers.get("set-cookie", "")) is False
+    locked = client.post(
+        "/api/desk/login",
+        json={"token": "pytest-desk"},
+        headers={"X-Desk-Token": "", "X-Forwarded-Proto": "https"},
+    )
+    assert _secure_flag(locked.headers.get("set-cookie", "")) is True
+    client.cookies.clear()
+    reset_login_guard()
 
 
 def test_cookie_session_authorizes_a_write_without_a_header(client: TestClient, monkeypatch):

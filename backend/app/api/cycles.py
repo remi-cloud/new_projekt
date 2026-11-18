@@ -1,3 +1,4 @@
+import logging
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query
@@ -16,17 +17,24 @@ from app.read_guard import forced_refresh_due
 from app.scanners.opportunity_scanner import scanner
 
 router = APIRouter(tags=["cycles"])
+logger = logging.getLogger(__name__)
+
+
+async def _scan_markets_if_due() -> None:
+    if not forced_refresh_due("public-market-scan"):
+        return
+    try:
+        await scanner.scan()
+    except Exception as exc:
+        logger.warning("Public market scan failed: %s", exc)
 
 
 @router.get("/api/cycles/bitcoin")
-async def _scan_markets_if_due() -> None:
-    if forced_refresh_due("public-market-scan"):
-        await scanner.scan()
-
-
 async def bitcoin_cycle():
     if not scanner.bitcoin_cycle:
         await _scan_markets_if_due()
+    if not scanner.bitcoin_cycle:
+        raise HTTPException(status_code=503, detail="Nie udało się pobrać danych cykli")
     return scanner.bitcoin_cycle
 
 

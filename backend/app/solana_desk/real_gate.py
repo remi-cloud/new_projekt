@@ -10,6 +10,8 @@ import logging
 import os
 import re
 
+from app.log_redact import install_log_redact, scrub_record
+
 FLAG = "SOLANA_REAL_TRADING"
 KEY = "SOLANA_BOT_PRIVATE_KEY"
 RPC = "SOLANA_RPC_URL"
@@ -29,14 +31,7 @@ class SecretLogFilter(logging.Filter):
     """Drop the wallet secret if it ever reaches a Solana Desk log line."""
 
     def filter(self, record: logging.LogRecord) -> bool:
-        secret = os.environ.get(KEY, "").strip()
-        if len(secret) < 16:
-            return True
-        record.msg = _scrub(record.msg, secret)
-        if isinstance(record.args, tuple):
-            record.args = tuple(_scrub(item, secret) for item in record.args)
-        elif record.args:
-            record.args = _scrub(record.args, secret)
+        scrub_record(record)
         return True
 
 
@@ -47,6 +42,8 @@ def _scrub(value: object, secret: str) -> object:
 
 
 def install_secret_filter() -> None:
+    """Cover this logger and every other logger in the process."""
+    install_log_redact()
     if not any(isinstance(item, SecretLogFilter) for item in log.filters):
         log.addFilter(SecretLogFilter())
 

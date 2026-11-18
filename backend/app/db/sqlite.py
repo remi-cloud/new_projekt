@@ -20,6 +20,9 @@ async def db_session():
     async with aiosqlite.connect(str(database_path())) as db:
         await db.execute("PRAGMA journal_mode=WAL")
         await db.execute("PRAGMA synchronous=NORMAL")
+        # The API and the Solana desk share this file. Wait instead of failing
+        # the request when the other process holds the write lock.
+        await db.execute("PRAGMA busy_timeout=5000")
         yield db
 
 
@@ -29,4 +32,5 @@ async def portfolio_db_session():
     async with aiosqlite.connect(str(portfolio_database_path())) as db:
         await db.execute("PRAGMA journal_mode=WAL")
         await db.execute("PRAGMA synchronous=NORMAL")
+        await db.execute("PRAGMA busy_timeout=5000")
         yield db

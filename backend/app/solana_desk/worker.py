@@ -66,6 +66,9 @@ async def stop_embedded() -> None:
 
 
 def main() -> None:
+    """Process entry. The API process already configures logs; this one does not."""
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
+    install_secret_filter()
     asyncio.run(run_forever())
 
 
