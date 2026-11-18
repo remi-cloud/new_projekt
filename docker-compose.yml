@@ -3,6 +3,12 @@
 # Sekrety tylko z pliku .env. Auto-X jest włączone, ale nie wyśle posta
 # bez https na CYCLICAL_PUBLIC_BASE_URL (własna domena).
 
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
   backend:
     build:
@@ -37,6 +43,21 @@ services:
       - app-cache:/app/data
     expose:
       - "8000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "gosu",
+          "app",
+          "python",
+          "-c",
+          "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/api/health' % os.environ.get('PORT','8000'), timeout=4)",
+        ]
+      interval: 15s
+      timeout: 5s
+      start_period: 60s
+      retries: 5
+    logging: *default-logging
     restart: unless-stopped
 
   frontend:
@@ -53,6 +74,7 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+    logging: *default-logging
     restart: unless-stopped
 
   # Public HTTPS. Start with: docker compose --profile public up -d
@@ -64,7 +86,8 @@ services:
       - "80:80"
       - "443:443"
     environment:
-      SITE_DOMAIN: ${CYCLICAL_SITE_DOMAIN:?set CYCLICAL_SITE_DOMAIN}
+      # Empty unless the public profile is used. The entrypoint refuses to start Caddy without it.
+      SITE_DOMAIN: ${CYCLICAL_SITE_DOMAIN:-}
       CYCLICAL_CADDY_BASIC_USER: ${CYCLICAL_CADDY_BASIC_USER:-}
       CYCLICAL_CADDY_BASIC_HASH: ${CYCLICAL_CADDY_BASIC_HASH:-}
     volumes:
@@ -75,6 +98,7 @@ services:
     depends_on:
       frontend:
         condition: service_healthy
+    logging: *default-logging
     restart: unless-stopped
 
   # Papierowy handel memecoinami. Przetrwa restart. Klucz portfela tylko z .env.
@@ -97,6 +121,7 @@ services:
         condition: service_healthy
     healthcheck:
       disable: true
+    logging: *default-logging
     restart: unless-stopped
 
 volumes:

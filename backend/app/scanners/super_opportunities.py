@@ -410,7 +410,10 @@ async def build_super_opportunity(opp: Opportunity, *, include_heatmap_3d: bool 
 
 async def build_super_opportunities(min_score: float = 0) -> dict:
     if not scanner.opportunities:
-        await scanner.scan()
+        try:
+            await scanner.scan()
+        except Exception as exc:
+            logger.warning("Super scan unavailable: %s", exc)
 
     sem = asyncio.Semaphore(5)
 

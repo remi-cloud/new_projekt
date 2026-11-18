@@ -2,6 +2,8 @@
 
 from datetime import date, timedelta
 
+from fastapi.testclient import TestClient
+
 from app.cycles.bitcoin_cycle import analyze_bitcoin_cycle
 from app.models.schemas import CyclePhase, SignalAction
 
@@ -65,4 +67,27 @@ def test_bitcoin_distribution_not_upgraded_by_strong_month():
         SignalAction.SELL, 10.0, CyclePhase.DISTRIBUTION
     )
     assert sig == SignalAction.SELL
+
+
+def test_bitcoin_route_returns_the_stored_cycle(client: TestClient, monkeypatch):
+    from app.scanners.opportunity_scanner import scanner
+
+    monkeypatch.setattr(scanner, "bitcoin_cycle", {"phase": "test-phase", "month_returns": [0] * 12})
+    response = client.get("/api/cycles/bitcoin")
+    assert response.status_code == 200
+    assert response.json()["phase"] == "test-phase"
+
+
+def test_bitcoin_route_waits_when_the_feed_is_down(client: TestClient, monkeypatch):
+    from app.scanners.opportunity_scanner import scanner
+
+    async def boom() -> None:
+        raise RuntimeError("coingecko down")
+
+    monkeypatch.setattr(scanner, "bitcoin_cycle", None)
+    monkeypatch.setattr(scanner, "scan", boom)
+    monkeypatch.setattr("app.api.cycles.forced_refresh_due", lambda _name: True)
+    response = client.get("/api/cycles/bitcoin")
+    assert response.status_code == 503
+    assert "cykli" in response.json()["detail"]
 

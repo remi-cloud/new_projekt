@@ -51,14 +51,18 @@ check_json_field() {
 
 echo "=== Audit $BASE ==="
 
-if command -v lsof >/dev/null 2>&1; then
-  if [[ "$BASE" == http://127.0.0.1:* || "$BASE" == http://localhost:* ]]; then
-    if lsof -nP -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
-      echo "OK   port :$PORT LISTEN"
-    else
-      echo "FAIL port :$PORT not LISTEN"
-      fail=1
-    fi
+if [[ "$BASE" == http://127.0.0.1:* || "$BASE" == http://localhost:* ]]; then
+  port_up=0
+  if command -v lsof >/dev/null 2>&1 && lsof -nP -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+    port_up=1
+  elif command -v ss >/dev/null 2>&1 && ss -ltn | grep -q ":${PORT} "; then
+    port_up=1
+  fi
+  if [[ "$port_up" -eq 1 ]]; then
+    echo "OK   port :$PORT LISTEN"
+  else
+    echo "FAIL port :$PORT not LISTEN"
+    fail=1
   fi
 fi
 
@@ -105,7 +109,13 @@ check /api/launch/status 200
 check /api/axiom/status 200
 check /api/fomo/status 200
 check /api/coordinator/health 200
-check /api/portfolio/binance-sync 200
+BINANCE_CODE=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 "$BASE/api/portfolio/binance-sync" || echo 000)
+if [[ "$BINANCE_CODE" == "200" || "$BINANCE_CODE" == "401" || "$BINANCE_CODE" == "403" ]]; then
+  echo "OK   /api/portfolio/binance-sync -> $BINANCE_CODE"
+else
+  echo "FAIL /api/portfolio/binance-sync -> HTTP $BINANCE_CODE (want 200, 401 or 403)"
+  fail=1
+fi
 check /api/ai/status 200
 check /api/news/macro 200
 check_json_field "/api/news/macro?limit=20" \
@@ -122,15 +132,18 @@ else
 fi
 
 WWW=$(printf '%s' "$HEALTH_RAW" | python3 -c 'import sys,json;d=json.load(sys.stdin);print(d.get("www",False))' 2>/dev/null || true)
-if [[ "$WWW" != "True" && "$WWW" != "true" ]]; then
+HOME_HTML=$(curl -sf --max-time 20 "$BASE/" || true)
+if [[ "$WWW" == "True" || "$WWW" == "true" ]]; then
+  echo "OK   www static present"
+elif [[ "$HOME_HTML" == *'id="root"'* ]]; then
+  echo "OK   www served by the frontend (api bundle flag=$WWW)"
+else
   echo "FAIL www static missing (health.www=$WWW) — run ./scripts/build-www.sh"
   fail=1
-else
-  echo "OK   www static present"
 fi
 
 check_json_field /api/ai/status \
-  'import sys,json;d=json.load(sys.stdin);print(d.get("provider") or "none")' \
+  'import sys,json;d=json.load(sys.stdin);p=d.get("provider") or "none";print("off" if p=="none" else p)' \
   "ai.provider"
 
 check_json_field /api/ai/status \

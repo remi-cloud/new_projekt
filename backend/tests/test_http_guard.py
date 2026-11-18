@@ -6,7 +6,8 @@ from app.config import settings
 from app.http_guard import _HITS
 
 
-def test_security_headers_and_hsts_when_https(client: TestClient):
+def test_security_headers_and_hsts_when_https(client: TestClient, monkeypatch):
+    monkeypatch.setattr(settings, "trusted_proxies", "testclient")
     response = client.get("/api/health", headers={"X-Forwarded-Proto": "https"})
     assert response.status_code == 200
     assert response.headers["x-content-type-options"] == "nosniff"
@@ -17,6 +18,43 @@ def test_security_headers_and_hsts_when_https(client: TestClient):
     assert "sha256-3pRED1tOXas1FXFoPb9TGCjmYe9XQsmO9OV23khV2nY=" in policy
     assert "unsafe-inline" not in policy.split("style-src-attr")[0]
     assert "max-age=" in response.headers["strict-transport-security"]
+
+
+def test_spoofed_proto_does_not_enable_hsts(client: TestClient, monkeypatch):
+    monkeypatch.setattr(settings, "trusted_proxies", "")
+    response = client.get("/api/health", headers={"X-Forwarded-Proto": "https"})
+    assert "strict-transport-security" not in response.headers
+
+
+def test_https_flag_follows_a_trusted_proxy_only(monkeypatch):
+    from starlette.requests import Request
+
+    from app.http_guard import request_is_https
+
+    def make(host: str, proto: str | None, scheme: str = "http") -> Request:
+        headers = []
+        if proto is not None:
+            headers.append((b"x-forwarded-proto", proto.encode()))
+        scope = {
+            "type": "http",
+            "asgi": {"version": "3.0"},
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": scheme,
+            "path": "/api/health",
+            "raw_path": b"/api/health",
+            "query_string": b"",
+            "headers": headers,
+            "client": (host, 1234),
+            "server": ("test", 80),
+        }
+        return Request(scope)
+
+    monkeypatch.setattr(settings, "trusted_proxies", "172.16.0.0/12,10.0.0.0/8")
+    assert request_is_https(make("172.18.0.4", "https")) is True
+    assert request_is_https(make("172.18.0.4", "http")) is False
+    assert request_is_https(make("203.0.113.9", "https")) is False
+    assert request_is_https(make("203.0.113.9", None, scheme="https")) is True
 
 
 def test_docs_closed_outside_dev(client: TestClient):

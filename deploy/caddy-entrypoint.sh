@@ -12,7 +12,14 @@ HASH="${CYCLICAL_CADDY_BASIC_HASH:-}"
     printf '\t\t%s %s\n' "$USER_NAME" "$HASH"
     printf '\t}\n'
   fi
-  printf '\treverse_proxy frontend:8080\n'
+  printf '\theader {\n'
+  printf '\t\tStrict-Transport-Security "max-age=15552000; includeSubDomains"\n'
+  printf '\t}\n'
+  # Replace, do not append: the visitor must not choose the scheme or the first hop.
+  printf '\treverse_proxy frontend:8080 {\n'
+  printf '\t\theader_up X-Forwarded-For {remote_host}\n'
+  printf '\t\theader_up X-Forwarded-Proto {scheme}\n'
+  printf '\t}\n'
   printf '}\n'
 } > /tmp/Caddyfile
 exec caddy run --config /tmp/Caddyfile --adapter caddyfile

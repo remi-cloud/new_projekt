@@ -6,6 +6,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from app.config import settings
+from app.log_redact import scrub_text
 from app.news.public_urls import live_domain_ready, public_site_base
 from app.models.schemas import MacroNewsItem
 from app.news import social_db
@@ -194,8 +195,9 @@ async def publish_post(post_id: int, *, force: bool = False) -> dict:
         await _notify_webhook(public_x_record(saved))
         return saved
     except Exception as exc:
-        await social_db.update_post_status(post_id, status="failed", error=str(exc)[:500])
-        logger.warning("Social publish failed id=%s: %s", post_id, exc)
+        safe = str(scrub_text(str(exc)))[:500]
+        await social_db.update_post_status(post_id, status="failed", error=safe)
+        logger.warning("Social publish failed id=%s: %s", post_id, safe)
         raise
 
 

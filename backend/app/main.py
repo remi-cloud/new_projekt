@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import register_routers
 from app.desk_auth import DeskAuthMiddleware
 from app.http_guard import PostRateLimitMiddleware, SecurityHeadersMiddleware, cors_origin_list, is_dev
+from app.log_redact import install_log_redact
 from app.api.news import initial_news
 from app.db.database import init_db
 from app.notifications.alert_engine import alert_engine
@@ -20,6 +21,7 @@ from app.scheduler.jobs import scheduled_full_scan, start_scheduler, stop_schedu
 from app.scanners.opportunity_scanner import scanner
 
 logging.basicConfig(level=logging.INFO)
+install_log_redact()
 logger = logging.getLogger(__name__)
 
 
