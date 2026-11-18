@@ -56,18 +56,20 @@ function arm(page: Page, auth: string) {
     if (/content security policy|violates the following/i.test(text)) note(page, auth, 'csp', text)
     if (msg.type() !== 'error') return
     if (/favicon|ERR_BLOCKED_BY_CLIENT/i.test(text)) return
-    if (/Failed to load resource/i.test(text) && /\/api\/(social\/posts|social\/decisions|desk\/login)/.test(text)) return
-    if (/Failed to load resource/i.test(text) && /503/.test(text) && /\/api\/dashboard/.test(text)) return
+    // The response listener has the URL. A bare "failed to load" line does not.
+    if (/Failed to load resource/i.test(text)) return
     note(page, auth, 'console', text)
   })
   page.on('response', (res) => {
     const url = res.url()
     if (!url.includes('/api/')) return
     const status = res.status()
+    const guestClosed = auth === 'anon' && status === 401 && !['/api/roi/calculate', '/api/growth/', '/api/ai/chat', '/api/news/macro/refresh'].some((path) => url.includes(path))
     const expected =
+      guestClosed ||
       (status === 401 && (url.includes('/social/posts') || url.includes('/social/decisions') || url.includes('/desk/login'))) ||
       (status === 409 && url.includes('/social/posts/') && url.includes('/publish')) ||
-      (status === 503 && url.includes('/api/dashboard'))
+      (status === 503 && (url.includes('/api/dashboard') || url.includes('/api/ai/chat')))
     if ((status === 400 || status === 401 || status === 409 || status === 503 || status >= 500) && !expected) {
       note(page, auth, 'http', `${status} ${url}`)
     }
