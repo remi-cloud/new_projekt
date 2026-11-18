@@ -82,7 +82,9 @@ def test_ai_chat_empty_rejected(client):
 
 
 def test_portfolio_binance_sync(client):
-    r = client.get("/api/portfolio/binance-sync")
+    denied = client.get("/api/portfolio/binance-sync", headers={"X-Desk-Token": ""})
+    assert denied.status_code == 401
+    r = client.get("/api/portfolio/binance-sync", headers={"X-Desk-Token": "pytest-desk"})
     assert r.status_code == 200
     data = r.json()
     assert "connected" in data

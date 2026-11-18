@@ -176,7 +176,7 @@ export const es: Translations = {
       },
       cyclePhase: {
         math: 'Piecewise phase of a periodic / quasi-periodic process.',
-        finance: 'Macro timing layer (BTC 364/1064, presidential years).',
+        finance: 'Macro timing layer (BTC 364/1064, regional seasons).',
         market: 'Bear / accumulation / bull / distribution tags drive signal prior.',
       },
       confidence: {
@@ -227,7 +227,7 @@ export const es: Translations = {
     loginLead: 'The token stays in this tab. It is not stored in the repository.',
     loginToken: 'Desk token',
     loginSubmit: 'Enter',
-    loginOk: 'Signed in. The token lives only in this browser session.',
+    loginOk: 'Sesión iniciada. La sesión del escritorio está en una cookie HttpOnly.',
     loginClosed: 'The desk is closed. Set CYCLICAL_DESK_TOKEN on the server and restart.',
     loginBad: 'Wrong token.',
   },
@@ -525,6 +525,7 @@ export const es: Translations = {
     karOpenAxiom: 'Axiom · Kar positions →',
     karOpenLaunch: 'Meme Universe →',
     binanceBanner: 'Binance AI BOT · puente de cartera',
+    binanceAuth: 'Entra al escritorio para ver los saldos de Binance.',
     binanceLoading: 'Comprobando sync con Binance…',
     binanceNoKeys: 'Sin conexión — configura CYCLICAL_BINANCE_API_KEY en .env',
     binanceConnectedDry: 'Conectado (dry-run) · {{n}} fila(s) de drift',
@@ -550,6 +551,7 @@ export const es: Translations = {
     buySide: 'COMPRA', sellSide: 'VENTA',
   },
   alerts: {
+    empty: 'No hay ajustes de alertas. Inténtalo de nuevo.',
     loadError: 'No se pudieron cargar los ajustes', saved: 'Ajustes guardados ✓', saveError: 'Error al guardar',
     pushUnavailable: 'Push no disponible — sin clave VAPID en el servidor',
     pushEnabled: 'Notificaciones push activadas ✓', pushError: 'No se pudo activar push',
@@ -584,7 +586,7 @@ export const es: Translations = {
     notDesc: 'Muchas plataformas se basan en economía de eventos. Es contexto importante — pero no nuestro núcleo. Vamos más profundo: fases, ciclos y modelos propios.',
     methodTitle: 'Nuestro método en breve',
     methodSteps: [
-      'Mapeamos ciclos — desde Bitcoin hasta la cadencia presidencial de EE. UU. y macro regional.',
+      'Mapeamos ciclos — desde Bitcoin hasta la macro regional de EE. UU. y macro regional.',
       'Combinamos capas — precio, momentum (RSI), macro y señales de entrada/salida.',
       'Probamos disciplina — paper trading con limit, stop y cartera de 1.000.000 PLN.',
       'Pensamos en años — las señales sirven para asignación y paciencia, no overtrading.',
@@ -594,7 +596,7 @@ export const es: Translations = {
     chips: ['Email', 'Bot IA', 'Alianzas'],
     disclaimer: 'Cyclical Academy es con fines educativos y analíticos y no constituye asesoramiento de inversión. Invertir implica riesgo de pérdida de capital.',
     pillars: [
-      { title: 'Ciclos, no titulares', body: 'Nuestras señales provienen de fases repetibles — ciclo Bitcoin, cadencia presidencial, momentum RSI y mapas regionales.' },
+      { title: 'Ciclos, no titulares', body: 'Nuestras señales provienen de fases repetibles — ciclo Bitcoin, macro regional, momentum RSI y mapas regionales.' },
       { title: 'Marcos propios', body: 'Desarrollamos modelos originales que combinan ciclos de precio, macro regional y momentum — calibrados para años, no modas.' },
       { title: 'Horizonte largo plazo', body: 'Diseñamos decisiones para construir capital en el tiempo. El paper trading sirve para practicar disciplina.' },
       { title: 'Terminal, no tabloide', body: 'Cyclical Academy es herramienta analítica: gráficos, ciclos, valoraciones y cuenta virtual — sin ruido ni promesas de ganancia rápida.' },
@@ -662,8 +664,8 @@ export const es: Translations = {
     btcRationaleDistribution: 'Distribution phase ({{days}} days since ATH). Stay cautious until a new high.',
     regionalSummary: '{{region}}: phase {{phase}}, buy weight {{weight}}%.',
     daysSinceAth: 'Días desde ATH', phase: 'Fase', declines: 'Caídas', growth: 'Subida',
-    phaseProgress: 'Progreso de fase: {{pct}}% · {{days}} días restantes', presTitle: 'Ciclo presidencial EE. UU.',
-    president: 'Presidente', termYear: 'Año de mandato', historicalReturn: 'Retorno histórico', perYear: '/año',
+    phaseProgress: 'Progreso de fase: {{pct}}% · {{days}} días restantes', presTitle: 'Peso neutral de EE. UU.',
+    president: 'Presidente', termYear: 'Peso neutral', historicalReturn: 'Retorno histórico', perYear: '/año',
     cycleAvg: 'Media del ciclo', benchmarkChange: '{{benchmark}} · cambio anual',
     weakest: 'Más débil', moderate: 'Moderado', strongest: 'Más fuerte', progress: 'Progreso', days: 'días',
     avg: 'media {{n}}', regionalPhase: 'Fase', buyWeight: 'Peso de compra', bias: 'Sesgo',
@@ -944,7 +946,7 @@ export const es: Translations = {
     empty: 'Pregunta sobre mercados, tendencias, patrones o ciclos Bitcoin / Fed.',
     hintTrend: '«¿Cuál es la tendencia de BTC-USD?»',
     hintPattern: '«¿Hay double top en AAPL?»',
-    hintMacro: '«¿Cómo afecta el ciclo presidencial al S&P?»',
+    hintMacro: '«¿Cómo afecta el macro neutral al S&P?»',
     you: 'Tú',
     bot: 'Agente',
     tools: 'Herramientas',
@@ -963,7 +965,7 @@ export const es: Translations = {
     quickTrend: 'Analizar tendencia de {{symbol}}: SMA, RSI, estructura HH/HL.',
     quickPattern: 'Detectar patrones en {{symbol}}: soporte, resistencia, double top/bottom.',
     quickAnalyze: 'Análisis completo de {{symbol}}: tendencia, patrones, ciclo, riesgo.',
-    quickCycles: 'Resumir ciclos actuales: Bitcoin 364/1064, ciclo presidencial USA y señales regionales.',
+    quickCycles: 'Resumir ciclos actuales: Bitcoin 364/1064, macro neutral USA y señales regionales.',
     analyzeOnly: 'Análisis completo de {{symbol}}',
     askAgent: 'Preguntar al agente',
     analyzeNews: 'Analizar en el agente',
@@ -1105,7 +1107,7 @@ export const es: Translations = {
     media2: 'Acreditación de citas de datos',
     media3: 'Webinars conjuntos',
     eduTitle: 'Educación / academias',
-    eduBody: 'Talleres de ciclo BTC + presidencial para equipos y estudiantes.',
+    eduBody: 'Talleres de ciclo BTC + neutral para equipos y estudiantes.',
     edu1: 'Materiales didácticos',
     edu2: 'Sandbox de paper trading',
     edu3: 'Licencia para aulas',
@@ -1153,7 +1155,7 @@ export const es: Translations = {
     suggestion: 'Sugerencia',
     clickHint: 'Pulsa una etiqueta — significado y consejo',
     layerCycle: {
-      body: 'Capa de ciclo — Bitcoin (364/1064) o macro presidencial / regional.',
+      body: 'Capa de ciclo — Bitcoin (364/1064) o macro neutral / regional.',
       hint: 'Abre Ciclos antes de subir el tamaño del paper trade.',
     },
     layerPrice: {
@@ -1182,7 +1184,7 @@ export const es: Translations = {
         hint: 'Compara esta moneda con la fase BTC en Ciclos. Mejor entrar en caída / acumulación, no tras un rally parabólico.',
       },
       stock: {
-        body: 'Acción cotizada — participación de una empresa en bolsa. Los valores USA también siguen el ciclo presidencial; el resto depende más del macro regional.',
+        body: 'Acción cotizada — participación de una empresa en bolsa. Los valores USA también siguen el macro neutral; el resto depende más del macro regional.',
         hint: 'Revisa la fase de precio vs el máximo de 52 semanas y la etiqueta de región antes de añadir al portafolio paper.',
       },
       etf: {
@@ -1216,12 +1218,12 @@ export const es: Translations = {
         hint: 'Apóyate en el ciclo BTC (crypto) o el ánimo de riesgo global. No te ajustes demasiado a un calendario electoral local.',
       },
       us: {
-        body: 'EE. UU. — calendario bursátil ligado a midterms / año presidencial. Aquí viven S&P y Nasdaq.',
-        hint: 'Abre la página Ciclos para la fase presidencial USA. El año 2 es históricamente el más débil para riesgo USA.',
+        body: 'EE. UU. — calendario bursátil ligado a midterms / peso neutral. Aquí viven S&P y Nasdaq.',
+        hint: 'Abre la página Ciclos para la fase neutral USA. El año 2 es históricamente el más débil para riesgo USA.',
       },
       eu: {
         body: 'Europa — BCE, calendarios fiscales y estacionalidad bursátil UE pesan más que la política USA.',
-        hint: 'Pesa poco el ciclo presidencial; importan más la fase de precio y el macro UE.',
+        hint: 'Pesa poco el macro neutral; importan más la fase de precio y el macro UE.',
       },
       asia: {
         body: 'Asia — calendarios JP / CN / IN, estacionalidad del año lunar y política local dominan.',
@@ -1233,7 +1235,7 @@ export const es: Translations = {
       },
       pl: {
         body: 'Polonia — WIG / activos PL. Cuentan elecciones locales, presupuesto y temporada de dividendos.',
-        hint: 'El ciclo presidencial USA es secundario. Mira la fase región PL y la liquidez PLN en filtros Mercados.',
+        hint: 'El macro neutral USA es secundario. Mira la fase región PL y la liquidez PLN en filtros Mercados.',
       },
     },
     phase: {
@@ -1258,19 +1260,19 @@ export const es: Translations = {
         hint: 'Tamaño menor o espera. Usa RSI / Momentum + picks de ciclo en lugar de forzar un trade.',
       },
       year_1: {
-        body: 'Año presidencial 1 — adaptación de políticas. Históricamente más suave para acciones USA.',
+        body: 'Peso neutral 1 — adaptación de políticas. Históricamente más suave para acciones USA.',
         hint: 'Sé selectivo con activos USA. Prefiere solo setups de alta confianza.',
       },
       year_2: {
-        body: 'Año presidencial 2 (midterms) — históricamente el año bursátil USA más débil del ciclo.',
+        body: 'Peso neutral 2 (midterms) — históricamente el año bursátil USA más débil del ciclo.',
         hint: 'Cautela extra en riesgo USA. En paper prefiere cash / coberturas o Compra solo con confianza muy alta.',
       },
       year_3: {
-        body: 'Año presidencial 3 — históricamente el año bursátil USA más fuerte del mandato.',
+        body: 'Peso neutral 3 — históricamente el año bursátil USA más fuerte del mandato.',
         hint: 'El sesgo Compra USA puede ser más fuerte — respeta igualmente fase de precio y % de confianza.',
       },
       year_4: {
-        body: 'Año presidencial 4 — año electoral; históricamente moderado, con incertidumbre tardía.',
+        body: 'Peso neutral 4 — año electoral; históricamente moderado, con incertidumbre tardía.',
         hint: 'Espera ruido de titulares. Prefiere fases claras en lugar de operar cada pico de encuestas.',
       },
       silne_wzrost: {

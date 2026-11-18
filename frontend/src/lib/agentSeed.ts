@@ -74,7 +74,7 @@ export function newsAnalysisPrompt(
 export function instrumentAnalysisPrompt(locale: string, symbol: string, name?: string): string {
   const label = name ? `${name} (${symbol})` : symbol
   if (locale === 'pl') {
-    return `Pełna analiza instrumentu ${label}: trend, wzorce, cykl (BTC/prezydencki jeśli pasuje), ryzyko i konkretny bias. Informacja edukacyjna.`
+    return `Pełna analiza instrumentu ${label}: trend, wzorce, cykl (BTC/regionalny jeśli pasuje), ryzyko i konkretny bias. Informacja edukacyjna.`
   }
-  return `Full analysis of ${label}: trend, patterns, cycle (BTC/presidential if relevant), risk and concrete bias. Educational only.`
+  return `Full analysis of ${label}: trend, patterns, cycle (BTC/regional if relevant), risk and concrete bias. Educational only.`
 }

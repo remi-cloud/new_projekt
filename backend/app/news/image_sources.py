@@ -11,6 +11,7 @@ from urllib.parse import urljoin, urlparse
 import httpx
 
 from app.config import settings
+from app.http_safety import UnsafeUrlError, guarded_get
 from app.models.schemas import MacroNewsCategory, MacroNewsItem
 
 logger = logging.getLogger(__name__)
@@ -82,9 +83,9 @@ async def download_image(url: str, *, max_bytes: int = 6_000_000) -> bytes | Non
         async with httpx.AsyncClient(
             timeout=20,
             headers=HTTP_HEADERS,
-            follow_redirects=True,
+            follow_redirects=False,
         ) as client:
-            resp = await client.get(url)
+            resp = await guarded_get(client, url)
             resp.raise_for_status()
             ct = resp.headers.get("content-type", "")
             if not _IMAGE_CT.match(ct) and not _is_image_url(str(resp.url)):
@@ -93,6 +94,9 @@ async def download_image(url: str, *, max_bytes: int = 6_000_000) -> bytes | Non
             if len(data) < 2000 or len(data) > max_bytes:
                 return None
             return data
+    except UnsafeUrlError as exc:
+        logger.info("Image URL blocked %s: %s", url[:80], exc)
+        return None
     except Exception as exc:
         logger.debug("Image download failed %s: %s", url[:80], exc)
         return None
@@ -105,14 +109,17 @@ async def fetch_og_image(page_url: str) -> bytes | None:
         async with httpx.AsyncClient(
             timeout=15,
             headers=HTTP_HEADERS,
-            follow_redirects=True,
+            follow_redirects=False,
         ) as client:
-            resp = await client.get(page_url)
+            resp = await guarded_get(client, page_url)
             resp.raise_for_status()
             img_url = extract_image_from_html(resp.text, str(resp.url))
             if not img_url:
                 return None
             return await download_image(img_url)
+    except UnsafeUrlError as exc:
+        logger.info("Page URL blocked %s: %s", page_url[:80], exc)
+        return None
     except Exception as exc:
         logger.debug("og:image fetch failed %s: %s", page_url[:80], exc)
         return None

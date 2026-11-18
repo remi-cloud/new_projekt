@@ -71,4 +71,6 @@ async def trigger_scan(background_tasks: BackgroundTasks):
 
 @router.get("/api/opportunities/history")
 async def opportunity_history(limit: int = 50):
-    return await get_recent_opportunities(limit)
+    from app.query_bounds import bounded_limit
+
+    return await get_recent_opportunities(bounded_limit(limit, 200))

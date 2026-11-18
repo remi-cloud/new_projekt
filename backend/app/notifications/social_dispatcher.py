@@ -80,16 +80,34 @@ async def _cooldown_ok(platform: str) -> bool:
     return datetime.now(timezone.utc) - last >= timedelta(minutes=settings.social_cooldown_minutes)
 
 
-async def _publish_live(platform: str, body: str) -> dict:
+class DryRunPublicationBlocked(RuntimeError):
+    """Real publishing while CYCLICAL_SOCIAL_DRY_RUN is on. Nothing bypasses it."""
+
+
+class PublishRateLimited(RuntimeError):
+    """Manual and automatic posts share the hourly cap."""
+
+
+async def _publish_live(
+    platform: str,
+    body: str,
+    *,
+    source_name: str = "",
+    source_url: str = "",
+) -> dict:
+    if settings.social_dry_run:
+        raise DryRunPublicationBlocked(
+            "Publikacja zablokowana: tryb próbny (DRY-RUN). "
+            "Ustaw CYCLICAL_SOCIAL_DRY_RUN=false, aby wysłać post."
+        )
+    if platform == "x" and not live_domain_ready():
+        logger.info("czeka na domenę")
+        raise DryRunPublicationBlocked("czeka na domenę")
     if platform == "x":
-        return await post_to_x(body)
+        return await post_to_x(body, source_name=source_name, source_url=source_url)
     if platform == "linkedin":
         return await post_to_linkedin(body)
     raise RuntimeError(f"Unknown platform {platform}")
-
-
-class DryRunPublicationBlocked(RuntimeError):
-    """Manual publish while CYCLICAL_SOCIAL_DRY_RUN is on. force cannot bypass it."""
 
 
 async def publish_post(post_id: int, *, force: bool = False) -> dict:
@@ -115,13 +133,23 @@ async def publish_post(post_id: int, *, force: bool = False) -> dict:
             "Ustaw CYCLICAL_SOCIAL_DRY_RUN=false, aby wysłać post."
         )
 
+    source_name = post.get("source_name") or ""
+    source_url = post.get("url") or ""
     try:
-        assert_post_has_source(post.get("body") or "", post.get("source_name"), post.get("url"))
+        assert_post_has_source(post.get("body") or "", source_name, source_url)
     except RuntimeError as exc:
         await social_db.update_post_status(post_id, status=post["status"], error=str(exc)[:500])
         raise
 
     platform = post["platform"]
+    if not is_whitelisted(source_name, source_url):
+        raise RuntimeError("poza białą listą źródeł")
+    now_utc = datetime.now(timezone.utc)
+    posted_hour = await social_db.count_posted_since(platform, (now_utc - timedelta(hours=1)).isoformat())
+    max_per_hour = int(getattr(settings, "social_auto_max_per_hour", 2) or 2)
+    if posted_hour >= max_per_hour:
+        raise PublishRateLimited(f"limit {max_per_hour} postów na godzinę")
+
     if platform == "x" and not x_configured():
         await social_db.update_post_status(post_id, status="failed", error="X credentials missing")
         raise RuntimeError("X credentials missing")
@@ -134,7 +162,12 @@ async def publish_post(post_id: int, *, force: bool = False) -> dict:
         raise DryRunPublicationBlocked("czeka na domenę")
 
     try:
-        result = await _publish_live(platform, post["body"])
+        result = await _publish_live(
+            platform,
+            post["body"],
+            source_name=source_name,
+            source_url=source_url,
+        )
         now = datetime.now(timezone.utc).isoformat()
         await social_db.update_post_status(
             post_id,
@@ -252,6 +285,8 @@ async def run_auto_x(items: list[MacroNewsItem], locale: str = "pl") -> dict:
             final = AutoDecision("reject", f"limit {max_per_day} postów na dobę", final.score, final.topic)
         if final.action == "publish" and not x_configured():
             final = AutoDecision("reject", "brak tokenów X", final.score, final.topic)
+        if final.action == "publish" and settings.social_dry_run:
+            final = AutoDecision("reject", "tryb próbny (DRY-RUN)", final.score, final.topic)
         if final.action == "publish" and not live_domain_ready():
             logger.info("czeka na domenę")
             final = AutoDecision("reject", "czeka na domenę", final.score, final.topic)
@@ -259,7 +294,12 @@ async def run_auto_x(items: list[MacroNewsItem], locale: str = "pl") -> dict:
             composed = compose_x(item, locale)
             try:
                 assert_post_has_source(composed.body, item.source, item.url)
-                result = await _publish_live("x", composed.body)
+                result = await _publish_live(
+                    "x",
+                    composed.body,
+                    source_name=item.source or "",
+                    source_url=item.url or "",
+                )
             except Exception as exc:
                 final = AutoDecision("reject", str(exc)[:180], final.score, final.topic)
             else:
@@ -378,7 +418,8 @@ async def queue_social_from_news_items(items: list[MacroNewsItem], locale: str =
 
             guard = await _queue_live_guard(item, composed.body, composed.platform)
             should_live = (
-                guard is None
+                not settings.social_dry_run
+                and guard is None
                 and await _cooldown_ok(composed.platform)
                 and (
                     (composed.platform == "x" and x_configured())
@@ -390,7 +431,12 @@ async def queue_social_from_news_items(items: list[MacroNewsItem], locale: str =
                 try:
                     if composed.platform == "x":
                         assert_post_has_source(composed.body, item.source, item.url)
-                    result = await _publish_live(composed.platform, composed.body)
+                    result = await _publish_live(
+                        composed.platform,
+                        composed.body,
+                        source_name=item.source or "",
+                        source_url=item.url or "",
+                    )
                     status = "posted"
                     external_id = result.get("external_id")
                     posted_at = datetime.now(timezone.utc).isoformat()

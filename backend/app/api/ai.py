@@ -4,7 +4,7 @@ from app.ai import agent as ai_agent
 from app.ai import db as ai_db
 from app.ai.learning import process_feedback
 from app.ai.academy import academy_payload
-from app.ai.llm import free_chain_labels, llm_configured, resolve_llm
+from app.ai.llm import active_llm_target, free_chain_labels, llm_reachable
 from app.config import settings
 from app.models.schemas import (
     AiAnalyzeResponse,
@@ -26,17 +26,21 @@ async def ai_academy():
 @router.get("/api/ai/status", response_model=AiStatusResponse)
 async def ai_status():
     stats = await ai_db.get_stats()
-    base_url, model, api_key, provider = resolve_llm()
-    shown_base = base_url if llm_configured() else ""
+    target = active_llm_target()
+    reachable = await llm_reachable(target) if target else False
+    base_url = target.base_url if target else ""
+    model = target.model if target and reachable else ""
+    provider = target.provider if target and reachable else "none"
+    shown_base = base_url if reachable else ""
     if shown_base.startswith("http://127.0.0.1") or shown_base.startswith("http://localhost"):
         shown_base = ""
     return AiStatusResponse(
         enabled=settings.ai_enabled,
-        llm_configured=llm_configured(),
+        llm_configured=reachable,
         model=model,
-        provider=provider if llm_configured() else "none",
+        provider=provider,
         base_url=shown_base,
-        requires_api_key=provider == "openai",
+        requires_api_key=bool(target and target.provider == "openai"),
         free_chain=free_chain_labels(),
         features=[
             "finance_guard",
@@ -72,7 +76,10 @@ async def ai_chat(body: AiChatRequest):
         if "not configured" in text.lower() or text.startswith("LLM"):
             raise HTTPException(
                 status_code=503,
-                detail="Zewnętrzny czat AI jest wyłączony. Ustaw klucz albo CYCLICAL_AI_EXTERNAL=true.",
+                detail=(
+                    "Zewnętrzny czat AI jest wyłączony. Ustaw klucz albo "
+                    "CYCLICAL_AI_EXTERNAL_ENABLED=true."
+                ),
             ) from None
         raise HTTPException(status_code=502, detail="Czat AI nie odpowiedział.") from None
     return AiChatResponse(**result)

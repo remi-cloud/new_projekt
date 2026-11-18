@@ -18,7 +18,7 @@ export const aboutDetailIt: AboutDetailBundle = {
             'Dopo l’ATH, BTC entra spesso in fase ribassista (~364 giorni), poi accumulazione e onda rialzista (~1064 giorni). Lo scanner traccia giorni dall’ATH, fase (bear / accumulation / bull / distribution) e avanzamento fase % — filtro di contesto per crypto e asset correlati.',
         },
         {
-          title: 'Ciclo presidenziale USA',
+          title: 'Peso neutro USA',
           body:
             'Statisticamente, il 3° anno di mandato tende a essere il più forte per l’S&P 500, il 2° (midterms) il più debole. La piattaforma mappa l’anno di mandato corrente e i bias storici — non come garanzia, ma come contesto macro per asset US.',
         },

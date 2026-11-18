@@ -17,4 +17,6 @@ class MacroCycleResult:
     @property
     def base_confidence(self) -> float:
         """Map buy_weight to a 0–100 confidence baseline for signal combiner."""
+        if self.phase in {"neutral", "usd_neutral_bias"}:
+            return 50.0
         return 35 + self.buy_weight * 50

@@ -134,7 +134,7 @@ app.add_middleware(PostRateLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origin_list(),
-    allow_credentials=False,
+    allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )

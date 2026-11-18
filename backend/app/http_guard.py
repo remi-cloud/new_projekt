@@ -118,7 +118,9 @@ class PostRateLimitMiddleware(BaseHTTPMiddleware):
         path = request.url.path
         key = client_key(request)
         if path == "/api/desk/login":
-            limit, window, bucket_key = 5, 900, f"login:{key}"
+            # High ceiling only. Wrong passwords are backed off in desk_auth,
+            # and a correct token is never rejected by that counter.
+            limit, window, bucket_key = 40, 60, f"login:{key}"
         elif path in PUBLIC_WRITE_PATHS:
             limit, window, bucket_key = 20, 60, f"guest:{key}"
         else:

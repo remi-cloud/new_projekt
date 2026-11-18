@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+import time
+
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from app.data.whale_flows import fetch_whale_snapshot
+from app.desk_auth import require_desk
 from app.models.schemas import SuperOpportunitiesResponse, SuperOpportunity
 from app.scanners.super_opportunities import (
     build_super_opportunities,
@@ -13,6 +16,9 @@ from app.scanners.super_opportunities import (
 )
 
 router = APIRouter(tags=["super-opportunities"])
+
+_FORCE_GAP = 60.0
+_last_forced = 0.0
 
 
 @router.get("/api/super-opportunities", response_model=SuperOpportunitiesResponse)
@@ -36,10 +42,26 @@ async def get_super_opportunity(symbol: str):
 
 
 @router.get("/api/whale-flows")
-async def whale_flows(force: bool = False):
+async def whale_flows(request: Request, force: bool = False):
+    global _last_forced
+    throttled = False
+    if force:
+        require_desk(request)
+        now = time.monotonic()
+        if _last_forced and now - _last_forced < _FORCE_GAP:
+            force = False
+            throttled = True
+        else:
+            _last_forced = now
     by_sym = await fetch_whale_snapshot(force=force)
+    if throttled and not by_sym:
+        raise HTTPException(
+            status_code=429,
+            detail="Odświeżenie przepływów jest ograniczone. Spróbuj za chwilę.",
+        )
     return {
         "count": len(by_sym),
         "items": list(by_sym.values()),
         "by_symbol": by_sym,
+        "throttled": throttled,
     }

@@ -211,7 +211,7 @@ export const en: Translations = {
       },
       cyclePhase: {
         math: 'Piecewise phase of a periodic / quasi-periodic process.',
-        finance: 'Macro timing layer (BTC 364/1064, presidential years).',
+        finance: 'Macro timing layer (BTC 364/1064, regional seasons).',
         market: 'Bear / accumulation / bull / distribution tags drive signal prior.',
       },
       confidence: {
@@ -262,7 +262,7 @@ export const en: Translations = {
     loginLead: 'The token stays in this tab. It is not stored in the repository.',
     loginToken: 'Desk token',
     loginSubmit: 'Enter',
-    loginOk: 'Signed in. The token lives only in this browser session.',
+    loginOk: 'Signed in. The desk session is an HttpOnly cookie.',
     loginClosed: 'The desk is closed. Set CYCLICAL_DESK_TOKEN on the server and restart.',
     loginBad: 'Wrong token.',
   },
@@ -609,6 +609,7 @@ export const en: Translations = {
     karOpenAxiom: 'Axiom · Kar positions →',
     karOpenLaunch: 'Meme Universe →',
     binanceBanner: 'Binance AI BOT · portfolio bridge',
+    binanceAuth: 'Sign in on the desk to see Binance balances.',
     binanceLoading: 'Checking Binance sync…',
     binanceNoKeys: 'Not connected — set CYCLICAL_BINANCE_API_KEY in .env',
     binanceConnectedDry: 'Connected (dry-run) · {{n}} drift row(s)',
@@ -638,6 +639,7 @@ export const en: Translations = {
     buySide: 'BUY', sellSide: 'SELL',
   },
   alerts: {
+    empty: 'Alert settings are empty. Try again.',
     loadError: 'Could not load settings',
     saved: 'Settings saved ✓',
     saveError: 'Error saving settings',
@@ -696,7 +698,7 @@ export const en: Translations = {
     notDesc: 'Many platforms rely on event economics: CPI, Fed, elections, conflicts. That is important context — but not our core. We go deeper: into phase repeatability, cycles and our own assessment models.',
     methodTitle: 'Our method in brief',
     methodSteps: [
-      'We map cycles — from Bitcoin to the US presidential cadence and regional macro (Europe, Asia, Poland, EM).',
+      'We map cycles — from Bitcoin to regional macro (Europe, Asia, Poland, EM).',
       'We combine layers — price, momentum (RSI), macro and entry/exit signals in one instrument rating.',
       'We test discipline — paper trading with limit, stop and a 1,000,000 PLN portfolio, without risking real capital upfront.',
       'We think in years — signals serve allocation and patience, not daily overtrading.',
@@ -707,7 +709,7 @@ export const en: Translations = {
     chips: ['Email', 'AI Bot', 'Partnerships'],
     disclaimer: 'Cyclical Academy is for educational and analytical purposes and does not constitute investment advice or an offer under applicable law. Investing involves risk of capital loss. Always conduct your own analysis before making financial decisions.',
     pillars: [
-      { title: 'Cycles, not headlines', body: 'Our signals come from repeatable market phases — the Bitcoin cycle, US presidential cadence, RSI momentum and our regional maps. We do not react to every tweet or macro report.' },
+      { title: 'Cycles, not headlines', body: 'Our signals come from repeatable market phases — the Bitcoin cycle, regional macro, RSI momentum and our regional maps. We do not react to every tweet or macro report.' },
       { title: 'Proprietary frameworks', body: 'We developed original models combining price cycles, regional macro and momentum. This is our internal market language — calibrated for a multi-year perspective, not fleeting investment trends.' },
       { title: 'Long-term horizon', body: 'We design decisions for capital building over time. Paper trading, entry/exit signals and a simulated portfolio serve discipline practice — we do not encourage chasing every chart move.' },
       { title: 'Terminal, not tabloid', body: 'Cyclical Academy is an analytical tool: charts, cycles, instrument ratings and a virtual account. No news noise, no promises of quick profit — full methodology transparency.' },
@@ -855,7 +857,7 @@ export const en: Translations = {
     growth: 'Growth',
     phaseProgress: 'Phase progress: {{pct}}% · {{days}} days remaining',
     president: 'President',
-    termYear: 'Term year',
+    termYear: 'Neutral weight',
     historicalReturn: 'Historical return',
     perYear: '/year',
     cycleAvg: 'Cycle average',
@@ -1191,7 +1193,7 @@ export const en: Translations = {
     empty: 'Ask about markets, trends, patterns or Bitcoin / Fed cycles.',
     hintTrend: '"What is the BTC-USD trend?"',
     hintPattern: '"Is there a double top on AAPL?"',
-    hintMacro: '"How does the presidential cycle affect S&P?"',
+    hintMacro: '"How does the regional macro affect S&P?"',
     you: 'You',
     bot: 'Agent',
     tools: 'Tools',
@@ -1210,7 +1212,7 @@ export const en: Translations = {
     quickTrend: 'Analyze trend for {{symbol}}: SMA, RSI, HH/HL structure.',
     quickPattern: 'Detect chart patterns for {{symbol}}: support, resistance, double top/bottom.',
     quickAnalyze: 'Full analysis of {{symbol}}: trend, patterns, cycle signal, risk.',
-    quickCycles: 'Summarize current cycles: Bitcoin 364/1064, US presidential cycle and regional signals.',
+    quickCycles: 'Summarize current cycles: Bitcoin 364/1064, neutral US macro weight and regional signals.',
     analyzeOnly: 'Full analysis of {{symbol}}',
     askAgent: 'Ask agent',
     analyzeNews: 'Analyze in agent',
@@ -1353,7 +1355,7 @@ export const en: Translations = {
     media2: 'Data citation accreditation',
     media3: 'Joint webinars',
     eduTitle: 'Education / academies',
-    eduBody: 'BTC + presidential cycle workshops for teams and students.',
+    eduBody: 'BTC + regional macro workshops for teams and students.',
     edu1: 'Teaching materials',
     edu2: 'Paper-trading sandbox',
     edu3: 'Classroom license',
@@ -1401,7 +1403,7 @@ export const en: Translations = {
     suggestion: 'Suggestion',
     clickHint: 'Tap a tag for explanation and tip',
     layerCycle: {
-      body: 'Cycle layer — Bitcoin (364/1064) or presidential / regional macro timing.',
+      body: 'Cycle layer — Bitcoin (364/1064) or regional macro timing.',
       hint: 'Open Cycles for the full phase map before sizing a paper trade.',
     },
     layerPrice: {
@@ -1430,7 +1432,7 @@ export const en: Translations = {
         hint: 'Compare this coin with the BTC phase on Cycles. Prefer entries in decline / accumulation, not after a parabolic run.',
       },
       stock: {
-        body: 'Listed equity — company shares on an exchange. US names also feel the presidential cycle; others lean on regional macro.',
+        body: 'Listed equity — company shares on an exchange. US names also feel the regional macro; others lean on regional macro.',
         hint: 'Check the price phase vs the 52-week high and the region tag before adding to the paper portfolio.',
       },
       etf: {
@@ -1464,12 +1466,12 @@ export const en: Translations = {
         hint: 'Lean on BTC cycle (crypto) or global risk mood. Do not over-fit to one local election calendar.',
       },
       us: {
-        body: 'USA — equity calendar tied to midterms / presidential year. S&P and Nasdaq live here.',
-        hint: 'Open the Cycles page for the US presidential phase. Year 2 is historically the weakest for US risk assets.',
+        body: 'USA — equity calendar tied to midterms / regional season. S&P and Nasdaq live here.',
+        hint: 'Open the Cycles page for the neutral US phase. Year 2 is historically the weakest for US risk assets.',
       },
       eu: {
         body: 'Europe — ECB, fiscal calendars and EU equity seasonality matter more than US politics.',
-        hint: 'Treat presidential-cycle weight lightly; price phase and EU macro news weigh more.',
+        hint: 'Treat US macro weight lightly; price phase and EU macro news weigh more.',
       },
       asia: {
         body: 'Asia — JP / CN / IN calendars, lunar new year seasonality and local policy dominate.',
@@ -1481,7 +1483,7 @@ export const en: Translations = {
       },
       pl: {
         body: 'Poland — WIG / PL assets. Local elections, budget and dividend season matter.',
-        hint: 'US presidential cycle is secondary. Watch PL region phase and PLN liquidity on the Markets filters.',
+        hint: 'Neutral US macro weight is secondary. Watch PL region phase and PLN liquidity on the Markets filters.',
       },
     },
     phase: {
@@ -1506,19 +1508,19 @@ export const en: Translations = {
         hint: 'Smaller size or wait. Use RSI / Momentum + cycle picks instead of forcing a trade.',
       },
       year_1: {
-        body: 'Presidential year 1 — policy adaptation. Historically softer for US equities.',
+        body: 'US weight is neutral. The term-year model is off.',
         hint: 'Be selective on US assets. Prefer high-confidence setups only.',
       },
       year_2: {
-        body: 'Presidential year 2 (midterms) — historically the weakest US equity year in the cycle.',
+        body: 'US weight is neutral. The term-year model is off.',
         hint: 'Extra caution on US risk. Prefer cash / hedges in paper or very high confidence Buys only.',
       },
       year_3: {
-        body: 'Presidential year 3 — historically the strongest US equity year of the term.',
+        body: 'US weight is neutral. The term-year model is off.',
         hint: 'US Buy biases can be stronger — still respect price phase and confidence %.',
       },
       year_4: {
-        body: 'Presidential year 4 — election year; historically moderate, with late uncertainty.',
+        body: 'US weight is neutral. The term-year model is off.',
         hint: 'Expect headline noise. Prefer clear phases over trading every poll spike.',
       },
       silne_wzrost: {

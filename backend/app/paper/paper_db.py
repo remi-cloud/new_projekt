@@ -150,15 +150,21 @@ async def get_position(symbol: str) -> dict | None:
 
 
 async def get_trades(limit: int = 50) -> list[dict]:
+    from app.query_bounds import bounded_limit
+
     async with portfolio_db_session() as db:
         db.row_factory = aiosqlite.Row
         rows = await (await db.execute(
-            "SELECT * FROM paper_trades ORDER BY created_at DESC LIMIT ?", (limit,)
+            "SELECT * FROM paper_trades ORDER BY created_at DESC LIMIT ?",
+            (bounded_limit(limit, 500),),
         )).fetchall()
         return [dict(r) for r in rows]
 
 
 async def get_trades_for_symbol(symbol: str, limit: int = 200) -> list[dict]:
+    from app.query_bounds import bounded_limit
+
+    limit = bounded_limit(limit, 500)
     async with portfolio_db_session() as db:
         db.row_factory = aiosqlite.Row
         rows = await (await db.execute(

@@ -15,6 +15,7 @@ from xml.etree import ElementTree
 import httpx
 
 from app.config import settings
+from app.http_safety import UnsafeUrlError, guarded_get
 from app.models.schemas import MacroNewsCategory, MacroNewsFeed, MacroNewsItem
 from app.news.google_news_urls import resolve_item_urls
 from app.news.ideology_lens import sort_by_alignment
@@ -497,7 +498,11 @@ async def _fetch_one_feed(
     default_category: MacroNewsCategory,
 ) -> list[dict]:
     try:
-        resp = await client.get(url, follow_redirects=True)
+        try:
+            resp = await guarded_get(client, url)
+        except UnsafeUrlError as exc:
+            logger.warning("RSS blocked %s (%s): %s", source, url, exc)
+            return []
         resp.raise_for_status()
         return _parse_rss_xml(resp.content, source, default_category)
     except Exception as exc:

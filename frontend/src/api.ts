@@ -1333,11 +1333,19 @@ export type LaunchCandidate = {
   market_cap?: number | null
 }
 
+export type LaunchSourceStatus = {
+  id: string
+  http?: number | null
+  detail?: string
+  status?: string
+}
+
 export type LaunchStatus = {
   enabled?: boolean
   last_error?: string | null
   last_tick_at?: string | null
   counts?: Record<string, number>
+  blocked_sources?: LaunchSourceStatus[]
 }
 
 export async function fetchLaunchStatus(): Promise<LaunchStatus> {

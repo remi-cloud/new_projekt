@@ -42,11 +42,19 @@ export function PortfolioPage() {
   const [cancellingId, setCancellingId] = useState<number | null>(null)
   const [cancellingAll, setCancellingAll] = useState(false)
   const [binanceSync, setBinanceSync] = useState<BinancePortfolioSync | null>(null)
+  const [binanceNeedsLogin, setBinanceNeedsLogin] = useState(false)
 
   useEffect(() => {
     void fetchBinancePortfolioSync()
-      .then(setBinanceSync)
-      .catch(() => setBinanceSync(null))
+      .then((data) => {
+        setBinanceNeedsLogin(false)
+        setBinanceSync(data)
+      })
+      .catch((err: unknown) => {
+        setBinanceSync(null)
+        const text = err instanceof Error ? err.message : ''
+        setBinanceNeedsLogin(/zaloguj|biurko/i.test(text))
+      })
   }, [portfolio])
 
   const handleTradeComplete = async (symbol: string) => {
@@ -150,7 +158,9 @@ export function PortfolioPage() {
         <div className="portfolio-paper-banner-main">
           <strong>{t('portfolio.binanceBanner')}</strong>
           <span>
-            {!binanceSync
+            {binanceNeedsLogin
+              ? t('portfolio.binanceAuth')
+              : !binanceSync
               ? t('portfolio.binanceLoading')
               : !binanceSync.configured
                 ? t('portfolio.binanceNoKeys')

@@ -69,7 +69,7 @@ function arm(page: Page, auth: string) {
     const url = res.url()
     if (!url.includes('/api/')) return
     const status = res.status()
-    const guestClosed = auth === 'anon' && status === 401 && !['/api/roi/calculate', '/api/growth/', '/api/ai/chat', '/api/news/macro/refresh'].some((path) => url.includes(path))
+    const guestClosed = auth === 'anon' && status === 401 && !['/api/roi/calculate', '/api/growth/', '/api/ai/chat'].some((path) => url.includes(path))
     const expected =
       guestClosed ||
       (status === 401 && (url.includes('/social/posts') || url.includes('/social/decisions') || url.includes('/desk/login'))) ||

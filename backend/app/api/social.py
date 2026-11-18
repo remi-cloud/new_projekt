@@ -10,11 +10,13 @@ from app.config import settings
 from app.news import social_db
 from app.notifications.social_dispatcher import (
     DryRunPublicationBlocked,
+    PublishRateLimited,
     public_x_record,
     publish_post,
     social_platforms,
     social_status,
 )
+from app.query_bounds import bounded_limit
 
 router = APIRouter(tags=["social"])
 
@@ -35,7 +37,7 @@ async def get_social_status():
 async def get_social_posts(request: Request, limit: int = 40):
     _require_internal(request)
     platforms = social_platforms()
-    posts = await social_db.list_posts(limit=limit)
+    posts = await social_db.list_posts(limit=bounded_limit(limit, 200))
     posts = [post for post in posts if post.get("platform") in platforms]
     return {"count": len(posts), "posts": posts, "status": social_status()}
 
@@ -43,7 +45,7 @@ async def get_social_posts(request: Request, limit: int = 40):
 @router.get("/api/social/published")
 async def published_posts(limit: int = 30):
     """Public read-only list of posts that were actually sent to X."""
-    rows = await social_db.list_published(limit)
+    rows = await social_db.list_published(bounded_limit(limit, 100))
     return {"posts": [public_x_record(row) for row in rows]}
 
 
@@ -51,7 +53,7 @@ async def published_posts(limit: int = 30):
 async def social_decisions(request: Request, limit: int = 40):
     """Why the automatic publisher sent or skipped a story. Internal only."""
     _require_internal(request)
-    return {"decisions": await social_db.list_decisions(limit)}
+    return {"decisions": await social_db.list_decisions(bounded_limit(limit, 200))}
 
 
 @router.post("/api/social/posts/{post_id}/publish")
@@ -69,6 +71,8 @@ async def publish_social_post(post_id: int):
         post = await publish_post(post_id, force=False)
     except DryRunPublicationBlocked as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from None
+    except PublishRateLimited as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from None
     except ValueError:
         raise HTTPException(status_code=404, detail="Post not found") from None
     except RuntimeError as exc:

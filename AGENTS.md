@@ -12,7 +12,7 @@
 - Restart: `./scripts/mac-restart.sh` → `www-down` + `www-up`
 - Public phone URL: `./scripts/start-public.sh` → `PUBLIC_URL.txt`
 - Smoke: `./scripts/audit.sh`
-- Cycles in UI stay **explicit** (Bitcoin / presidential / regional). Finance Agent tools include Superokazje / whale / Singularity.
+- Cycles in UI stay **explicit** (Bitcoin / regional). The US term-year model is off and the US weight is neutral. Finance Agent tools include Superokazje / whale / Singularity.
 - Desk: `/superokazje` (3D liq heatmap), `/narzedzia/singularity`
 - **Asymmetric bets** is a hard desk guideline for the Finance Agent: knowledge seed `ASYMMETRIC_BETS_KNOWLEDGE`, `SYSTEM_PROMPT` RULES, and critic check — pull R:R / size / super_score from tools and state ACCEPT/REJECT/WAIT (thresholds: ≥2 / ≥1.4 / ≥1 / &lt;1; `is_super` ≥72).
 - **FOMO Ghost** (`/fomo`): top-30 fomo.family portfolios via Cope Capital + Family bags + Telegram listen — see `docs/FOMO-GHOST.md`; env `CYCLICAL_COPE_API_KEY`, `CYCLICAL_FOMO_TELEGRAM_CHAT_IDS`.

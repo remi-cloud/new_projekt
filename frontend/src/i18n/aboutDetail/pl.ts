@@ -18,7 +18,7 @@ export const aboutDetailPl: AboutDetailBundle = {
             'Po szczytach (ATH) BTC często wchodzi w fazę spadkową (~364 dni), potem akumulację i falę wzrostową (~1064 dni). Skaner śledzi dni od ATH, fazę (bear / accumulation / bull / distribution) i procent postępu w fazie — to filtr kontekstu dla całego rynku krypto i aktywów skorelowanych.',
         },
         {
-          title: 'Cykl prezydencki USA',
+          title: 'Neutralne makro USA',
           body:
             'Statystycznie rok 3 kadencji bywa najsilniejszy dla S&P 500, rok 2 (midterms) najsłabszy. Platforma mapuje aktualny rok kadencji i historyczny bias — nie jako gwarancję, lecz jako tło makro dla aktywów z regionem US.',
         },
@@ -40,7 +40,7 @@ export const aboutDetailPl: AboutDetailBundle = {
         {
           title: 'Warstwy oceny',
           body:
-            'Każdy instrument przechodzi przez analizę fazy cenowej (52-tygodniowy kontekst), zgodność z cyklem BTC (dla krypto) lub cyklem prezydenckim (dla US), momentum RSI oraz mapę regionalną. Wynik to sygnał: Kupuj, Sprzedaj, Trzymaj lub Obserwuj.',
+            'Każdy instrument przechodzi przez analizę fazy cenowej (52-tygodniowy kontekst), zgodność z cyklem BTC (dla krypto) lub neutralnym makrem USA (dla US), momentum RSI oraz mapę regionalną. Wynik to sygnał: Kupuj, Sprzedaj, Trzymaj lub Obserwuj.',
         },
         {
           title: 'Pewność sygnału (%)',
@@ -170,7 +170,7 @@ export const aboutDetailPl: AboutDetailBundle = {
       eyebrow: 'Metoda · Krok 1',
       title: 'Mapujemy cykle',
       intro:
-        'Pierwszy krok to zorientowanie się, w jakiej fazie globalnego i regionalnego cyklu znajduje się rynek — od BTC po kadencję prezydencką i mapy makro.',
+        'Pierwszy krok to zorientowanie się, w jakiej fazie globalnego i regionalnego cyklu znajduje się rynek — od BTC po mapę regionalną i mapy makro.',
       sections: [
         {
           title: 'Bitcoin jako zegar krypto',
@@ -180,7 +180,7 @@ export const aboutDetailPl: AboutDetailBundle = {
         {
           title: 'Kadencja USA i regiony',
           body:
-            'Cykl prezydencki dla aktywów US; osobne snapshoty regionalne (EU, Azja, PL, EM) z oceną makro i listą reprezentatywnych instrumentów.',
+            'Neutralne makro USA dla aktywów US; osobne snapshoty regionalne (EU, Azja, PL, EM) z oceną makro i listą reprezentatywnych instrumentów.',
         },
         {
           title: 'Skaner łączy wszystko',
@@ -245,7 +245,7 @@ export const aboutDetailPl: AboutDetailBundle = {
       eyebrow: 'Metoda · Krok 4',
       title: 'Myślimy w latach',
       intro:
-        'Sygnały służą alokacji kapitału w horyzoncie wielu lat — cykle BTC i kadencja prezydencka trwają dłużej niż jedna sesja giełdowa.',
+        'Sygnały służą alokacji kapitału w horyzoncie wielu lat — cykl BTC i mapy regionalne trwają dłużej niż jedna sesja giełdowa.',
       sections: [
         {
           title: 'Cierpliwość jako edge',

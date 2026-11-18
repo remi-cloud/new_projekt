@@ -12,7 +12,11 @@ from app.config import settings
 from app.launch_scout import db as launch_db
 from app.launch_scout.client_binance_radar import fetch_binance_radar
 from app.launch_scout.client_bnb import fetch_flap_pairs, fetch_pancake_bsc_pairs, normalize_bnb_pair
-from app.launch_scout.client_4meme import fetch_recent_tokens as fetch_4meme_tokens, normalize_4meme_token
+from app.launch_scout.client_4meme import (
+    fetch_recent_tokens as fetch_4meme_tokens,
+    normalize_4meme_token,
+    source_status as four_meme_status,
+)
 from app.launch_scout.client_dexscreener import (
     best_pair,
     fetch_chain_search_pairs,
@@ -26,7 +30,7 @@ from app.launch_scout.client_dexscreener import (
 )
 from app.launch_scout.client_geckoterminal import fetch_new_pools, normalize_gecko_pool
 from app.launch_scout.client_pump_traders import fetch_top_traders_and_events
-from app.launch_scout.client_pumpfun import fetch_recent_coins, normalize_pump_coin
+from app.launch_scout.client_pumpfun import fetch_recent_coins, normalize_pump_coin, source_status as pump_status
 from app.launch_scout.scorer import finalize_candidate
 from app.launch_scout.terminal_url import ensure_candidate_urls
 from app.launch_scout.whispers import correlate_whisper_tags, ingest_whispers, whispers_enabled
@@ -106,10 +110,7 @@ async def get_launch_status() -> dict[str, Any]:
         "chains": sorted(_allowed_chains()),
         "last_tick_at": last_tick,
         "last_error": last_error or None,
-        "blocked_sources": [
-            {"id": "pump.fun", "status": "często zablokowane — pusta kolumna oznacza brak odpowiedzi źródła"},
-            {"id": "four.meme", "status": "często zablokowane — pusta kolumna oznacza brak odpowiedzi źródła"},
-        ],
+        "blocked_sources": [pump_status(), four_meme_status()],
         "last_warnings": last_warnings or None,
         "wallet_scout": wallet_scout or None,
         "counts": counts,

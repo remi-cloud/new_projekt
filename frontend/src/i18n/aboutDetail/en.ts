@@ -18,7 +18,7 @@ export const aboutDetailEn: AboutDetailBundle = {
             'After ATH, BTC often enters a bear phase (~364 days), then accumulation and a bull wave (~1064 days). The scanner tracks days since ATH, phase (bear / accumulation / bull / distribution) and phase progress % — a context filter for crypto and correlated assets.',
         },
         {
-          title: 'US presidential cycle',
+          title: 'neutral US macro weight',
           body:
             'Statistically, year 3 of a term tends to be strongest for the S&P 500, year 2 (midterms) weakest. The platform maps the current term year and historical bias — not as a guarantee, but as macro context for US-region assets.',
         },
@@ -29,7 +29,7 @@ export const aboutDetailEn: AboutDetailBundle = {
         },
       ],
       inAppTitle: 'Where to see it',
-      inAppBody: 'Cycles tab (BTC & presidential cards), global Dashboard, and ratings on Markets and Opportunities.',
+      inAppBody: 'Cycles tab (BTC & regional cards), global Dashboard, and ratings on Markets and Opportunities.',
     },
     'own-schemas': {
       eyebrow: 'Methodology · Models',
@@ -40,7 +40,7 @@ export const aboutDetailEn: AboutDetailBundle = {
         {
           title: 'Assessment layers',
           body:
-            'Each instrument goes through 52-week price context, BTC cycle alignment (crypto) or presidential cycle (US), RSI momentum and regional map. Output: Buy, Sell, Hold or Watch.',
+            'Each instrument goes through 52-week price context, BTC cycle alignment (crypto) or regional macro (US), RSI momentum and regional map. Output: Buy, Sell, Hold or Watch.',
         },
         {
           title: 'Signal confidence (%)',
@@ -170,7 +170,7 @@ export const aboutDetailEn: AboutDetailBundle = {
       eyebrow: 'Method · Step 1',
       title: 'We map cycles',
       intro:
-        'Step one: understand global and regional cycle phase — from BTC to the US presidential cadence and macro maps.',
+        'Step one: understand global and regional cycle phase — from BTC to the regional macro and macro maps.',
       sections: [
         {
           title: 'Bitcoin as crypto clock',
@@ -180,7 +180,7 @@ export const aboutDetailEn: AboutDetailBundle = {
         {
           title: 'US term & regions',
           body:
-            'Presidential cycle for US assets; regional snapshots (EU, Asia, PL, EM) with macro rating and representative instruments.',
+            'Neutral US weight; regional snapshots (EU, Asia, PL, EM) with macro rating and representative instruments.',
         },
         {
           title: 'Scanner combines all',
@@ -245,7 +245,7 @@ export const aboutDetailEn: AboutDetailBundle = {
       eyebrow: 'Method · Step 4',
       title: 'We think in years',
       intro:
-        'Signals serve capital allocation over many years — BTC and presidential cycles last longer than one trading session.',
+        'Signals serve capital allocation over many years — BTC and regional macros last longer than one trading session.',
       sections: [
         {
           title: 'Patience as edge',

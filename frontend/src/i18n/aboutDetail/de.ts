@@ -18,9 +18,9 @@ export const aboutDetailDe: AboutDetailBundle = {
             'Nach dem ATH durchläuft BTC oft eine Bärenphase (~364 Tage), dann Akkumulation und eine Bullenwelle (~1064 Tage). Der Scanner verfolgt Tage seit ATH, Phase (bear / accumulation / bull / distribution) und Phasenfortschritt in % — ein Kontextfilter für Krypto und korrelierte Assets.',
         },
         {
-          title: 'US-Präsidentschaftszyklus',
+          title: 'Neutrales US-Makro',
           body:
-            'Statistisch ist Jahr 3 einer Amtszeit für den S&P 500 am stärksten, Jahr 2 (Midterms) am schwächsten. Die Plattform bildet das aktuelle Amtsjahr und historische Tendenzen ab — nicht als Garantie, sondern als Makrokontext für US-Region-Assets.',
+            'Statistisch ist Jahr 3 einer Amtszeit für den S&P 500 am stärksten, Jahr 2 (Midterms) am schwächsten. Die Plattform bildet das aktuelle Neutralgewicht und historische Tendenzen ab — nicht als Garantie, sondern als Makrokontext für US-Region-Assets.',
         },
         {
           title: 'RSI-Momentum & regionale Karten',
@@ -29,7 +29,7 @@ export const aboutDetailDe: AboutDetailBundle = {
         },
       ],
       inAppTitle: 'Wo Sie es sehen',
-      inAppBody: 'Reiter Zyklen (BTC- & Präsidentschaftskarten), globales Dashboard sowie Bewertungen unter Märkte und Chancen.',
+      inAppBody: 'Reiter Zyklen (BTC- & regionale Karten), globales Dashboard sowie Bewertungen unter Märkte und Chancen.',
     },
     'own-schemas': {
       eyebrow: 'Methodologie · Modelle',
@@ -40,7 +40,7 @@ export const aboutDetailDe: AboutDetailBundle = {
         {
           title: 'Bewertungsebenen',
           body:
-            'Jedes Instrument durchläuft 52-Wochen-Preiskontext, BTC-Zyklus-Ausrichtung (Krypto) oder Präsidentschaftszyklus (US), RSI-Momentum und regionale Karte. Ergebnis: Kaufen, Verkaufen, Halten oder Beobachten.',
+            'Jedes Instrument durchläuft 52-Wochen-Preiskontext, BTC-Zyklus-Ausrichtung (Krypto) oder neutrales US-Makro (US), RSI-Momentum und regionale Karte. Ergebnis: Kaufen, Verkaufen, Halten oder Beobachten.',
         },
         {
           title: 'Signal-Konfidenz (%)',
@@ -170,7 +170,7 @@ export const aboutDetailDe: AboutDetailBundle = {
       eyebrow: 'Methode · Schritt 1',
       title: 'Wir kartieren Zyklen',
       intro:
-        'Schritt eins: globale und regionale Zyklusphase verstehen — von BTC bis US-Präsidentschaftsrythmus und Makro-Karten.',
+        'Schritt eins: globale und regionale Zyklusphase verstehen — von BTC bis US-regionales Makro und Makro-Karten.',
       sections: [
         {
           title: 'Bitcoin als Krypto-Uhr',
@@ -180,7 +180,7 @@ export const aboutDetailDe: AboutDetailBundle = {
         {
           title: 'US-Amtszeit & Regionen',
           body:
-            'Präsidentschaftszyklus für US-Assets; regionale Snapshots (EU, Asien, PL, EM) mit Makrobewertung und repräsentativen Instrumenten.',
+            'neutrales US-Makro für US-Assets; regionale Snapshots (EU, Asien, PL, EM) mit Makrobewertung und repräsentativen Instrumenten.',
         },
         {
           title: 'Scanner verbindet alles',
@@ -245,7 +245,7 @@ export const aboutDetailDe: AboutDetailBundle = {
       eyebrow: 'Methode · Schritt 4',
       title: 'Wir denken in Jahren',
       intro:
-        'Signale dienen der Kapitalallokation über viele Jahre — BTC- und Präsidentschaftszyklen dauern länger als eine Handelssitzung.',
+        'Signale dienen der Kapitalallokation über viele Jahre — BTC- und regionales Makroszyklen dauern länger als eine Handelssitzung.',
       sections: [
         {
           title: 'Geduld als Vorteil',
