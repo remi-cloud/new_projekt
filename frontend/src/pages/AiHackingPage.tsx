@@ -27,10 +27,7 @@ export function AiHackingPage() {
     load()
   }, [])
 
-  useEffect(() => {
-    if (!data?.parts.length) return
-    if (!data.parts.some((part) => part.id === partId)) setPartId(data.parts[0].id)
-  }, [data, partId])
+  const visibleId = data?.parts.some((part) => part.id === partId) ? partId : data?.parts[0]?.id
 
   if (error && !data) return <ErrorState message={error} onRetry={load} />
   if (!data) return <div className="page-loading">{t('aiHacking.loading')}</div>
@@ -53,8 +50,8 @@ export function AiHackingPage() {
             key={part.id}
             type="button"
             role="tab"
-            aria-selected={partId === part.id}
-            className={`chip${partId === part.id ? ' active' : ''}`}
+            aria-selected={visibleId === part.id}
+            className={`chip${visibleId === part.id ? ' active' : ''}`}
             onClick={() => setPartId(part.id)}
           >
             {PART_LABEL[part.id] ?? part.title}
@@ -62,7 +59,7 @@ export function AiHackingPage() {
         ))}
       </div>
 
-      {data.parts.filter((part) => part.id === partId).map((part) => (
+      {data.parts.filter((part) => part.id === visibleId).map((part) => (
         <section key={part.id} className="ai-hack-part" aria-labelledby={`ai-hack-${part.id}`}>
           <div className="about-section-head">
             <h3 id={`ai-hack-${part.id}`} className="about-section-title">

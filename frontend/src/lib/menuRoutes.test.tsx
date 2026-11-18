@@ -61,7 +61,7 @@ describe('AI security pages', () => {
       </LocaleProvider>,
     )
     expect(await screen.findByRole('heading', { name: 'AI i hacking' })).toBeTruthy()
-    expect(screen.getByText('Bezpieczeństwo')).toBeTruthy()
+    expect(await screen.findByText('Bezpieczeństwo')).toBeTruthy()
     vi.unstubAllGlobals()
   })
 
