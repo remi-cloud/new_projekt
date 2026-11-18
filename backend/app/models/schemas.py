@@ -437,9 +437,9 @@ class PaperPortfolio(BaseModel):
 
 class AiChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=4000)
-    session_id: str | None = None
-    locale: str = "pl"
-    symbol: str | None = None
+    session_id: str | None = Field(default=None, max_length=80)
+    locale: str = Field(default="pl", max_length=12)
+    symbol: str | None = Field(default=None, max_length=32)
 
 
 class AiChatResponse(BaseModel):
@@ -456,12 +456,12 @@ class AiChatResponse(BaseModel):
 
 
 class AiFeedbackRequest(BaseModel):
-    session_id: str
+    session_id: str = Field(min_length=1, max_length=80)
     message_id: int | None = None
     rating: int = Field(ge=1, le=5)
-    correction: str | None = None
-    question: str | None = None
-    answer: str | None = None
+    correction: str | None = Field(default=None, max_length=2000)
+    question: str | None = Field(default=None, max_length=4000)
+    answer: str | None = Field(default=None, max_length=8000)
 
 
 class AiStatusResponse(BaseModel):

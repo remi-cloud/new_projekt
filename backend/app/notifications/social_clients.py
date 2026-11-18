@@ -63,7 +63,11 @@ async def post_to_x(text: str) -> dict:
         "Content-Type": "application/json",
     }
     async with httpx.AsyncClient(timeout=30) as client:
-        r = await client.post(url, headers=headers, json={"text": text[:280]})
+        # Do not cut at 280. A short slice drops the source line and the article URL.
+        payload = text[:4000]
+        if "Źródło:" not in payload and "Source:" not in payload:
+            raise RuntimeError("Treść nie zawiera oznaczenia źródła")
+        r = await client.post(url, headers=headers, json={"text": payload})
     if r.status_code >= 400:
         raise RuntimeError(f"X API {r.status_code}: {r.text[:400]}")
     data = r.json()

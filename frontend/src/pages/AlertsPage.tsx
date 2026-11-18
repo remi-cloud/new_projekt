@@ -42,8 +42,8 @@ export function AlertsPage() {
       const saved = await saveAlertSettings(settings)
       setSettings(saved)
       setMessage(t('alerts.saved'))
-    } catch {
-      setMessage(t('alerts.saveError'))
+    } catch (e) {
+      setMessage(formatThrownError(e, t('alerts.saveError')))
     } finally {
       setSaving(false)
     }
@@ -97,8 +97,9 @@ export function AlertsPage() {
   }
 
   if (loading) return <div className="page-loading">{t('alerts.loading')}</div>
-  if (error) return <ErrorState message={error} onRetry={() => window.location.reload()} />
-  if (!settings || !status) return null
+  if (error || !settings || !status) {
+    return <ErrorState message={error || t('alerts.loadError')} onRetry={() => window.location.reload()} />
+  }
 
   return (
     <div className="alerts-page">

@@ -157,17 +157,19 @@ class DeskAuthMiddleware(BaseHTTPMiddleware):
                 content={"detail": "Biurko zamknięte. Ustaw CYCLICAL_DESK_TOKEN."},
             )
         supplied = supplied_desk_token(request)
-        if supplied and login_locked(request):
-            return JSONResponse(
-                status_code=429,
-                content={"detail": "Za dużo prób logowania. Spróbuj za 15 minut."},
-            )
         if not supplied:
             return JSONResponse(
                 status_code=401,
                 content={"detail": "Zaloguj biurko, żeby zmienić stan."},
             )
-        if not tokens_match(supplied, expected):
+        if tokens_match(supplied, expected):
+            note_login_success(request)
+        else:
+            if login_locked(request):
+                return JSONResponse(
+                    status_code=429,
+                    content={"detail": "Za dużo prób logowania. Spróbuj za 15 minut."},
+                )
             note_login_failure(request)
             return JSONResponse(status_code=401, content={"detail": "Zły token biurka."})
         if not csrf_ok(request):

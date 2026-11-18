@@ -79,8 +79,8 @@ export function InstrumentDetailPage() {
     }
   }, [symbol])
 
-  if (error && !data) return <ErrorState message={error} onRetry={reload} />
-  if ((loading && !data) || itemLoading) return <Loading message={t('layout.loading')} />
+  if (itemLoading || (loading && !data && !item)) return <Loading message={t('layout.loading')} />
+  if (error && !data && !item) return <ErrorState message={error} onRetry={reload} />
 
   if (itemError || !item) {
     return (

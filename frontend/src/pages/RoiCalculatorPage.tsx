@@ -213,7 +213,10 @@ export function RoiCalculatorPage() {
           role="tab"
           className={`roi-mode-tab ${mode === 'forward' ? 'active' : ''}`}
           aria-selected={mode === 'forward'}
-          onClick={() => setMode('forward')}
+          onClick={() => {
+            setMode('forward')
+            setResult(null)
+          }}
         >
           {t('roi.modeForward')}
         </button>
@@ -222,7 +225,10 @@ export function RoiCalculatorPage() {
           role="tab"
           className={`roi-mode-tab ${mode === 'backtest' ? 'active' : ''}`}
           aria-selected={mode === 'backtest'}
-          onClick={() => setMode('backtest')}
+          onClick={() => {
+            setMode('backtest')
+            setResult(null)
+          }}
         >
           {t('roi.modeBacktest')}
         </button>

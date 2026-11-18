@@ -292,7 +292,7 @@ async def test_published_feed_lists_a_sent_post(client):
         platform="x",
         news_id="force-listed",
         url="https://www.reuters.com/markets/fed",
-        title="Fed holds",
+        title="Federal Reserve interest rate decision",
         body=(
             "Źródło: Reuters\nhttps://www.reuters.com/markets/fed\n"
             "Fed holds rates\n— @robi44610 | Kar Digital"
@@ -305,6 +305,8 @@ async def test_published_feed_lists_a_sent_post(client):
         patch.object(sd.settings, "social_dry_run", False),
         patch.object(sd.settings, "public_base_url", "https://kardigital.example"),
         patch("app.notifications.social_dispatcher.x_configured", return_value=True),
+        patch.object(sd.social_db, "count_posted_since", new_callable=AsyncMock, return_value=0),
+        patch.object(sd.social_db, "posted_topic_keys", new_callable=AsyncMock, return_value=set()),
         patch(
             "app.notifications.social_dispatcher.post_to_x",
             new_callable=AsyncMock,
@@ -321,6 +323,76 @@ async def test_published_feed_lists_a_sent_post(client):
     assert match["source_name"] == "Reuters"
     assert match["source_url"] == "https://www.reuters.com/markets/fed"
     assert match["published_at"]
+
+
+@pytest.mark.asyncio
+async def test_manual_publish_rejects_a_cold_topic(client):
+    from app.notifications import social_dispatcher as sd
+
+    await init_social_db()
+    post_id = await insert_post(
+        platform="x",
+        news_id="force-cold",
+        url="https://www.reuters.com/markets/quiet",
+        title="Quiet session drifts",
+        body=(
+            "Źródło: Reuters\nhttps://www.reuters.com/markets/quiet\n"
+            "Quiet session drifts\n— @robi44610 | Kar Digital"
+        ),
+        source_name="Reuters",
+        media_path=None,
+        status="ready",
+    )
+    with (
+        patch.object(sd.settings, "social_dry_run", False),
+        patch.object(sd.settings, "public_base_url", "https://kardigital.example"),
+        patch("app.notifications.social_dispatcher.x_configured", return_value=True),
+        patch.object(sd.social_db, "count_posted_since", new_callable=AsyncMock, return_value=0),
+        patch.object(sd.social_db, "posted_topic_keys", new_callable=AsyncMock, return_value=set()),
+        patch("app.notifications.social_dispatcher.post_to_x", new_callable=AsyncMock) as post,
+    ):
+        response = client.post(f"/api/social/posts/{post_id}/publish")
+    assert response.status_code == 400
+    assert "progu" in response.json()["detail"]
+    post.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_auto_x_does_not_repost_the_same_topic_or_key():
+    from app.notifications import social_dispatcher as sd
+
+    await init_social_db()
+    now = datetime.now(timezone.utc)
+    first = _item(
+        id="dup-topic-1",
+        title="Federal Reserve interest rate decision",
+        summary="The Federal Reserve left interest rates unchanged.",
+        url="https://www.reuters.com/markets/fed-1",
+        source="Reuters",
+        published_at=now,
+    )
+    second = first.model_copy(update={"id": "dup-topic-2", "url": "https://www.reuters.com/markets/fed-2"})
+    with (
+        patch.object(sd, "post_to_x", new_callable=AsyncMock, return_value={"external_id": "9"}) as post,
+        patch.object(sd, "x_configured", return_value=True),
+        patch.object(sd.settings, "public_base_url", "https://kardigital.example"),
+        patch.object(sd.social_db, "count_posted_since", new_callable=AsyncMock, return_value=0),
+        patch.object(sd.social_db, "posted_topic_keys", new_callable=AsyncMock, return_value=set()),
+    ):
+        result = await sd.run_auto_x([first, second])
+    assert result["published"] == 1
+    assert post.await_count == 1
+
+    with (
+        patch.object(sd, "post_to_x", new_callable=AsyncMock) as again,
+        patch.object(sd, "x_configured", return_value=True),
+        patch.object(sd.settings, "public_base_url", "https://kardigital.example"),
+        patch.object(sd.social_db, "count_posted_since", new_callable=AsyncMock, return_value=0),
+        patch.object(sd.social_db, "posted_topic_keys", new_callable=AsyncMock, return_value=set()),
+    ):
+        repeat = await sd.run_auto_x([first])
+    assert repeat["published"] == 0
+    again.assert_not_called()
 
 
 def test_published_endpoint_has_no_secrets(client):

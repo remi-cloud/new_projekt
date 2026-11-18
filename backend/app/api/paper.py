@@ -50,7 +50,7 @@ async def paper_max_buy(symbol: str):
 async def paper_trades_for_symbol(symbol: str, limit: int = 200):
     from app.paper.paper_db import get_trades_for_symbol
 
-    rows = await get_trades_for_symbol(symbol, limit=limit)
+    rows = await get_trades_for_symbol(symbol, limit=max(1, min(int(limit), 200)))
     return [PaperTradeView(**r) for r in rows]
 
 

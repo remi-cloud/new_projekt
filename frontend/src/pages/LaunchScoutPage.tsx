@@ -13,6 +13,7 @@ export function LaunchScoutPage() {
   const [rows, setRows] = useState<LaunchCandidate[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -36,10 +37,10 @@ export function LaunchScoutPage() {
     return () => {
       cancelled = true
     }
-  }, [tier, t])
+  }, [tier, t, reloadKey])
 
   if (loading && !status) return <Loading message={t('launchPage.loading')} />
-  if (error && !status) return <ErrorState message={error} onRetry={() => setTier((cur) => cur)} />
+  if (error && !status) return <ErrorState message={error} onRetry={() => setReloadKey((n) => n + 1)} />
 
   const quiet = !status?.enabled || Boolean(status?.last_error)
 

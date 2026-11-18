@@ -43,6 +43,61 @@ async def test_redirect_to_metadata_is_not_followed(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_rss_fetch_does_not_call_a_link_local_url():
+    from app.news.macro_news import _fetch_one_feed
+
+    class Client:
+        async def get(self, url, **kwargs):
+            raise AssertionError(url)
+
+    rows = await _fetch_one_feed(Client(), "http://169.254.169.254/rss", "meta", "global")
+    assert rows == []
+
+
+@pytest.mark.asyncio
+async def test_post_to_x_does_not_cut_the_source_line(monkeypatch):
+    from app.notifications.social_clients import post_to_x
+
+    seen: dict[str, str] = {}
+
+    class Response:
+        status_code = 201
+        text = ""
+
+        def json(self):
+            return {"data": {"id": "77"}}
+
+    class Client:
+        def __init__(self, *args, **kwargs):
+            del args, kwargs
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return None
+
+        async def post(self, url, headers=None, json=None):
+            del url, headers
+            seen["text"] = json["text"]
+            return Response()
+
+    body = (
+        "Federal Reserve interest rate decision. " + ("rynek " * 40)
+        + "\nŹródło: Reuters\nhttps://www.reuters.com/markets/fed\n— @robi44610 | Kar Digital"
+    )
+    assert len(body) > 280
+    monkeypatch.setattr("app.notifications.social_clients.httpx.AsyncClient", Client)
+    monkeypatch.setattr("app.notifications.social_clients.settings.x_api_key", "key")
+    monkeypatch.setattr("app.notifications.social_clients.settings.x_api_secret", "secret")
+    monkeypatch.setattr("app.notifications.social_clients.settings.x_access_token", "token")
+    monkeypatch.setattr("app.notifications.social_clients.settings.x_access_token_secret", "token-secret")
+    await post_to_x(body)
+    assert seen["text"] == body
+    assert "Źródło: Reuters" in seen["text"]
+
+
+@pytest.mark.asyncio
 async def test_image_helper_refuses_metadata():
     from app.news.image_sources import download_image
 

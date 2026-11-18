@@ -85,5 +85,7 @@ def test_wrong_token_on_a_write_locks_the_client(client: TestClient, monkeypatch
     ]
     assert codes[:5] == [401, 401, 401, 401, 401]
     assert codes[5] == 429
+    opened = client.post("/api/paper/reset", headers={"X-Desk-Token": "prawidlowy-token"})
+    assert opened.status_code not in (401, 429)
     reset_login_guard()
     _HITS.clear()

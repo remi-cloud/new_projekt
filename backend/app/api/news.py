@@ -25,6 +25,7 @@ from app.realtime.broadcaster import broadcaster
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["news"])
 _last_full_refresh = 0.0
+_refresh_lock = asyncio.Lock()
 
 
 async def on_news_image_ready(news_id: str, image_url: str) -> None:
@@ -67,6 +68,11 @@ async def macro_news(category: str | None = None, limit: int = 50, lang: str | N
 
 @router.post("/api/news/macro/refresh", response_model=MacroNewsFeed)
 async def macro_news_refresh(lang: str | None = None):
+    async with _refresh_lock:
+        return await _macro_news_refresh_locked(lang)
+
+
+async def _macro_news_refresh_locked(lang: str | None = None):
     global _last_full_refresh
     gap = max(30, int(getattr(settings, "news_refresh_min_gap_seconds", 300) or 300))
     now = time.monotonic()

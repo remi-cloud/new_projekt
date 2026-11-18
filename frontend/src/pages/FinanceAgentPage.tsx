@@ -61,6 +61,7 @@ export function FinanceAgentPage() {
   const scrollRef = useRef<HTMLDivElement>(null)
   const seededRef = useRef(false)
   const skipNextHistoryRef = useRef(false)
+  const historyGenRef = useRef(0)
   const symbolRef = useRef(symbol)
   const knownRef = useRef<string[]>([])
   const requestGenRef = useRef(0)
@@ -107,8 +108,10 @@ export function FinanceAgentPage() {
       skipNextHistoryRef.current = false
       return
     }
+    const gen = ++historyGenRef.current
     fetchAiHistory(sessionId)
       .then((data) => {
+        if (gen !== historyGenRef.current) return
         setMessages(
           data.messages.map((m: AiMessage) => ({
             id: m.id,
@@ -168,6 +171,7 @@ export function FinanceAgentPage() {
       const requested = canonicalizeToolbarSymbol()
       if (!requested) return
       const gen = ++requestGenRef.current
+      historyGenRef.current += 1
       setError(null)
       setLoading(true)
       setLastQuestion(q)
@@ -239,6 +243,7 @@ export function FinanceAgentPage() {
     const sym = canonicalizeToolbarSymbol()
     if (!sym) return
     const gen = ++requestGenRef.current
+    historyGenRef.current += 1
     setError(null)
     setLoading(true)
     setLastQuestion(t('agent.analyzeOnly').replace('{{symbol}}', sym))

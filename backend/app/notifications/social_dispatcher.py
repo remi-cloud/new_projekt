@@ -134,11 +134,17 @@ async def publish_post(post_id: int, *, force: bool = False) -> dict:
         raise DryRunPublicationBlocked("czeka na domenę")
 
     if platform == "x":
-        now = datetime.now(timezone.utc)
-        posted_hour = await social_db.count_posted_since("x", (now - timedelta(hours=1)).isoformat())
-        max_per_hour = int(getattr(settings, "social_auto_max_per_hour", 2) or 2)
-        if posted_hour >= max_per_hour:
-            raise RuntimeError(f"limit {max_per_hour} postów na godzinę")
+        decision = await _manual_x_decision(post)
+        if decision.action != "publish":
+            await social_db.insert_decision(
+                news_id=str(post.get("news_id") or ""),
+                title=str(post.get("title") or ""),
+                source=str(post.get("source_name") or ""),
+                action="odrzucono",
+                reason=decision.reason,
+                score=decision.score,
+            )
+            raise RuntimeError(decision.reason)
 
     try:
         result = await _publish_live(platform, post["body"])
@@ -158,6 +164,44 @@ async def publish_post(post_id: int, *, force: bool = False) -> dict:
         await social_db.update_post_status(post_id, status="failed", error=str(exc)[:500])
         logger.warning("Social publish failed id=%s: %s", post_id, exc)
         raise
+
+
+def _as_utc(raw: str | None) -> datetime:
+    if not raw:
+        return datetime.now(timezone.utc)
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return datetime.now(timezone.utc)
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+async def _manual_x_decision(post: dict) -> AutoDecision:
+    """Same hottest-topic gate as auto-X, scored from the stored post."""
+    now = datetime.now(timezone.utc)
+    posted_day = await social_db.count_posted_since("x", (now - timedelta(hours=24)).isoformat())
+    posted_hour = await social_db.count_posted_since("x", (now - timedelta(hours=1)).isoformat())
+    topics = await social_db.posted_topic_keys("x", (now - timedelta(hours=24)).isoformat())
+    title = str(post.get("title") or "")
+    return evaluate_auto(
+        source=post.get("source_name"),
+        url=post.get("url"),
+        title=title,
+        summary=title,
+        impact="medium",
+        category="global",
+        published_at=_as_utc(post.get("created_at")),
+        now=now,
+        confirming_sources=1,
+        posted_last_day=posted_day,
+        recent_topics=topics,
+        min_score=int(getattr(settings, "social_auto_min_score", 70) or 70),
+        max_per_day=int(getattr(settings, "social_auto_max_per_day", 2) or 2),
+        posted_last_hour=posted_hour,
+        max_per_hour=int(getattr(settings, "social_auto_max_per_hour", 2) or 2),
+    )
 
 
 def public_x_record(post: dict) -> dict:
@@ -257,15 +301,21 @@ async def run_auto_x(items: list[MacroNewsItem], locale: str = "pl") -> dict:
     published_hour = 0
     for decision, item in ranked:
         final = decision
-        if final.action == "publish" and posted_hour + published_hour >= max_per_hour:
-            final = AutoDecision("reject", f"limit {max_per_hour} postów na godzinę", final.score, final.topic)
-        if final.action == "publish" and posted + published >= max_per_day:
-            final = AutoDecision("reject", f"limit {max_per_day} postów na dobę", final.score, final.topic)
         if final.action == "publish" and not x_configured():
             final = AutoDecision("reject", "brak tokenów X", final.score, final.topic)
         if final.action == "publish" and not live_domain_ready():
             logger.info("czeka na domenę")
             final = AutoDecision("reject", "czeka na domenę", final.score, final.topic)
+        if final.action == "publish" and posted_hour + published_hour >= max_per_hour:
+            final = AutoDecision("reject", f"limit {max_per_hour} postów na godzinę", final.score, final.topic)
+        if final.action == "publish" and posted + published >= max_per_day:
+            final = AutoDecision("reject", f"limit {max_per_day} postów na dobę", final.score, final.topic)
+        if final.action == "publish" and final.topic and final.topic in topics:
+            final = AutoDecision("reject", "duplikat tematu", final.score, final.topic)
+        if final.action == "publish":
+            content = social_db.content_key("x", item.id, item.url)
+            if await social_db.has_content_key(content):
+                final = AutoDecision("reject", "duplikat tematu", final.score, final.topic)
         if final.action == "publish":
             composed = compose_x(item, locale)
             try:
@@ -275,19 +325,18 @@ async def run_auto_x(items: list[MacroNewsItem], locale: str = "pl") -> dict:
                 final = AutoDecision("reject", str(exc)[:180], final.score, final.topic)
             else:
                 posted_at = datetime.now(timezone.utc).isoformat()
-                if not await social_db.has_content_key(social_db.content_key("x", item.id, item.url)):
-                    await social_db.insert_post(
-                        platform="x",
-                        news_id=item.id,
-                        url=item.url,
-                        title=composed.title,
-                        body=composed.body,
-                        media_path=None,
-                        status="posted",
-                        external_id=result.get("external_id"),
-                        posted_at=posted_at,
-                        source_name=item.source,
-                    )
+                await social_db.insert_post(
+                    platform="x",
+                    news_id=item.id,
+                    url=item.url,
+                    title=composed.title,
+                    body=composed.body,
+                    media_path=None,
+                    status="posted",
+                    external_id=result.get("external_id"),
+                    posted_at=posted_at,
+                    source_name=item.source,
+                )
                 published += 1
                 published_hour += 1
                 topics.add(final.topic)

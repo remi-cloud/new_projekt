@@ -133,7 +133,7 @@ def test_unconfirmed_single_source_is_rejected():
 
 @pytest.mark.asyncio
 async def test_auto_unwraps_google_news_to_publisher_host():
-    from unittest.mock import patch
+    from unittest.mock import AsyncMock, patch
 
     from app.models.schemas import MacroNewsItem
     from app.news.social_db import init_social_db, list_decisions
@@ -158,6 +158,8 @@ async def test_auto_unwraps_google_news_to_publisher_host():
         patch.object(sd, "ensure_clickable_url", new=_unwrap),
         patch.object(sd, "x_configured", return_value=False),
         patch.object(sd.settings, "public_base_url", "https://kardigital.example"),
+        patch.object(sd.social_db, "count_posted_since", new=AsyncMock(return_value=0)),
+        patch.object(sd.social_db, "posted_topic_keys", new=AsyncMock(return_value=set())),
     ):
         await sd.run_auto_x([item])
     rows = await list_decisions(10)

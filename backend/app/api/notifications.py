@@ -15,7 +15,7 @@ from app.notifications.credentials import save_twilio_credentials, twilio_is_con
 from app.notifications.ntfy import send_ntfy_test
 from app.notifications.push import get_vapid_public_key, vapid_configured
 from app.notifications.sms_test import send_sms_test
-from app.desk_auth import tokens_match
+from app.desk_auth import supplied_desk_token, tokens_match
 
 router = APIRouter(tags=["notifications"])
 
@@ -24,8 +24,8 @@ _PHONE = re.compile(r"\+?\d[\d\s\-()]{6,}\d")
 
 def _desk_open(request: Request) -> bool:
     expected = (settings.desk_token or "").strip()
-    supplied = request.headers.get("x-desk-token", "")
-    return bool(expected) and tokens_match(supplied, expected)
+    supplied = supplied_desk_token(request)
+    return bool(expected) and bool(supplied) and tokens_match(supplied, expected)
 
 
 def _mask_phone(phone: str) -> str:

@@ -91,6 +91,26 @@ def test_login_locks_after_five_failures(client: TestClient, monkeypatch):
     _HITS.clear()
 
 
+def test_notification_cookie_shows_the_desk_topic(client: TestClient, monkeypatch):
+    from app.desk_auth import reset_login_guard
+
+    reset_login_guard()
+    monkeypatch.setattr(settings, "desk_token", "pytest-desk")
+    client.cookies.clear()
+    saved = client.put(
+        "/api/notifications/settings",
+        json={"phone": "+48111222333", "sms_enabled": False, "ntfy_enabled": True, "ntfy_topic": "sekret-temat"},
+    )
+    assert saved.status_code == 200
+    login = client.post("/api/desk/login", json={"token": "pytest-desk"}, headers={"X-Desk-Token": ""})
+    assert login.status_code == 200
+    opened = client.get("/api/notifications/status", headers={"X-Desk-Token": ""})
+    assert "sekret-temat" in opened.text
+    client.cookies.clear()
+    hidden = client.get("/api/notifications/status", headers={"X-Desk-Token": ""})
+    assert "sekret-temat" not in hidden.text
+
+
 def test_notification_phone_is_hidden_without_the_desk(client: TestClient, monkeypatch):
     monkeypatch.setattr(settings, "desk_token", "pytest-desk")
     saved = client.put(
@@ -103,6 +123,19 @@ def test_notification_phone_is_hidden_without_the_desk(client: TestClient, monke
     assert "111222333" not in hidden.text
     assert "sekret-temat" not in hidden.text
     assert body["settings"]["phone"].startswith("•••")
+
+
+def test_opportunity_history_limit_is_clamped(client: TestClient, monkeypatch):
+    seen: dict[str, int] = {}
+
+    async def fake(limit: int = 50):
+        seen["limit"] = limit
+        return []
+
+    monkeypatch.setattr("app.api.dashboard.get_recent_opportunities", fake)
+    response = client.get("/api/opportunities/history", params={"limit": -5})
+    assert response.status_code == 200
+    assert seen["limit"] == 1
 
 
 def test_notification_log_limit_is_clamped(client: TestClient):
