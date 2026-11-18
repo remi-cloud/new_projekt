@@ -15,6 +15,18 @@ export function readDeskToken(): string {
   return ''
 }
 
+export async function deskSessionOpen(): Promise<boolean> {
+  dropLegacyToken()
+  try {
+    const res = await apiFetch(`${API_BASE}/desk/status`)
+    if (!res.ok) return false
+    const body = (await res.json()) as { authenticated?: boolean }
+    return Boolean(body.authenticated)
+  } catch {
+    return false
+  }
+}
+
 export function writeDeskToken(_value: string): void {
   dropLegacyToken()
   window.dispatchEvent(new Event('desk-auth'))

@@ -338,8 +338,6 @@ async def run_auto_x(items: list[MacroNewsItem], locale: str = "pl") -> dict:
             final = AutoDecision("reject", "tryb próbny (DRY-RUN)", final.score, final.topic)
         if final.action == "publish" and not x_configured():
             final = AutoDecision("reject", "brak tokenów X", final.score, final.topic)
-        if final.action == "publish" and settings.social_dry_run:
-            final = AutoDecision("reject", "tryb próbny (DRY-RUN)", final.score, final.topic)
         if final.action == "publish" and not live_domain_ready():
             logger.info("czeka na domenę")
             final = AutoDecision("reject", "czeka na domenę", final.score, final.topic)

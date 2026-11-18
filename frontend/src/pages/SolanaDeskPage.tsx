@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ErrorState, Loading } from '../components/Loading'
-import { readDeskToken } from '../lib/deskAuth'
+import { deskSessionOpen } from '../lib/deskAuth'
 import {
   fetchSolanaJournal,
   fetchSolanaStatus,
@@ -49,14 +49,23 @@ export function SolanaDeskPage() {
   const [journal, setJournal] = useState<SolanaJournal>({ trades: [], events: [] })
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState('')
-  const [desk, setDesk] = useState(() => readDeskToken().length > 0)
+  const [desk, setDesk] = useState(false)
   const [form, setForm] = useState<Record<string, string>>({})
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    const sync = () => setDesk(readDeskToken().length > 0)
+    let alive = true
+    const sync = () => {
+      void deskSessionOpen().then((open) => {
+        if (alive) setDesk(open)
+      })
+    }
+    sync()
     window.addEventListener('desk-auth', sync)
-    return () => window.removeEventListener('desk-auth', sync)
+    return () => {
+      alive = false
+      window.removeEventListener('desk-auth', sync)
+    }
   }, [])
 
   useEffect(() => {

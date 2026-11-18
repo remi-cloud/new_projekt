@@ -63,7 +63,9 @@ async def initial_news() -> None:
 async def macro_news(category: str | None = None, limit: int = 50, lang: str | None = None):
     if category and category not in ("all", "fed", "usa", "macro", "global", "musk", "crypto"):
         raise HTTPException(status_code=400, detail="Category: all, fed, usa, macro, global, musk, crypto")
-    return await get_macro_news(category=category, limit=min(limit, 100), locale=lang)
+    from app.query_bounds import bounded_limit
+
+    return await get_macro_news(category=category, limit=bounded_limit(limit, 100), locale=lang)
 
 
 @router.post("/api/news/macro/refresh", response_model=MacroNewsFeed)

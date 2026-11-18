@@ -104,7 +104,16 @@ describe('Solana Desk', () => {
   })
 
   it('po tokenie biurka puszcza start', async () => {
-    sessionStorage.setItem('cyclical-desk-token', 'pytest-desk')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.includes('/desk/status')) {
+          return new Response(JSON.stringify({ configured: true, authenticated: true }), { status: 200 })
+        }
+        return new Response('{}', { status: 404 })
+      }),
+    )
     render(
       <LocaleProvider>
         <MemoryRouter>
@@ -114,5 +123,6 @@ describe('Solana Desk', () => {
     )
     const start = await screen.findByRole('button', { name: 'Start' })
     expect((start as HTMLButtonElement).disabled).toBe(false)
+    vi.unstubAllGlobals()
   })
 })
