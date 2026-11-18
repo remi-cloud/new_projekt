@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
+import time
 from datetime import datetime, timezone
 
 import httpx
@@ -16,6 +18,58 @@ SOL_MINT = "So11111111111111111111111111111111111111112"
 _EMPTY_AUTHORITY = {"", "none", "null", "11111111111111111111111111111111"}
 _POOL_WORDS = ("raydium", "pumpswap", "pump.fun", "bonding", "amm", "liquidity", "pool", "meteora", "orca")
 _UA = {"User-Agent": "Mozilla/5.0 CyklicznyTrader/solana-desk", "Accept": "application/json"}
+_REPORT_TTL = 600.0
+_REPORT_FAIL_TTL = 120.0
+_REPORT_CACHE: dict[str, tuple[float, dict | None]] = {}
+_MISS = object()
+
+
+def clear_report_cache() -> None:
+    _REPORT_CACHE.clear()
+
+
+async def _pause(seconds: float) -> None:
+    await asyncio.sleep(seconds)
+
+
+def _pct(value: object) -> float:
+    if isinstance(value, str):
+        value = value.strip().rstrip("%")
+    return finite(value)
+
+
+def screen_tokens(tokens: list[TokenView], settings: dict) -> list[TokenView]:
+    """Cheap DexScreener gate. Highest volume, then liquidity, then 5m rise."""
+    min_liq = finite(settings.get("min_liquidity_usd"), 1500)
+    min_vol = finite(settings.get("min_volume_usd"), 400)
+    min_age = finite(settings.get("min_age_minutes"), 2)
+    max_age = finite(settings.get("max_age_hours"), 72) * 60
+    picked: list[TokenView] = []
+    seen: set[str] = set()
+    for token in tokens:
+        mint = (token.mint or "").strip()
+        if not mint or mint in seen:
+            continue
+        if token.venue not in {"pump", "pump_fun", "pumpswap", "raydium"} and not mint.endswith("pump"):
+            continue
+        if finite(token.price_usd) <= 0:
+            continue
+        if finite(token.liquidity_usd) < min_liq or finite(token.volume_usd) < min_vol:
+            continue
+        age = finite(token.age_minutes)
+        if age < min_age or (max_age > 0 and age > max_age):
+            continue
+        seen.add(mint)
+        picked.append(token)
+    picked.sort(
+        key=lambda item: (
+            finite(item.volume_usd),
+            finite(item.liquidity_usd),
+            max(finite(item.change_5m_pct), 0.0),
+        ),
+        reverse=True,
+    )
+    return picked
 
 
 def _now() -> datetime:
@@ -153,14 +207,16 @@ def _holder_pcts(report: dict) -> tuple[float | None, float | None, float | None
         label = f"{address} {owner} {holder.get('name') or ''}".lower()
         if address in pools or owner in pools or any(word in label for word in _POOL_WORDS):
             continue
-        pct = finite(holder.get("pct"))
+        pct = _pct(holder.get("pct"))
         ranked.append(pct)
         if creator and (owner == creator or address == creator or holder.get("insider") is True):
             dev = max(dev, pct)
             dev_known = True
     if creator and not dev_known:
         dev_known = True
-        dev = 0.0
+        supply = finite((report.get("token") or {}).get("supply")) if isinstance(report.get("token"), dict) else 0.0
+        held = finite(report.get("creatorBalance"))
+        dev = (held / supply * 100.0) if supply > 0 and held > 0 else 0.0
     if not ranked and not holders:
         return None, None, None
     ranked.sort(reverse=True)
@@ -257,18 +313,20 @@ class MarketClient:
     def __init__(self, client: httpx.AsyncClient | None = None) -> None:
         self._client = client
 
-    async def snapshot(self, held_mints: list[str]) -> MarketSnapshot:
+    async def snapshot(self, held_mints: list[str], screen: dict | None = None) -> MarketSnapshot:
         errors: list[str] = []
-        async with httpx.AsyncClient(timeout=8.0, headers=_UA, follow_redirects=False) as client:
+        pending = 0
+        async with httpx.AsyncClient(timeout=12.0, headers=_UA, follow_redirects=False) as client:
             http = self._client or client
             sol_usd = await self._sol_usd(http, errors)
-            discovered = await self._discover(http, errors)
+            discovered, pending = await self._discover(http, errors, screen or {})
             quotes = await self._quotes(http, held_mints, errors)
         return MarketSnapshot(
             sol_usd=sol_usd,
             discovered=list(discovered.values()),
             quotes=quotes,
             error="; ".join(errors[:3]),
+            risk_pending=pending,
         )
 
     async def _sol_usd(self, client: httpx.AsyncClient, errors: list[str]) -> float:
@@ -292,24 +350,33 @@ class MarketClient:
                 chosen = price
         return chosen
 
-    async def _discover(self, client: httpx.AsyncClient, errors: list[str]) -> dict[str, TokenView]:
+    async def _discover(
+        self,
+        client: httpx.AsyncClient,
+        errors: list[str],
+        screen: dict,
+    ) -> tuple[dict[str, TokenView], int]:
         found: dict[str, TokenView] = {}
         now = _now()
         await self._load_new(client, found, now, errors)
         await self._load_search(client, found, now, errors)
         await self._load_profiles(client, found, errors)
-        mints = list(found)[:20]
-        await self._attach_pairs(client, found, mints, now, errors)
-        shortlist = [
-            mint
-            for mint, token in found.items()
-            if token.price_usd > 0 or token.liquidity_usd > 0 or mint.endswith("pump")
-        ][:4]
-        for mint in shortlist:
-            report = await self._rugcheck(client, mint, errors)
-            if report:
-                found[mint] = apply_rugcheck(found[mint], report)
-        return found
+        mints = list(found)
+        for offset in range(0, len(mints), 25):
+            await self._attach_pairs(client, found, mints[offset : offset + 25], now, errors)
+        ranked = screen_tokens(list(found.values()), screen)
+        top_n = max(1, min(int(finite(screen.get("rugcheck_top_n"), 15)), 30))
+        chosen = ranked[:top_n]
+        pending = max(0, len(ranked) - len(chosen))
+        reports = await self._rugcheck_many(client, [token.mint for token in chosen], errors)
+        ready: dict[str, TokenView] = {}
+        for token in chosen:
+            report = reports.get(token.mint)
+            if not report:
+                pending += 1
+                continue
+            ready[token.mint] = apply_rugcheck(token, report)
+        return ready, pending
 
     async def _load_new(self, client, found, now, errors) -> None:
         try:
@@ -338,7 +405,7 @@ class MarketClient:
             except (httpx.HTTPError, ValueError) as exc:
                 errors.append(f"dex {query}: {exc.__class__.__name__}")
                 continue
-            for raw in (body.get("pairs") or [])[:20]:
+            for raw in (body.get("pairs") or [])[:30]:
                 token = parse_dex_pair(raw, now)
                 if token and token.venue in {"pumpswap", "pump_fun", "raydium"}:
                     found[token.mint] = _merge(found.get(token.mint, token), token) if token.mint in found else token
@@ -427,12 +494,68 @@ class MarketClient:
             if price > 0:
                 quotes[mint] = TokenView(mint=mint, symbol=mint[:4], price_usd=price, venue="birdeye")
 
+    async def _rugcheck_many(
+        self,
+        client: httpx.AsyncClient,
+        mints: list[str],
+        errors: list[str],
+    ) -> dict[str, dict | None]:
+        sem = asyncio.Semaphore(4)
+
+        async def one(mint: str) -> tuple[str, dict | None]:
+            cached = _cache_get(mint)
+            if cached is not _MISS:
+                return mint, cached  # type: ignore[return-value]
+            async with sem:
+                again = _cache_get(mint)
+                if again is not _MISS:
+                    return mint, again  # type: ignore[return-value]
+                report = await self._rugcheck(client, mint, errors)
+                _cache_put(mint, report)
+                return mint, report
+
+        pairs = await asyncio.gather(*(one(mint) for mint in mints))
+        return dict(pairs)
+
     async def _rugcheck(self, client, mint: str, errors: list[str]) -> dict | None:
-        try:
-            response = await client.get(f"https://api.rugcheck.xyz/v1/tokens/{mint}/report")
-            response.raise_for_status()
-            body = response.json()
-        except (httpx.HTTPError, ValueError) as exc:
-            errors.append(f"rugcheck: {exc.__class__.__name__}")
-            return None
-        return body if isinstance(body, dict) else None
+        delay = 0.5
+        last_error = ""
+        for _attempt in range(4):
+            try:
+                response = await client.get(f"https://api.rugcheck.xyz/v1/tokens/{mint}/report")
+            except (httpx.HTTPError, ValueError) as exc:
+                last_error = exc.__class__.__name__
+                break
+            status = getattr(response, "status_code", 200)
+            if status == 429:
+                last_error = "429"
+                await _pause(delay)
+                delay *= 2
+                continue
+            if status >= 400:
+                last_error = str(status)
+                break
+            try:
+                body = response.json()
+            except ValueError:
+                last_error = "ValueError"
+                break
+            return body if isinstance(body, dict) else None
+        if last_error:
+            errors.append(f"rugcheck: {last_error}")
+        return None
+
+
+def _cache_get(mint: str) -> dict | None | object:
+    hit = _REPORT_CACHE.get(mint)
+    if not hit:
+        return _MISS
+    stored_at, report = hit
+    ttl = _REPORT_TTL if report else _REPORT_FAIL_TTL
+    if time.monotonic() - stored_at > ttl:
+        return _MISS
+    return report
+
+
+def _cache_put(mint: str, report: dict | None) -> None:
+    _REPORT_CACHE[mint] = (time.monotonic(), report)

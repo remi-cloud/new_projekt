@@ -46,6 +46,7 @@ class MarketSnapshot:
     discovered: list[TokenView] = field(default_factory=list)
     quotes: dict[str, TokenView] = field(default_factory=dict)
     error: str = ""
+    risk_pending: int = 0
 
 
 @dataclass(frozen=True)
@@ -90,13 +91,20 @@ DEFAULT_SETTINGS: dict[str, float | int] = {
     "slippage_base_bps": 50.0,
     "max_slippage_bps": 100.0,
     "min_reserve_sol": 0.05,
+    "rugcheck_top_n": 15,
 }
 
 
 def fresh_agents() -> dict[str, dict[str, float | int | str]]:
     return {
         "scout": {"seen": 0, "note": "Czeka na pierwszy obieg."},
-        "checker": {"passed": 0, "rejected": 0, "note": "Czeka na kandydatów."},
+        "checker": {
+            "passed": 0,
+            "rejected": 0,
+            "pending_risk": 0,
+            "note": "Czeka na kandydatów.",
+            "reasons": {},
+        },
         "sniper": {"entries": 0, "skipped": 0, "note": "Bez wejść."},
         "exit": {"exits": 0, "note": "Bez wyjść."},
     }

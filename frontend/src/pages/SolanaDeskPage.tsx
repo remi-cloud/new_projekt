@@ -167,7 +167,8 @@ export function SolanaDeskPage() {
           const agent = status.agents?.[id] || {}
           const figure =
             id === 'scout' ? agent.seen ?? 0
-            : id === 'checker' ? `${agent.passed ?? 0} / ${agent.rejected ?? 0}`
+            : id === 'checker'
+              ? `${agent.passed ?? 0} / ${agent.rejected ?? 0}${agent.pending_risk ? ` · czeka ${agent.pending_risk}` : ''}`
             : id === 'sniper' ? agent.entries ?? 0
             : agent.exits ?? 0
           return (

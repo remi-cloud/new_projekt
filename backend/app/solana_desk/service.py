@@ -34,7 +34,7 @@ from app.solana_desk.models import MarketSnapshot, TokenView, finite
 from app.solana_desk.real_gate import RealTradingLocked, gate_reason, real_mode_view, redact
 from app.solana_desk.risk import assess_risk
 
-_INT_KEYS = {"time_stop_minutes", "max_open", "slippage_base_bps", "max_slippage_bps"}
+_INT_KEYS = {"time_stop_minutes", "max_open", "slippage_base_bps", "max_slippage_bps", "rugcheck_top_n"}
 _BOUNDS: dict[str, tuple[float, float]] = {
     "starting_sol": (0.05, 100),
     "position_sol": (0.01, 10),
@@ -59,6 +59,7 @@ _BOUNDS: dict[str, tuple[float, float]] = {
     "slippage_base_bps": (1, 300),
     "max_slippage_bps": (1, 300),
     "min_reserve_sol": (0, 5),
+    "rugcheck_top_n": (1, 30),
 }
 
 
@@ -441,7 +442,15 @@ async def _manage_open(book, rows, snapshot, prices, now) -> None:
         await upsert_position(row)
 
 
+def _count_reject(book: dict, reasons: tuple[str, ...]) -> None:
+    bucket = book.setdefault("agents", {}).setdefault("checker", {}).setdefault("reasons", {})
+    for reason in reasons:
+        bucket[reason] = int(bucket.get(reason) or 0) + 1
+
+
 async def _stage_entries(book, rows, snapshot: MarketSnapshot, now: datetime) -> None:
+    checker = book.setdefault("agents", {}).setdefault("checker", {})
+    checker["pending_risk"] = int(snapshot.risk_pending or 0)
     if book.get("kill_switch") or not book.get("running", True):
         _note(book, "sniper", "Nowe wejścia wstrzymane.")
         return
@@ -463,12 +472,18 @@ async def _stage_entries(book, rows, snapshot: MarketSnapshot, now: datetime) ->
         if token.mint in held or token.mint in history:
             continue
         fresh = token.mint not in known
+        if not token.risk_ready:
+            if fresh:
+                checker["pending_risk"] = int(checker.get("pending_risk") or 0) + 1
+                memory.append(token.mint)
+            continue
         verdict = assess_risk(token, settings)
         if fresh:
             if verdict.ok:
                 _bump(book, "checker", "passed")
             elif verdict.reasons != ("token za młody",):
                 _bump(book, "checker", "rejected")
+                _count_reject(book, verdict.reasons)
                 memory.append(token.mint)
             _note(
                 book,
@@ -569,7 +584,8 @@ async def run_tick(snapshot: MarketSnapshot | None = None) -> dict:
             return {"ok": True, "skipped": "lock"}
         held = [row["mint"] for row in await list_positions()]
         try:
-            snapshot = await MarketClient().snapshot(held)
+            screen = (await load_book()).get("settings") or {}
+            snapshot = await MarketClient().snapshot(held, screen)
         except Exception as exc:  # noqa: BLE001 — public feeds fail closed
             snapshot = MarketSnapshot(sol_usd=0, error=exc.__class__.__name__)
     return await apply_snapshot(snapshot)
@@ -668,6 +684,7 @@ async def status_view() -> dict:
             }
         )
     view = real_mode_view(await read_armed())
+    checker = (book.get("agents") or {}).get("checker") or {}
     view.update(
         {
             "running": bool(book.get("running", True)),
@@ -692,6 +709,8 @@ async def status_view() -> dict:
             "agents": book.get("agents") or {},
             "positions": positions,
             "report": await latest_report(),
+            "checker_reasons": checker.get("reasons") or {},
+            "checker_pending_risk": int(checker.get("pending_risk") or 0),
         }
     )
     return view

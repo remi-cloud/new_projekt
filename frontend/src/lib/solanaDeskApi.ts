@@ -5,6 +5,8 @@ export type SolanaAgent = {
   seen?: number
   passed?: number
   rejected?: number
+  pending_risk?: number
+  reasons?: Record<string, number>
   entries?: number
   skipped?: number
   exits?: number

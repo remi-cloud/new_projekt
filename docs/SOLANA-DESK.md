@@ -5,7 +5,7 @@ Biurko memecoinów Solany. Cztery agenty czytają publiczne rynki. Domyślnie pr
 ## Agenty
 
 - **Scout** — nowe minty (Rugcheck `new_tokens`) oraz pary pumpswap / Raydium z DexScreener. Publiczne API pump.fun zwraca 403, więc nie jest źródłem.
-- **Checker** — mint i freeze authority, koncentracja holderów, portfel dev, płynność, wiek, wolumen, podatek, honeypot. Brak danych oznacza odrzucenie.
+- **Checker** — mint i freeze authority, koncentracja holderów, portfel dev, płynność, wiek, wolumen, podatek, honeypot. Najpierw tani filtr DexScreener (płynność, wolumen, wiek, cena), potem raport Rugcheck dla czołówki (domyślnie 15, cache 10 min). Brak raportu to „czeka na dane”, nie odrzucenie.
 - **Sniper** — po przejściu filtra składa zlecenie i wypełnia je dopiero na **następnej** cenie.
 - **Exit** — stop -6%, take-profit, trailing, time-stop, wyłącznik awaryjny. Wypełnienie idzie po kolejnej cenie, nie po poziomie stopu.
 
