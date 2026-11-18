@@ -217,7 +217,7 @@ body {
 }
 
 .cycle-card.bitcoin { border-top-color: #ffffff; }
-.cycle-card.presidential { border-top-color: rgba(59, 130, 246, 0.65); }
+.cycle-card.us { border-top-color: rgba(59, 130, 246, 0.65); }
 .cycle-card.regional.global { border-top-color: var(--text-muted); }
 
 .pres-return-col.active {

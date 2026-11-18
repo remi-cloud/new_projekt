@@ -12,28 +12,39 @@ from app.cycles.global_cycle_book import get_global_cycle_book
 from app.cycles.intramonth_seasonality import get_intramonth
 from app.cycles.seasonality_monitor import get_health, run_seasonality_monitor
 from app.models.schemas import RegionalCycleSnapshot
+from app.read_guard import forced_refresh_due
 from app.scanners.opportunity_scanner import scanner
 
 router = APIRouter(tags=["cycles"])
 
 
 @router.get("/api/cycles/bitcoin")
+async def _scan_markets_if_due() -> None:
+    if forced_refresh_due("public-market-scan"):
+        await scanner.scan()
+
+
 async def bitcoin_cycle():
     if not scanner.bitcoin_cycle:
-        await scanner.scan()
+        await _scan_markets_if_due()
     return scanner.bitcoin_cycle
 
 
 @router.get("/api/cycles/regional", response_model=list[RegionalCycleSnapshot])
 async def regional_cycles():
     if not scanner.regional_cycles:
-        await scanner.scan()
+        await _scan_markets_if_due()
     return scanner.regional_cycles
 
 
 @router.get("/api/cycles/seasonality-health")
 async def seasonality_health(refresh: bool = False):
     """Drift status for the BTC seasonality matrix."""
+    if refresh and not forced_refresh_due("seasonality"):
+        health = get_health()
+        if isinstance(health, dict):
+            return {**health, "refresh_cached": True}
+        return health
     if refresh or not get_health().get("last_run"):
         return run_seasonality_monitor(persist=True)
     return get_health()

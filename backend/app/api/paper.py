@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from app.models.schemas import (
     PaperCloseRequest,
@@ -33,10 +33,12 @@ async def paper_portfolio():
 
 
 @router.get("/api/portfolio/binance-sync")
-async def portfolio_binance_sync():
-    """Paper portfolio vs Binance spot — drift + trade deep links."""
+async def portfolio_binance_sync(request: Request):
+    """Paper portfolio vs Binance spot — drift + trade deep links. Desk only."""
+    from app.desk_auth import require_desk
     from app.integrations.portfolio_binance_bridge import build_binance_sync
 
+    require_desk(request)
     return await build_binance_sync()
 
 
@@ -49,8 +51,9 @@ async def paper_max_buy(symbol: str):
 @router.get("/api/paper/trades/{symbol:path}", response_model=list[PaperTradeView])
 async def paper_trades_for_symbol(symbol: str, limit: int = 200):
     from app.paper.paper_db import get_trades_for_symbol
+    from app.query_bounds import bounded_limit
 
-    rows = await get_trades_for_symbol(symbol, limit=limit)
+    rows = await get_trades_for_symbol(symbol, limit=bounded_limit(limit, 500))
     return [PaperTradeView(**r) for r in rows]
 
 

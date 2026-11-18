@@ -13,6 +13,7 @@ from urllib.parse import quote
 import httpx
 
 from app.config import settings
+from app.news.x_auto import X_AUTHOR_FOOTER, assert_post_has_source
 
 logger = logging.getLogger(__name__)
 
@@ -53,17 +54,48 @@ def _oauth1_header(method: str, url: str, extra_params: dict[str, str] | None = 
     return f"OAuth {auth}"
 
 
-async def post_to_x(text: str) -> dict:
-    """POST https://api.twitter.com/2/tweets"""
+def clip_x_text(text: str, source_name: str, source_url: str, limit: int = 280) -> str:
+    """Shorten the story first and keep the source name, link, and author line."""
+    name = (source_name or "").strip()
+    url = (source_url or "").strip()
+    original = text or ""
+    footer_lines: list[str] = []
+    if name:
+        footer_lines.append(f"Źródło: {name}")
+    if url:
+        footer_lines.append(url)
+    if X_AUTHOR_FOOTER in original:
+        footer_lines.append(X_AUTHOR_FOOTER)
+    footer = "\n".join(footer_lines)
+    fits = (
+        len(original) <= limit
+        and (not name or name.lower() in original.lower())
+        and (not url or url in original)
+    )
+    if fits:
+        return original
+    budget = limit - (len(footer) + 1 if footer else 0)
+    if budget < 8:
+        return original[:limit]
+    head = original.split("\n", 1)[0].strip()
+    if len(head) > budget:
+        head = head[: budget - 1].rstrip() + "…"
+    return f"{head}\n{footer}" if footer else head[:limit]
+
+
+async def post_to_x(text: str, *, source_name: str = "", source_url: str = "") -> dict:
+    """POST https://api.twitter.com/2/tweets. Source is re-checked after the cut."""
     if not x_configured():
         raise RuntimeError("X credentials missing")
+    clipped = clip_x_text(text, source_name, source_url, 280)
+    assert_post_has_source(clipped, source_name, source_url)
     url = "https://api.twitter.com/2/tweets"
     headers = {
         "Authorization": _oauth1_header("POST", url),
         "Content-Type": "application/json",
     }
     async with httpx.AsyncClient(timeout=30) as client:
-        r = await client.post(url, headers=headers, json={"text": text[:280]})
+        r = await client.post(url, headers=headers, json={"text": clipped})
     if r.status_code >= 400:
         raise RuntimeError(f"X API {r.status_code}: {r.text[:400]}")
     data = r.json()

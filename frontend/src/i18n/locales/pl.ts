@@ -8,6 +8,7 @@ export const pl: Translations = {
     fomo: 'FOMO Ghost',
     axiom: 'Axiom',
     launch: 'Launch Scout',
+    solana: 'Solana Desk',
     aiHacking: "AI i hacking",
     radar: 'Radar',
     cycles: 'Cykle', news: 'News', alerts: 'Alerty', about: 'O nas', portfolio: 'Portfel', agent: 'Agent AI',
@@ -47,7 +48,7 @@ export const pl: Translations = {
       },
       calculator: {
         name: 'Kalkulator ROI',
-        blurb: 'Projekcja i backtest z cyklami BTC / prezydenckimi oraz sentymentem rynku.',
+        blurb: 'Projekcja i backtest z cyklami BTC i regionalnymi oraz sentymentem rynku.',
       },
       super: {
         name: 'Superokazje',
@@ -211,7 +212,7 @@ export const pl: Translations = {
       },
       cyclePhase: {
         math: 'Faza odcinkowa procesu periodycznego / quasi-periodycznego.',
-        finance: 'Warstwa timingu makro (BTC 364/1064, lata prezydenckie).',
+        finance: 'Warstwa timingu makro (BTC 364/1064, sezonowość regionalną).',
         market: 'Tagi bear / accumulation / bull / distribution jako prior sygnału.',
       },
       confidence: {
@@ -259,10 +260,10 @@ export const pl: Translations = {
     skip: 'Przejdź do treści',
     loginNav: 'Logowanie',
     loginTitle: 'Logowanie biurka',
-    loginLead: 'Token zostaje w pamięci tej karty. Hasło nie jest zapisywane w repozytorium.',
+    loginLead: 'Hasło zostaje na serwerze. Przeglądarka dostaje tylko ciasteczko, którego skrypt nie odczyta.',
     loginToken: 'Token biurka',
     loginSubmit: 'Wejdź',
-    loginOk: 'Zalogowano. Token jest tylko w tej sesji przeglądarki.',
+    loginOk: 'Zalogowano. Sesja biurka jest w ciasteczku HttpOnly.',
     loginClosed: 'Biurko jest zamknięte. Ustaw CYCLICAL_DESK_TOKEN na serwerze i uruchom ponownie.',
     loginBad: 'Zły token.',
   },
@@ -569,11 +570,12 @@ export const pl: Translations = {
     empty: 'Brak instrumentów dla wybranych filtrów.',
   },
   instrument: {
-    notFound: 'Instrument nie znaleziony: {{symbol}}',
+    notFound: 'Nie znaleziono instrumentu: {{symbol}}',
+    bookAria: 'Księga zleceń i heatmapa',
     backToMarkets: 'Wróć do rynków',
     backMarkets: '← Rynki',
     eyebrow: 'Instrument · Analiza cykliczna',
-    tapExpand: 'Stuknij aby powiększyć →',
+    tapExpand: 'Stuknij, aby powiększyć →',
     confidenceTooltip: 'Pewność sygnału {{n}}% — im wyżej, tym silniejsza okazja {{action}}',
     confidenceBuy: 'kupna',
     confidenceSell: 'sprzedaży',
@@ -608,6 +610,7 @@ export const pl: Translations = {
     karOpenAxiom: 'Axiom · pozycje Kar →',
     karOpenLaunch: 'Meme Universe →',
     binanceBanner: 'Binance AI BOT · most portfel ↔ giełda',
+    binanceAuth: 'Zaloguj biurko, żeby zobaczyć salda Binance.',
     binanceLoading: 'Sprawdzam sync z Binance…',
     binanceNoKeys: 'Brak połączenia — ustaw CYCLICAL_BINANCE_API_KEY w .env',
     binanceConnectedDry: 'Połączono (dry-run) · {{n}} wierszy drift',
@@ -637,6 +640,7 @@ export const pl: Translations = {
     buySide: 'KUP', sellSide: 'SPRZEDAJ',
   },
   alerts: {
+    empty: 'Brak ustawień alertów. Spróbuj ponownie.',
     loadError: 'Nie udało się załadować ustawień',
     saved: 'Ustawienia zapisane ✓',
     saveError: 'Błąd zapisu ustawień',
@@ -695,7 +699,7 @@ export const pl: Translations = {
     notDesc: 'Wiele platform opiera się na ekonomii wydarzeń: CPI, Fed, wybory, konflikty. To ważne tło — ale nie nasz rdzeń. My idziemy głębiej: w powtarzalność faz, w cykle i w własne modele oceny.',
     methodTitle: 'Nasza metoda w skrócie',
     methodSteps: [
-      'Mapujemy cykle — od Bitcoina po kadencję prezydencką USA i makro regionalne (Europa, Azja, Polska, EM).',
+      'Mapujemy cykle — od Bitcoina po makro regionalne (Europa, Azja, Polska, EM).',
       'Łączymy warstwy — cena, momentum (RSI), makro i sygnały WEJ/WYJ w jednej ocenie instrumentu.',
       'Testujemy dyscyplinę — paper trading z limitem, stopem i portfelem 1 000 000 PLN, bez ryzyka realnego kapitału na start.',
       'Myślimy w latach — sygnały służą alokacji i cierpliwości, nie codziennemu overtradingowi.',
@@ -706,7 +710,7 @@ export const pl: Translations = {
     chips: ['E-mail', 'Bot AI', 'Partnerstwa'],
     disclaimer: 'Cyclical Academy służy celom edukacyjno-analitycznym i nie stanowi porady inwestycyjnej ani oferty w rozumieniu przepisów prawa. Inwestowanie wiąże się z ryzykiem utraty kapitału. Zawsze przeprowadź własną analizę przed podjęciem decyzji finansowych.',
     pillars: [
-      { title: 'Cykle, nie nagłówki', body: 'Nasze sygnały wynikają z powtarzalnych faz rynku — cykl Bitcoina, rytm kadencji prezydenckiej, momentum RSI i własne mapy regionalne. Nie reagujemy na każdy tweet ani raport makro.' },
+      { title: 'Cykle, nie nagłówki', body: 'Nasze sygnały wynikają z powtarzalnych faz rynku — cykl Bitcoina, rytm mapy regionalnej, momentum RSI i własne mapy regionalne. Nie reagujemy na każdy tweet ani raport makro.' },
       { title: 'Własne schematy', body: 'Opracowaliśmy autorskie modele łączenia cykli cenowych, makro regionalnego i momentum. To nasz wewnętrzny język rynku — kalibrowany pod perspektywę wieloletnią, nie pod chwilową modę inwestycyjną.' },
       { title: 'Horyzont długoterminowy', body: 'Projektujemy decyzje pod budowę kapitału w czasie. Paper trading, sygnały WEJ/WYJ i portfel symulacyjny służą ćwiczeniu dyscypliny — nie zachęcamy do gonienia każdego ruchu wykresu.' },
       { title: 'Terminal, nie tabloid', body: 'Cyclical Academy to narzędzie analityczne: wykresy, cykle, ocena instrumentów i wirtualne konto. Bez szumu newsowego, bez obietnic szybkiego zysku — z pełną transparentnością metodologii.' },
@@ -854,7 +858,7 @@ export const pl: Translations = {
     growth: 'Wzrost',
     phaseProgress: 'Postęp fazy: {{pct}}% · Pozostało {{days}} dni',
     president: 'Prezydent',
-    termYear: 'Rok kadencji',
+    termYear: 'Waga neutralna',
     historicalReturn: 'Historyczny zwrot',
     perYear: '/rok',
     cycleAvg: 'Średnia cyklu',
@@ -982,6 +986,7 @@ export const pl: Translations = {
   },
   superDesk: {
     title: 'Superokazje',
+    bookAria: 'Księga bid i ask',
     lead: 'Heatmapa likwidacji jest na każdej pozycji (IN / SL / TP + liq).',
     hydrating: 'Dociąganie pełnej mapy 3D…',
     singularity: 'Singularity',
@@ -1190,7 +1195,7 @@ export const pl: Translations = {
     empty: 'Zadaj pytanie o rynek, trend, wzorzec lub cykl Bitcoina / Fed.',
     hintTrend: '„Jaki jest trend BTC-USD?”',
     hintPattern: '„Czy widać double top na AAPL?”',
-    hintMacro: '„Jak cykl prezydencki wpływa na S&P?”',
+    hintMacro: '„Jak neutralne makro USA wpływa na S&P?”',
     you: 'Ty',
     bot: 'Agent',
     tools: 'Narzędzia',
@@ -1209,7 +1214,7 @@ export const pl: Translations = {
     quickTrend: 'Przeanalizuj trend dla {{symbol}}: SMA, RSI, struktura HH/HL.',
     quickPattern: 'Wykryj wzorce wykresu dla {{symbol}}: support, resistance, double top/bottom.',
     quickAnalyze: 'Pełna analiza {{symbol}}: trend, wzorce, sygnał cykliczny, ryzyko.',
-    quickCycles: 'Podsumuj aktualne cykle: Bitcoin 364/1064, cykl prezydencki USA i sygnały regionalne.',
+    quickCycles: 'Podsumuj aktualne cykle: Bitcoin 364/1064, neutralne makro USA i sygnały regionalne.',
     analyzeOnly: 'Pełna analiza {{symbol}}',
     askAgent: 'Pytaj agenta',
     analyzeNews: 'Analizuj w agencie',
@@ -1352,7 +1357,7 @@ export const pl: Translations = {
     media2: 'Akredytacja cytowań data',
     media3: 'Wspólne webinary',
     eduTitle: 'Edukacja / akademie',
-    eduBody: 'Warsztaty cyklu BTC + prezydenckiego dla zespołów i studentów.',
+    eduBody: 'Warsztaty cyklu BTC + regionalnyego dla zespołów i studentów.',
     edu1: 'Materiały dydaktyczne',
     edu2: 'Sandbox paper trading',
     edu3: 'Licencja klasowa',
@@ -1400,7 +1405,7 @@ export const pl: Translations = {
     suggestion: 'Sugestia',
     clickHint: 'Kliknij tag — znaczenie i sugestia',
     layerCycle: {
-      body: 'Warstwa cyklu — Bitcoin (364/1064) albo makro prezydenckie / regionalne.',
+      body: 'Warstwa cyklu — Bitcoin (364/1064) albo makro regionalne.',
       hint: 'Zajrzyj do Cykle, zanim ustawisz większy rozmiar paper trade.',
     },
     layerPrice: {
@@ -1429,7 +1434,7 @@ export const pl: Translations = {
         hint: 'Porównaj tę monetę z fazą BTC na stronie Cykle. Lepiej wchodzić w spadku / akumulacji, a nie po parabolicznym wzroście.',
       },
       stock: {
-        body: 'Akcja notowana — udział spółki na giełdzie. Amerykańskie papiery czują też cykl prezydencki; reszta bardziej zależy od makro regionu.',
+        body: 'Akcja notowana — udział spółki na giełdzie. Amerykańskie papiery czują też neutralne makro USA; reszta bardziej zależy od makro regionu.',
         hint: 'Sprawdź fazę ceny względem szczytu 52-tygodniowego i tag regionu, zanim dodasz pozycję do portfela papierowego.',
       },
       etf: {
@@ -1463,12 +1468,12 @@ export const pl: Translations = {
         hint: 'Opieraj się na cyklu BTC (krypto) lub globalnym nastroju ryzyka. Nie przesadzaj z lokalnym kalendarzem wyborów.',
       },
       us: {
-        body: 'USA — kalendarz akcji powiązany z midterms / rokiem prezydenckim. Tu żyją S&P i Nasdaq.',
-        hint: 'Otwórz stronę Cykle, żeby zobaczyć fazę prezydencką USA. Rok 2 historycznie bywa najsłabszy dla amerykańskiego ryzyka.',
+        body: 'USA — kalendarz akcji powiązany z midterms / rokiem regionalnym. Tu żyją S&P i Nasdaq.',
+        hint: 'Otwórz stronę Cykle, żeby zobaczyć neutralną wagę USA. Model kadencji jest wyłączony.',
       },
       eu: {
         body: 'Europa — liczą się EBC, kalendarze fiskalne i sezonowość akcji UE bardziej niż polityka USA.',
-        hint: 'Cykl prezydencki traktuj lekko; ważniejsza jest faza ceny i makro UE.',
+        hint: 'Neutralne makro USA traktuj lekko; ważniejsza jest faza ceny i makro UE.',
       },
       asia: {
         body: 'Azja — kalendarze JP / CN / IN, sezonowość księżycowego nowego roku i lokalna polityka dominują.',
@@ -1480,7 +1485,7 @@ export const pl: Translations = {
       },
       pl: {
         body: 'Polska — WIG / aktywa PL. Liczą się lokalne wybory, budżet i sezon dywidendowy.',
-        hint: 'Cykl prezydencki USA jest drugorzędny. Obserwuj fazę regionu PL i płynność PLN w filtrach Rynków.',
+        hint: 'Neutralne makro USA jest drugorzędne. Obserwuj fazę regionu PL i płynność PLN w filtrach Rynków.',
       },
     },
     phase: {
@@ -1505,19 +1510,19 @@ export const pl: Translations = {
         hint: 'Mniejsza pozycja albo czekaj. Użyj RSI / Momentum + picków cyklu zamiast wymuszać transakcję.',
       },
       year_1: {
-        body: 'Rok prezydencki 1 — adaptacja polityki. Historycznie łagodniejszy dla akcji USA.',
+        body: 'Waga USA jest neutralna. Model kadencji jest wyłączony.',
         hint: 'Bądź selektywny przy aktywach USA. Preferuj tylko setupy z wysoką pewnością.',
       },
       year_2: {
-        body: 'Rok prezydencki 2 (midterms) — historycznie najsłabszy rok akcji USA w cyklu.',
+        body: 'Waga USA jest neutralna. Model kadencji jest wyłączony.',
         hint: 'Dodatkowa ostrożność przy amerykańskim ryzyku. W paper wolę gotówkę / zabezpieczenia albo Kup tylko przy bardzo wysokiej pewności.',
       },
       year_3: {
-        body: 'Rok prezydencki 3 — historycznie najsilniejszy rok akcji USA w kadencji.',
+        body: 'Waga USA jest neutralna. Model kadencji jest wyłączony.',
         hint: 'Bias Kup na USA może być mocniejszy — nadal respektuj fazę ceny i % pewności.',
       },
       year_4: {
-        body: 'Rok prezydencki 4 — rok wyborczy; historycznie umiarkowany, z późną niepewnością.',
+        body: 'Waga USA jest neutralna. Model kadencji jest wyłączony.',
         hint: 'Spodziewaj się szumu nagłówków. Preferuj wyraźne fazy zamiast handlu każdym skokiem sondażowym.',
       },
       silne_wzrost: {

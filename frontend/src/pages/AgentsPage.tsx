@@ -156,6 +156,8 @@ export default function AgentsPage() {
       await triggerScan()
       const report = await fetchAgentsReport(true)
       setData(report)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Nie udało się uruchomić skanu')
     } finally {
       setBusy(false)
     }

@@ -14,6 +14,16 @@ IMG_CDN = "https://static.four.meme"
 HTTP_TIMEOUT = 20.0
 UA = "CyclicalTrader-LaunchScout/1.0"
 
+_status = {
+    "id": "four.meme",
+    "http": None,
+    "detail": "Jeszcze nie sprawdzono. Pusta kolumna oznacza brak odpowiedzi źródła.",
+}
+
+
+def source_status() -> dict:
+    return dict(_status)
+
 
 def _image_url(img: Any) -> str:
     raw = str(img or "").strip()
@@ -37,7 +47,7 @@ async def fetch_recent_tokens(limit: int = 40) -> list[dict]:
         "sort": "DESC",
     }
     try:
-        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
+        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT, follow_redirects=False) as client:
             resp = await client.post(
                 f"{API_BASE}/public/token/search",
                 json=body,
@@ -47,11 +57,26 @@ async def fetch_recent_tokens(limit: int = 40) -> list[dict]:
                     "User-Agent": UA,
                 },
             )
-            resp.raise_for_status()
+            if resp.status_code in {401, 403}:
+                _status["http"] = resp.status_code
+                _status["detail"] = (
+                    "four.meme zwróciło 403. Brak danych, bez obejść i bez scrapowania."
+                )
+                logger.info("four.meme odmówił HTTP %s — bez obchodzenia blokady", resp.status_code)
+                return []
+            if resp.status_code >= 400:
+                _status["http"] = resp.status_code
+                _status["detail"] = "four.meme nie oddało listy. Pusta kolumna oznacza brak danych źródła."
+                logger.info("four.meme HTTP %s — kolumna zostaje pusta", resp.status_code)
+                return []
             data = resp.json()
     except Exception as exc:
-        logger.warning("4meme search failed: %s", exc)
+        _status["http"] = None
+        _status["detail"] = "four.meme nie odpowiedziało. Pusta kolumna oznacza brak danych źródła."
+        logger.info("4meme search failed: %s", type(exc).__name__)
         return []
+    _status["http"] = 200
+    _status["detail"] = "Źródło odpowiedziało."
 
     rows: list[dict] = []
     if isinstance(data, dict):

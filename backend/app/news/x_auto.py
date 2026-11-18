@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
-from app.news.x_publish_whitelist import URL_HOSTS
+from app.news.x_publish_whitelist import PUBLISHER_NAMES, URL_HOSTS
 
 # X Premium allows much more. Keep posts short enough to read.
 X_MAX_CHARS = 500
@@ -19,13 +19,15 @@ _UNCONFIRMED = re.compile(
     r"niepotwierdz\w*|anonimow\w*|niesprawdzon\w*)\b",
     re.IGNORECASE,
 )
-_AUTHOR_CLOCK = re.compile(
-    r"\b(?:cet|cest|europe/oslo|europe/warsaw|czas lokalny|godzina lokalna|local time|strefa czasowa)\b",
-    re.IGNORECASE,
-)
-_AUTHOR_PLACE = re.compile(
-    r"\b(?:oslo|norway|norwegia|norwegii)\b"
-    r"|\b(?:z|ze|from)\s+(?:warszaw\w*|oslo|norwegi\w*|polsk\w*)\b"
+# Letters-only edges so "14:00CET" and "Norwegian" are caught, while "certificate" is not.
+_FORBIDDEN = re.compile(
+    r"(?<![A-Za-z])(?:"
+    r"oslo|norwegian|norway|norge|norwegi\w*|"
+    r"cet|cest|central european time|"
+    r"europe/oslo|europe/warsaw|"
+    r"czas lokalny|godzina lokalna|local time|strefa czasowa"
+    r")(?![A-Za-z])"
+    r"|(?:^|[\s,;(])(?:z|ze|from)\s+(?:warszaw\w*|oslo|norwegi\w*|polsk\w*)\b"
     r"|\b(?:w|in)\s+warszawie\b"
     r"|\bautor\w*\s+(?:z|ze|w|from|in)\s+[^\s,.;]+",
     re.IGNORECASE,
@@ -60,13 +62,31 @@ class AutoDecision:
     topic: str
 
 
+def mentions_forbidden_place(text: str | None) -> bool:
+    return bool(text and _FORBIDDEN.search(text))
+
+
 def strip_forbidden_place(text: str | None) -> str:
     """Drop the author's place and clock. Keep a story that is about Poland."""
     if not text:
         return ""
-    cleaned = _AUTHOR_CLOCK.sub("", text)
-    cleaned = _AUTHOR_PLACE.sub("", cleaned)
+    cleaned = _FORBIDDEN.sub("", text)
     return re.sub(r"\s{2,}", " ", cleaned).strip(" ,;-")
+
+
+def verified_source_name(url: str | None) -> str:
+    """Publisher name for a whitelisted host. Feed labels are not used."""
+    host = _host(url)
+    if not host:
+        return ""
+    best = ""
+    label = ""
+    for allowed, name in PUBLISHER_NAMES.items():
+        if host == allowed or host.endswith("." + allowed):
+            if len(allowed) > len(best):
+                best = allowed
+                label = name
+    return label
 
 
 def topic_key(title: str) -> str:
@@ -188,11 +208,14 @@ def evaluate_auto(
 
 
 def assert_post_has_source(body: str, source_name: str | None, source_url: str | None) -> None:
-    """Refuse to publish when the body lacks the outlet name or the article URL."""
-    name = (source_name or "").strip()
+    """Refuse to publish without the verified outlet name, the article URL, and a clean body."""
+    verified = verified_source_name(source_url)
+    name = verified or (source_name or "").strip()
     url = (source_url or "").strip()
     text = body or ""
     lowered = text.lower()
+    if mentions_forbidden_place(text):
+        raise RuntimeError("Treść zawiera Oslo, Norwegię albo czas lokalny")
     if not name:
         raise RuntimeError("Brak nazwy źródła")
     if not url.startswith("http"):

@@ -79,8 +79,8 @@ export function InstrumentDetailPage() {
     }
   }, [symbol])
 
-  if (error && !data) return <ErrorState message={error} onRetry={reload} />
-  if ((loading && !data) || itemLoading) return <Loading message={t('layout.loading')} />
+  if (itemLoading || (loading && !data && !item)) return <Loading message={t('layout.loading')} />
+  if (error && !data && !item) return <ErrorState message={error} onRetry={reload} />
 
   if (itemError || !item) {
     return (
@@ -114,7 +114,7 @@ export function InstrumentDetailPage() {
       <BrokerPurchaseHint info={item.broker_info} />
 
       {desk && (
-        <section className="instrument-desk" aria-label="Bid Ask Heatmapa">
+        <section className="instrument-desk" aria-label={t('instrument.bookAria')}>
           <div className="section-header" style={{ marginBottom: 8 }}>
             <h2 className="section-title">Order book · heatmapa</h2>
             <Link to={positionPath(desk.symbol)} className="link-btn tap-target card-nav-link">

@@ -18,6 +18,8 @@ os.environ["CYCLICAL_PORTFOLIO_MIGRATE_LEGACY"] = "false"
 os.environ.setdefault("CYCLICAL_PEARL_HUNTER_ENABLED", "false")
 os.environ.setdefault("CYCLICAL_AUTO_BACKUP_ENABLED", "false")
 os.environ.setdefault("CYCLICAL_DESK_TOKEN", "pytest-desk")
+os.environ.setdefault("SOLANA_DESK_AUTOSTART", "false")
+os.environ.setdefault("SOLANA_REAL_TRADING", "false")
 
 import pytest
 from fastapi.testclient import TestClient

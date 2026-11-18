@@ -13,6 +13,7 @@ export function LaunchScoutPage() {
   const [rows, setRows] = useState<LaunchCandidate[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -36,10 +37,12 @@ export function LaunchScoutPage() {
     return () => {
       cancelled = true
     }
-  }, [tier, t])
+  }, [tier, t, reloadKey])
+
+  const retry = () => setReloadKey((value) => value + 1)
 
   if (loading && !status) return <Loading message={t('launchPage.loading')} />
-  if (error && !status) return <ErrorState message={error} onRetry={() => setTier((cur) => cur)} />
+  if (error && !status) return <ErrorState message={error} onRetry={retry} />
 
   const quiet = !status?.enabled || Boolean(status?.last_error)
 
@@ -51,7 +54,11 @@ export function LaunchScoutPage() {
         <p className="page-lead">{t('launchPage.lead')}</p>
       </header>
       {quiet && <p className="desk-source-down" role="status">{t('launchPage.sourceDown')}</p>}
-      <p className="desk-source-down" role="status">{t('launchPage.blockedSources')}</p>
+      {(status?.blocked_sources?.length ? status.blocked_sources : [{ id: 'sources', detail: t('launchPage.blockedSources') }]).map((source) => (
+        <p className="desk-source-down" role="status" key={source.id}>
+          {source.id === 'sources' ? source.detail : `${source.id}: ${source.detail || source.status || t('launchPage.blockedSources')}`}
+        </p>
+      ))}
       <div className="filter-chips" role="tablist">
         {TIERS.map((id) => (
           <button

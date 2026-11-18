@@ -51,6 +51,7 @@ const ToolsPage = lazy(() => import('./pages/ToolsPage'))
 const AstraMathPage = lazy(() => import('./pages/AstraMathPage'))
 const AgentsPage = lazy(() => import('./pages/AgentsPage'))
 const LaunchScoutPage = lazy(() => import('./pages/LaunchScoutPage').then((m) => ({ default: m.LaunchScoutPage })))
+const SolanaDeskPage = lazy(() => import('./pages/SolanaDeskPage').then((m) => ({ default: m.SolanaDeskPage })))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })))
 const DeskLoginPage = lazy(() => import('./pages/DeskLoginPage').then((m) => ({ default: m.DeskLoginPage })))
 
@@ -124,6 +125,7 @@ export default function App() {
                 <Route path="ai-hacking" element={<AiHackingPage />} />
                 <Route path="radar" element={<RadarPage />} />
                 <Route path="launch" element={<LaunchScoutPage />} />
+                <Route path="solana" element={<SolanaDeskPage />} />
                 <Route path="execution" element={<ExecutionAgentPage />} />
                 <Route path="portfel" element={<PortfolioPage />} />
                 <Route path="rynki" element={<MarketsPage />} />

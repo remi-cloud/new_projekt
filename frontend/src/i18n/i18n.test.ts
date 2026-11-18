@@ -54,6 +54,13 @@ describe('i18n completeness', () => {
     expect(t.layout.brand).toBeTruthy()
     expect(t.api.noConnection).toBeTruthy()
     expect(t.agent.title).toBeTruthy()
+    expect(t.instrument.bookAria).toBeTruthy()
+    expect(t.superDesk.bookAria).toBeTruthy()
+  })
+
+  it('uses Polish labels for the order book', () => {
+    expect(translations.pl.instrument.bookAria).toMatch(/Księga/)
+    expect(translations.pl.superDesk.bookAria).toMatch(/Księga/)
   })
 })
 

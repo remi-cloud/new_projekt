@@ -280,6 +280,14 @@ export async function fetchSocialStatus(): Promise<SocialDeskStatus> {
   return res.json()
 }
 
+export async function fetchSocialDecisions(limit = 12): Promise<{
+  decisions: { id?: number; title?: string; action?: string; reason?: string; score?: number }[]
+} | null> {
+  const res = await apiFetch(`${API_BASE}/social/decisions?limit=${limit}`)
+  if (!res.ok) return null
+  return res.json()
+}
+
 export async function fetchSocialPublished(limit = 20): Promise<{
   posts: { id?: number; body: string; published_at?: string | null; x_url?: string | null; source_name?: string }[]
 }> {
@@ -1333,11 +1341,19 @@ export type LaunchCandidate = {
   market_cap?: number | null
 }
 
+export type LaunchSourceStatus = {
+  id: string
+  http?: number | null
+  detail?: string
+  status?: string
+}
+
 export type LaunchStatus = {
   enabled?: boolean
   last_error?: string | null
   last_tick_at?: string | null
   counts?: Record<string, number>
+  blocked_sources?: LaunchSourceStatus[]
 }
 
 export async function fetchLaunchStatus(): Promise<LaunchStatus> {

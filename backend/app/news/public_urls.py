@@ -53,7 +53,24 @@ def live_domain_ready() -> bool:
     host = (urlparse(base).hostname or "").lower().rstrip(".")
     if not host or "." not in host:
         return False
-    if host in {"localhost"} or host.endswith(".local") or host.endswith(".trycloudflare.com"):
+    tunnel = (
+        ".local",
+        ".internal",
+        ".trycloudflare.com",
+        ".ngrok.io",
+        ".ngrok.app",
+        ".ngrok-free.app",
+        ".ngrok-free.dev",
+        ".loca.lt",
+        ".localhost.run",
+        ".lhr.life",
+        ".serveo.net",
+        ".cfargotunnel.com",
+        ".nip.io",
+        ".sslip.io",
+        ".xip.io",
+    )
+    if host in {"localhost"} or any(host.endswith(suffix) for suffix in tunnel):
         return False
     try:
         ipaddress.ip_address(host)

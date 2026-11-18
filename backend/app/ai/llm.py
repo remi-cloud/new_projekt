@@ -51,7 +51,7 @@ def free_targets() -> list[LlmTarget]:
     ollama_base = (settings.ollama_base_url or "").strip().rstrip("/")
     ollama_model = (settings.ollama_model or "").strip()
     if ollama_base and ollama_model:
-        targets.append(LlmTarget(ollama_base, ollama_model, "ollama", "ollama"))
+        targets.append(LlmTarget(ollama_base, ollama_model, None, "ollama"))
     return targets
 
 
@@ -106,10 +106,34 @@ def llm_provider() -> str:
     return resolve_llm()[3]
 
 
+def active_llm_target() -> LlmTarget | None:
+    targets = _targets_for_request()
+    return targets[0] if targets else None
+
+
 def llm_configured() -> bool:
     if not settings.ai_enabled:
         return False
     return bool(_targets_for_request())
+
+
+async def llm_reachable(target: LlmTarget | None = None) -> bool:
+    """True only after the configured endpoint answers. Ollama gets no auth header."""
+    if target is None:
+        targets = _targets_for_request()
+        if not targets:
+            return False
+        target = targets[0]
+    headers = {"Accept": "application/json"}
+    if target.provider != "ollama" and target.api_key:
+        headers["Authorization"] = f"Bearer {target.api_key}"
+    timeout = httpx.Timeout(1.5, connect=0.4)
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.get(f"{target.base_url.rstrip('/')}/models", headers=headers)
+        return 200 <= response.status_code < 300
+    except httpx.HTTPError:
+        return False
 
 
 def image_generation_configured() -> bool:
@@ -135,7 +159,7 @@ async def _post_once(
     timeout: httpx.Timeout,
 ) -> httpx.Response:
     headers = {"Content-Type": "application/json", "Accept": "application/json"}
-    if target.api_key:
+    if target.provider != "ollama" and target.api_key:
         headers["Authorization"] = f"Bearer {target.api_key}"
     return await client.post(
         f"{target.base_url}/chat/completions",

@@ -98,7 +98,7 @@ async def execution_status():
 
 @router.get("/proposals", response_model=list[TradeProposal])
 async def execution_proposals(limit: int = 50, status: str | None = None):
-    rows = await exec_db.list_proposals(limit=limit, status=status)
+    rows = await exec_db.list_proposals(limit=max(1, min(int(limit), 100)), status=status)
     return [_row_to_proposal(r) for r in rows]
 
 

@@ -8,6 +8,7 @@ export const de: Translations = {
     fomo: 'FOMO Ghost',
     axiom: 'Axiom',
     launch: 'Launch Scout',
+    solana: 'Solana Desk',
     aiHacking: "KI & Sicherheit",
     radar: 'Radar',
     cycles: 'Zyklen', news: 'News', alerts: 'Alerts', about: 'Über uns', portfolio: 'Portfolio', agent: 'KI-Agent',
@@ -176,7 +177,7 @@ export const de: Translations = {
       },
       cyclePhase: {
         math: 'Piecewise phase of a periodic / quasi-periodic process.',
-        finance: 'Macro timing layer (BTC 364/1064, presidential years).',
+        finance: 'Macro timing layer (BTC 364/1064, regional seasons).',
         market: 'Bear / accumulation / bull / distribution tags drive signal prior.',
       },
       confidence: {
@@ -224,10 +225,10 @@ export const de: Translations = {
     skip: 'Skip to content',
     loginNav: 'Sign in',
     loginTitle: 'Desk sign-in',
-    loginLead: 'The token stays in this tab. It is not stored in the repository.',
+    loginLead: 'The password stays on the server. The browser only receives a cookie that page scripts cannot read.',
     loginToken: 'Desk token',
     loginSubmit: 'Enter',
-    loginOk: 'Signed in. The token lives only in this browser session.',
+    loginOk: 'Angemeldet. Die Sitzung liegt in einem HttpOnly-Cookie.',
     loginClosed: 'The desk is closed. Set CYCLICAL_DESK_TOKEN on the server and restart.',
     loginBad: 'Wrong token.',
   },
@@ -504,7 +505,7 @@ export const de: Translations = {
     world: 'Welt', all: 'Alle', count: '{{n}} Instrumente', empty: 'Keine Instrumente für die gewählten Filter.',
   },
   instrument: {
-    notFound: 'Instrument nicht gefunden: {{symbol}}', backToMarkets: 'Zurück zu Märkten', backMarkets: '← Märkte',
+    notFound: 'Instrument nicht gefunden: {{symbol}}', bookAria: 'Orderbuch und Heatmap', backToMarkets: 'Zurück zu Märkten', backMarkets: '← Märkte',
     eyebrow: 'Instrument · Zyklische Analyse', tapExpand: 'Tippen zum Vergrößern →',
     confidenceTooltip: 'Signal-Konfidenz {{n}}% — je höher, desto stärker die {{action}}-Chance',
     confidenceBuy: 'Kauf', confidenceSell: 'Verkauf', momentumTag: 'Momentum + Zyklus',
@@ -532,6 +533,7 @@ export const de: Translations = {
     karOpenAxiom: 'Axiom · Kar positions →',
     karOpenLaunch: 'Meme Universe →',
     binanceBanner: 'Binance AI BOT · Portfolio-Bridge',
+    binanceAuth: 'Melde das Desk an, um Binance-Salden zu sehen.',
     binanceLoading: 'Binance-Sync wird geprüft…',
     binanceNoKeys: 'Nicht verbunden — CYCLICAL_BINANCE_API_KEY in .env setzen',
     binanceConnectedDry: 'Verbunden (Dry-Run) · {{n}} Drift-Zeile(n)',
@@ -557,6 +559,7 @@ export const de: Translations = {
     buySide: 'KAUF', sellSide: 'VERKAUF',
   },
   alerts: {
+    empty: 'Keine Alert-Einstellungen. Bitte erneut versuchen.',
     loadError: 'Einstellungen konnten nicht geladen werden', saved: 'Einstellungen gespeichert ✓',
     saveError: 'Fehler beim Speichern', pushUnavailable: 'Push nicht verfügbar — kein VAPID-Schlüssel auf dem Server',
     pushEnabled: 'Push-Benachrichtigungen aktiviert ✓', pushError: 'Push konnte nicht aktiviert werden',
@@ -591,7 +594,7 @@ export const de: Translations = {
     notDesc: 'Viele Plattformen basieren auf Ereignisökonomie. Das ist Kontext — aber nicht unser Kern. Wir gehen tiefer: in Phasen, Zyklen und eigene Modelle.',
     methodTitle: 'Unsere Methode kurz',
     methodSteps: [
-      'Wir kartieren Zyklen — von Bitcoin bis US-Präsidentschaft und regionales Makro.',
+      'Wir kartieren Zyklen — von Bitcoin bis US-regionales Makro und regionales Makro.',
       'Wir kombinieren Schichten — Preis, Momentum (RSI), Makro und Ein-/Ausstiegssignale.',
       'Wir testen Disziplin — Paper Trading mit Limit, Stop und 1.000.000 PLN Portfolio.',
       'Wir denken in Jahren — Signale dienen Allokation und Geduld, nicht Overtrading.',
@@ -601,7 +604,7 @@ export const de: Translations = {
     chips: ['E-Mail', 'KI-Bot', 'Partnerschaften'],
     disclaimer: 'Cyclical Academy dient Bildungs- und Analysezwecken und stellt keine Anlageberatung dar. Investieren birgt Verlustrisiko.',
     pillars: [
-      { title: 'Zyklen, nicht Schlagzeilen', body: 'Unsere Signale kommen aus wiederholbaren Marktphasen — Bitcoin-Zyklus, US-Präsidentschaft, RSI-Momentum und regionale Karten.' },
+      { title: 'Zyklen, nicht Schlagzeilen', body: 'Unsere Signale kommen aus wiederholbaren Marktphasen — Bitcoin-Zyklus, US-regionales Makro, RSI-Momentum und regionale Karten.' },
       { title: 'Eigene Modelle', body: 'Wir entwickelten originale Modelle, die Preiszyklen, regionales Makro und Momentum verbinden — kalibriert für Jahre, nicht Moden.' },
       { title: 'Langfristiger Horizont', body: 'Wir gestalten Entscheidungen für Kapitalaufbau über Zeit. Paper Trading dient der Disziplin, nicht dem Jagen jedes Chart-Moves.' },
       { title: 'Terminal, kein Boulevard', body: 'Cyclical Academy ist ein Analysetool: Charts, Zyklen, Bewertungen und virtuelles Konto — ohne News-Lärm und Schnellgewinn-Versprechen.' },
@@ -669,8 +672,8 @@ export const de: Translations = {
     btcRationaleDistribution: 'Distribution phase ({{days}} days since ATH). Stay cautious until a new high.',
     regionalSummary: '{{region}}: phase {{phase}}, buy weight {{weight}}%.',
     daysSinceAth: 'Tage seit ATH', phase: 'Phase', declines: 'Rückgänge', growth: 'Anstieg',
-    phaseProgress: 'Phasenfortschritt: {{pct}}% · Noch {{days}} Tage', presTitle: 'US-Präsidentschaftszyklus',
-    president: 'Präsident', termYear: 'Amtsjahr', historicalReturn: 'Historische Rendite', perYear: '/Jahr',
+    phaseProgress: 'Phasenfortschritt: {{pct}}% · Noch {{days}} Tage', presTitle: 'Neutrales US-Makro',
+    president: 'Präsident', termYear: 'Neutralgewicht', historicalReturn: 'Historische Rendite', perYear: '/Jahr',
     cycleAvg: 'Zyklusdurchschnitt', benchmarkChange: '{{benchmark}} · Jahresänderung',
     weakest: 'Schwächstes', moderate: 'Moderat', strongest: 'Stärkstes', progress: 'Fortschritt', days: 'Tage',
     avg: 'Ø {{n}}', regionalPhase: 'Phase', buyWeight: 'Kaufgewicht', bias: 'Bias',
@@ -743,6 +746,7 @@ export const de: Translations = {
   },
   superDesk: {
     title: 'Super setups',
+    bookAria: 'Bid- und Ask-Buch',
     lead: 'A liquidation heatmap sits on every position (entry / stop / target + liq).',
     hydrating: 'Loading the full 3D map…',
     singularity: 'Singularity',
@@ -951,7 +955,7 @@ export const de: Translations = {
     empty: 'Fragen Sie zu Märkten, Trends, Mustern oder Bitcoin-/Fed-Zyklen.',
     hintTrend: '„Wie ist der Trend bei BTC-USD?"',
     hintPattern: '„Double Top bei AAPL?"',
-    hintMacro: '„Präsidentschaftszyklus und S&P?"',
+    hintMacro: '„neutrales US-Makro und S&P?"',
     you: 'Sie',
     bot: 'Agent',
     tools: 'Tools',
@@ -970,7 +974,7 @@ export const de: Translations = {
     quickTrend: 'Trend für {{symbol}} analysieren: SMA, RSI, HH/HL.',
     quickPattern: 'Chartmuster für {{symbol}}: Support, Resistance, Double Top/Bottom.',
     quickAnalyze: 'Volle Analyse {{symbol}}: Trend, Muster, Zyklus, Risiko.',
-    quickCycles: 'Aktuelle Zyklen: Bitcoin 364/1064, US-Präsidentschaftszyklus, regionale Signale.',
+    quickCycles: 'Aktuelle Zyklen: Bitcoin 364/1064, Neutrales US-Makro, regionale Signale.',
     analyzeOnly: 'Volle Analyse {{symbol}}',
     askAgent: 'Agent fragen',
     analyzeNews: 'Im Agent analysieren',
@@ -1112,7 +1116,7 @@ export const de: Translations = {
     media2: 'Datenzitierungs-Akkreditierung',
     media3: 'Gemeinsame Webinare',
     eduTitle: 'Bildung / Akademien',
-    eduBody: 'BTC- + Präsidentschaftszyklus-Workshops für Teams und Studierende.',
+    eduBody: 'BTC- + neutrales US-Makro-Workshops für Teams und Studierende.',
     edu1: 'Lehrmaterialien',
     edu2: 'Paper-Trading-Sandbox',
     edu3: 'Klassenlizenz',
@@ -1189,7 +1193,7 @@ export const de: Translations = {
         hint: 'Vergleiche diese Coin mit der BTC-Phase unter Zyklen. Bevorzuge Einstiege in Abwärts- / Akkumulationsphase, nicht nach parabolischem Lauf.',
       },
       stock: {
-        body: 'Börsenaktie — Unternehmensanteil an der Börse. US-Titel spüren auch den Präsidentschaftszyklus; andere hängen stärker am regionalen Makro.',
+        body: 'Börsenaktie — Unternehmensanteil an der Börse. US-Titel spüren auch den neutrales US-Makro; andere hängen stärker am regionalen Makro.',
         hint: 'Prüfe die Preisphase vs. 52-Wochen-Hoch und den Region-Tag, bevor du zum Paper-Portfolio hinzufügst.',
       },
       etf: {
@@ -1223,12 +1227,12 @@ export const de: Translations = {
         hint: 'Stütze dich auf BTC-Zyklus (Krypto) oder globale Risikostimmung. Nicht zu stark an einen lokalen Wahlkalender anpassen.',
       },
       us: {
-        body: 'USA — Aktienkalender an Midterms / Präsidentschaftsjahr gekoppelt. S&P und Nasdaq leben hier.',
-        hint: 'Öffne die Seite Zyklen für die US-Präsidentschaftsphase. Jahr 2 ist historisch das schwächste für US-Risikoassets.',
+        body: 'USA — Aktienkalender an Midterms / neutrales US-Gewicht gekoppelt. S&P und Nasdaq leben hier.',
+        hint: 'Öffne die Seite Zyklen für die US-neutrale US-Phase. Jahr 2 ist historisch das schwächste für US-Risikoassets.',
       },
       eu: {
         body: 'Europa — EZB, Fiskalkalender und EU-Aktien-Saisonalität zählen mehr als US-Politik.',
-        hint: 'Präsidentschaftszyklus leicht gewichten; Preisphase und EU-Makro-News zählen mehr.',
+        hint: 'neutrales US-Makro leicht gewichten; Preisphase und EU-Makro-News zählen mehr.',
       },
       asia: {
         body: 'Asien — JP / CN / IN-Kalender, Mond-Neujahr-Saisonalität und lokale Politik dominieren.',
@@ -1240,7 +1244,7 @@ export const de: Translations = {
       },
       pl: {
         body: 'Polen — WIG / PL-Assets. Lokale Wahlen, Haushalt und Dividendensaison zählen.',
-        hint: 'US-Präsidentschaftszyklus ist sekundär. PL-Regionsphase und PLN-Liquidität in den Markt-Filtern beobachten.',
+        hint: 'Neutrales US-Makro ist sekundär. PL-Regionsphase und PLN-Liquidität in den Markt-Filtern beobachten.',
       },
     },
     phase: {
@@ -1265,19 +1269,19 @@ export const de: Translations = {
         hint: 'Kleinere Size oder warten. RSI / Momentum + Zyklus-Picks statt erzwungenem Trade.',
       },
       year_1: {
-        body: 'Präsidentschaftsjahr 1 — Policy-Anpassung. Historisch softer für US-Aktien.',
+        body: 'neutrales US-Gewicht 1 — Policy-Anpassung. Historisch softer für US-Aktien.',
         hint: 'Bei US-Assets selektiv sein. Nur Setups mit hoher Konfidenz bevorzugen.',
       },
       year_2: {
-        body: 'Präsidentschaftsjahr 2 (Midterms) — historisch das schwächste US-Aktienjahr im Zyklus.',
+        body: 'neutrales US-Gewicht 2 (Midterms) — historisch das schwächste US-Aktienjahr im Zyklus.',
         hint: 'Extra Vorsicht bei US-Risiko. Im Paper Cash / Hedges oder nur Käufe mit sehr hoher Konfidenz.',
       },
       year_3: {
-        body: 'Präsidentschaftsjahr 3 — historisch das stärkste US-Aktienjahr der Amtszeit.',
+        body: 'neutrales US-Gewicht 3 — historisch das stärkste US-Aktienjahr der Amtszeit.',
         hint: 'US-Kauf-Bias kann stärker sein — trotzdem Preisphase und Konfidenz-% respektieren.',
       },
       year_4: {
-        body: 'Präsidentschaftsjahr 4 — Wahljahr; historisch moderat, mit später Unsicherheit.',
+        body: 'neutrales US-Gewicht 4 — Wahljahr; historisch moderat, mit später Unsicherheit.',
         hint: 'Schlagzeilen-Rauschen erwarten. Klare Phasen statt jeden Umfrage-Spike traden.',
       },
       silne_wzrost: {

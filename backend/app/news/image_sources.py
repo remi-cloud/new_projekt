@@ -78,21 +78,19 @@ def extract_image_from_rss_description(description: str, base_url: str = "") -> 
 async def download_image(url: str, *, max_bytes: int = 6_000_000) -> bytes | None:
     if not url or not url.startswith("http"):
         return None
+    from app.net_guard import safe_get
+
     try:
-        async with httpx.AsyncClient(
-            timeout=20,
-            headers=HTTP_HEADERS,
-            follow_redirects=True,
-        ) as client:
-            resp = await client.get(url)
-            resp.raise_for_status()
-            ct = resp.headers.get("content-type", "")
-            if not _IMAGE_CT.match(ct) and not _is_image_url(str(resp.url)):
-                return None
-            data = resp.content
-            if len(data) < 2000 or len(data) > max_bytes:
-                return None
-            return data
+        resp = await safe_get(url, timeout=20, headers=HTTP_HEADERS)
+        if resp is None or resp.status_code >= 400:
+            return None
+        ct = resp.headers.get("content-type", "")
+        if not _IMAGE_CT.match(ct) and not _is_image_url(str(resp.url)):
+            return None
+        data = resp.content
+        if len(data) < 2000 or len(data) > max_bytes:
+            return None
+        return data
     except Exception as exc:
         logger.debug("Image download failed %s: %s", url[:80], exc)
         return None
@@ -101,18 +99,16 @@ async def download_image(url: str, *, max_bytes: int = 6_000_000) -> bytes | Non
 async def fetch_og_image(page_url: str) -> bytes | None:
     if not page_url or not page_url.startswith("http"):
         return None
+    from app.net_guard import safe_get
+
     try:
-        async with httpx.AsyncClient(
-            timeout=15,
-            headers=HTTP_HEADERS,
-            follow_redirects=True,
-        ) as client:
-            resp = await client.get(page_url)
-            resp.raise_for_status()
-            img_url = extract_image_from_html(resp.text, str(resp.url))
-            if not img_url:
-                return None
-            return await download_image(img_url)
+        resp = await safe_get(page_url, timeout=15, headers=HTTP_HEADERS)
+        if resp is None or resp.status_code >= 400:
+            return None
+        img_url = extract_image_from_html(resp.text, str(resp.url))
+        if not img_url:
+            return None
+        return await download_image(img_url)
     except Exception as exc:
         logger.debug("og:image fetch failed %s: %s", page_url[:80], exc)
         return None

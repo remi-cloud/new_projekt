@@ -1,6 +1,6 @@
 # Docker — Cyclical Trader · Kar Digital
 
-Dwa kontenery: **frontend** (strona na porcie **8080**) i **backend** (API). Baza, dziennik decyzji i cache są na wolumenach. Portfel jest bind-mountem tego samego folderu co lokalny uvicorn. Auto-publikacja na X jest wyłączona. Posty i bot Binance są w trybie próbnym, dopóki w `.env` nie ustawisz `CYCLICAL_SOCIAL_DRY_RUN=false` albo `CYCLICAL_BINANCE_AI_BOT_DRY_RUN=false`.
+Dwa kontenery: **frontend** (strona na porcie **8080**) i **backend** (API). Baza, dziennik decyzji i cache są na wolumenach. Portfel jest bind-mountem tego samego folderu co lokalny uvicorn. Auto-X jest włączone w kodzie. Posty i bot Binance są w trybie próbnym, dopóki w `.env` nie ustawisz `CYCLICAL_SOCIAL_DRY_RUN=false` albo `CYCLICAL_BINANCE_AI_BOT_DRY_RUN=false`. Żywy wpis na X wymaga też https na własnej domenie.
 
 ## Wymagania
 

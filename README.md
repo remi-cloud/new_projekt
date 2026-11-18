@@ -44,11 +44,11 @@ Smoke po starcie: `./scripts/audit.sh`
 
 ### Docker
 
-Ten sam `docker compose` działa na **Macu M2 (arm64)** i na serwerze **amd64** (Hetzner). Obrazy bazują na oficjalnych bazach wieloarchitekturowych — Docker sam dobiera wariant procesora. Sekrety (token X, Twilio, klucze API) są tylko w pliku `.env`, nigdy w obrazie. Auto-publikacja na X jest **wyłączona**, dopóki w `.env` nie ustawisz `CYCLICAL_SOCIAL_AUTO_POST=true` i nie zrestartujesz stacku.
+Ten sam `docker compose` działa na **Macu M2 (arm64)** i na serwerze **amd64** (Hetzner). Obrazy bazują na oficjalnych bazach wieloarchitekturowych — Docker sam dobiera wariant procesora. Sekrety (token X, Twilio, klucze API) są tylko w pliku `.env`, nigdy w obrazie. Auto-X jest włączone w kodzie. Żywy wpis czeka, aż `CYCLICAL_SOCIAL_DRY_RUN=false` i `CYCLICAL_PUBLIC_BASE_URL` będzie https na własnej domenie.
 
 Baza i dziennik decyzji oraz cache siedzą na wolumenach (`trader-db`, `app-cache`). Portfel to wspólny folder `backend/data/baza_portfela` — ten sam dla Dockera i lokalnego uvicorn. Serwer działa jako uid 10001. Przy starcie entrypoint tylko na chwilę jest rootem, żeby ten folder był zapisywalny, i oddaje proces użytkownikowi `app`. Gdy folder należy do innego uid i nie da się go otworzyć, w logu jest polecenie `chown -R 10001:10001 backend/data/baza_portfela`.
 
-Posty na X i bot Binance startują w trybie próbnym (`CYCLICAL_SOCIAL_DRY_RUN` i `CYCLICAL_BINANCE_AI_BOT_DRY_RUN` domyślnie true). Auto-publikacja zostaje wyłączona.
+Posty na X i bot Binance startują w trybie próbnym (`CYCLICAL_SOCIAL_DRY_RUN` i `CYCLICAL_BINANCE_AI_BOT_DRY_RUN` domyślnie true). Tryb próbny blokuje każde prawdziwe API X.
 
 #### Mac M2 (Apple Silicon, arm64)
 
@@ -73,7 +73,7 @@ Otwórz port **8080** (albo postaw Caddy/Nginx z HTTPS przed tym portem). Logi: 
 
 #### Render (amd64)
 
-Blueprint `render.yaml` buduje jeden kontener z głównego `Dockerfile` (strona i API na porcie, który poda Render). Sekrety ustaw w panelu Render. `CYCLICAL_SOCIAL_AUTO_POST` zostaw `false`.
+Blueprint `render.yaml` buduje jeden kontener z głównego `Dockerfile` (strona i API na porcie, który poda Render). Sekrety ustaw w panelu Render. Auto-X zostaje włączone, a `CYCLICAL_SOCIAL_DRY_RUN` zostaw `true`, dopóki domena nie jest Twoim https.
 
 ### Lokalnie (dev ręcznie)
 
@@ -174,6 +174,16 @@ Zapis trafia do `backups/session_YYYYMMDD_HHMMSS/` (wskaźnik: `backups/LATEST_S
 
 Co **20 s** backend kopiuje postęp do `backups/progress/current/` (portfel, trader.db, static).  
 W UI: przełącznik **Auto-odświeżanie 20s** (sidebar) — dashboard odświeża dane co 20 s.
+
+## Solana Desk — handel realny
+
+Domyślnie jest papier. Żeby właściciel sam włączył wysyłkę na łańcuch, w `.env` (nigdy w repozytorium) muszą być naraz: `SOLANA_REAL_TRADING=true`, `SOLANA_BOT_PRIVATE_KEY` (base58) i `SOLANA_RPC_URL`. Potem w panelu Solana Desk, po tokenie biurka, przycisk **Uzbrój handel realny**. Bez któregoś z tych zamków kod wysyłki się nie wykonuje. Restart serwera sam rozbraja zamek.
+
+Trasa: Jupiter Swap API v1 (`lite-api.jup.ag`) — kwotowanie, lokalny podpis, `simulateTransaction`, dopiero potem `sendTransaction` i potwierdzenie. Sygnatura i link Solscan trafiają do dziennika. Limity: maks. SOL na transakcję, dzienny limit straty, liczba pozycji, rezerwa SOL na portfelu, sufit poślizgu i opłaty priorytetowej. Wyłącznik awaryjny zatrzymuje nowe kupna i sprzedaje otwarte pozycje. Checker jest ten sam co na papierze.
+
+Ryzyko: to prawdziwe SOL. Symulacja może przejść, a transakcja i tak się nie udać albo potwierdzić za późno. Token bez kwotowania Jupitera nie jest wysyłany.
+
+Stop: **Rozbrój handel realny**, albo `SOLANA_REAL_TRADING=false` i restart. Wyłącznik awaryjny w panelu zamyka nowe wejścia.
 
 ## Disclaimer
 

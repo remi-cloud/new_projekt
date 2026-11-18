@@ -8,6 +8,7 @@ export const fil: Translations = {
     fomo: 'FOMO Ghost',
     axiom: 'Axiom',
     launch: 'Launch Scout',
+    solana: 'Solana Desk',
     aiHacking: "AI at seguridad",
     radar: 'Radar',
     cycles: 'Siklo', news: 'Balita', alerts: 'Alerto', about: 'Tungkol sa amin', portfolio: 'Portfolio', agent: 'AI Agent',
@@ -176,7 +177,7 @@ export const fil: Translations = {
       },
       cyclePhase: {
         math: 'Piecewise phase of a periodic / quasi-periodic process.',
-        finance: 'Macro timing layer (BTC 364/1064, presidential years).',
+        finance: 'Macro timing layer (BTC 364/1064, regional seasons).',
         market: 'Bear / accumulation / bull / distribution tags drive signal prior.',
       },
       confidence: {
@@ -224,10 +225,10 @@ export const fil: Translations = {
     skip: 'Skip to content',
     loginNav: 'Sign in',
     loginTitle: 'Desk sign-in',
-    loginLead: 'The token stays in this tab. It is not stored in the repository.',
+    loginLead: 'The password stays on the server. The browser only receives a cookie that page scripts cannot read.',
     loginToken: 'Desk token',
     loginSubmit: 'Enter',
-    loginOk: 'Signed in. The token lives only in this browser session.',
+    loginOk: 'Naka-sign in. Nasa HttpOnly cookie ang session ng desk.',
     loginClosed: 'The desk is closed. Set CYCLICAL_DESK_TOKEN on the server and restart.',
     loginBad: 'Wrong token.',
   },
@@ -497,7 +498,7 @@ export const fil: Translations = {
     world: 'Mundo', all: 'Lahat', count: '{{n}} instrumento', empty: 'Walang instrumento para sa napiling filter.',
   },
   instrument: {
-    notFound: 'Hindi nahanap ang instrumento: {{symbol}}', backToMarkets: 'Bumalik sa merkado', backMarkets: '← Merkado',
+    notFound: 'Hindi nahanap ang instrumento: {{symbol}}', bookAria: 'Order book at heatmap', backToMarkets: 'Bumalik sa merkado', backMarkets: '← Merkado',
     eyebrow: 'Instrumento · Cyclical analysis', tapExpand: 'I-tap para palakihin →',
     confidenceTooltip: 'Signal confidence {{n}}% — mas mataas, mas malakas ang {{action}} opportunity',
     confidenceBuy: 'pagbili', confidenceSell: 'pagbebenta', momentumTag: 'Momentum + siklo',
@@ -525,6 +526,7 @@ export const fil: Translations = {
     karOpenAxiom: 'Axiom · Kar positions →',
     karOpenLaunch: 'Meme Universe →',
     binanceBanner: 'Binance AI BOT · portfolio bridge',
+    binanceAuth: 'Mag-sign in sa desk para makita ang Binance balances.',
     binanceLoading: 'Sinusuri ang Binance sync…',
     binanceNoKeys: 'Hindi konektado — ilagay ang CYCLICAL_BINANCE_API_KEY sa .env',
     binanceConnectedDry: 'Konektado (dry-run) · {{n}} drift row(s)',
@@ -550,6 +552,7 @@ export const fil: Translations = {
     buySide: 'BILI', sellSide: 'BENTA',
   },
   alerts: {
+    empty: 'Walang alert settings. Subukan muli.',
     loadError: 'Hindi ma-load ang settings', saved: 'Na-save ang settings ✓', saveError: 'Error sa pag-save',
     pushUnavailable: 'Hindi available ang push — walang VAPID key sa server',
     pushEnabled: 'Naka-enable ang push notifications ✓', pushError: 'Hindi ma-enable ang push',
@@ -584,7 +587,7 @@ export const fil: Translations = {
     notDesc: 'Maraming platform ang umaasa sa event economics. Mahalaga ito — pero hindi ito ang core namin. Mas malalim kami: sa phases, cycles at sariling models.',
     methodTitle: 'Ang aming method sa madaling salita',
     methodSteps: [
-      'Nagma-map kami ng cycles — mula Bitcoin hanggang US presidential cadence at regional macro.',
+      'Nagma-map kami ng cycles — mula Bitcoin hanggang regional macro at regional macro.',
       'Pinagsasama namin ang layers — presyo, momentum (RSI), macro at entry/exit signals.',
       'Sinusubok namin ang disiplina — paper trading na may limit, stop at 1,000,000 PLN portfolio.',
       'Nag-iisip kami sa taon — ang signals ay para sa allocation at pasensya, hindi overtrading.',
@@ -594,7 +597,7 @@ export const fil: Translations = {
     chips: ['Email', 'AI Bot', 'Partnerships'],
     disclaimer: 'Ang Cyclical Academy ay para sa educational at analytical purposes at hindi investment advice. May panganib ang pag-invest.',
     pillars: [
-      { title: 'Cycles, hindi headlines', body: 'Ang aming signals ay galing sa repeatable market phases — Bitcoin cycle, US presidential cadence, RSI momentum at regional maps.' },
+      { title: 'Cycles, hindi headlines', body: 'Ang aming signals ay galing sa repeatable market phases — Bitcoin cycle, regional macro, RSI momentum at regional maps.' },
       { title: 'Sariling frameworks', body: 'Nag-develop kami ng original models na pinagsasama ang price cycles, regional macro at momentum — para sa maraming taon, hindi uso.' },
       { title: 'Long-term horizon', body: 'Dinisenyo namin ang desisyon para sa pagbuo ng kapital sa paglipas ng panahon. Ang paper trading ay para sa disiplina.' },
       { title: 'Terminal, hindi tabloid', body: 'Ang Cyclical Academy ay analytical tool: charts, cycles, ratings at virtual account — walang news noise o pangakong mabilis na kita.' },
@@ -662,8 +665,8 @@ export const fil: Translations = {
     btcRationaleDistribution: 'Distribution phase ({{days}} days since ATH). Stay cautious until a new high.',
     regionalSummary: '{{region}}: phase {{phase}}, buy weight {{weight}}%.',
     daysSinceAth: 'Araw mula ATH', phase: 'Phase', declines: 'Pagbaba', growth: 'Pagtaas',
-    phaseProgress: 'Phase progress: {{pct}}% · {{days}} araw natitira', presTitle: 'US presidential cycle',
-    president: 'Presidente', termYear: 'Taon ng term', historicalReturn: 'Historical return', perYear: '/taon',
+    phaseProgress: 'Phase progress: {{pct}}% · {{days}} araw natitira', presTitle: 'neutral US macro weight',
+    president: 'Presidente', termYear: 'Neutral na timbang', historicalReturn: 'Historical return', perYear: '/taon',
     cycleAvg: 'Cycle average', benchmarkChange: '{{benchmark}} · taunang pagbabago',
     weakest: 'Pinakamahina', moderate: 'Katamtaman', strongest: 'Pinakamalakas', progress: 'Progress', days: 'araw',
     avg: 'avg. {{n}}', regionalPhase: 'Phase', buyWeight: 'Buy weight', bias: 'Bias',
@@ -736,6 +739,7 @@ export const fil: Translations = {
   },
   superDesk: {
     title: 'Super setups',
+    bookAria: 'Bid at ask book',
     lead: 'A liquidation heatmap sits on every position (entry / stop / target + liq).',
     hydrating: 'Loading the full 3D map…',
     singularity: 'Singularity',
@@ -944,7 +948,7 @@ export const fil: Translations = {
     empty: 'Magtanong tungkol sa merkado, trend, pattern o Bitcoin / Fed cycle.',
     hintTrend: '"Ano ang trend ng BTC-USD?"',
     hintPattern: '"May double top ba sa AAPL?"',
-    hintMacro: '"Paano naaapektuhan ng presidential cycle ang S&P?"',
+    hintMacro: '"Paano naaapektuhan ng regional macro ang S&P?"',
     you: 'Ikaw',
     bot: 'Agent',
     tools: 'Tools',
@@ -963,7 +967,7 @@ export const fil: Translations = {
     quickTrend: 'Suriin ang trend ng {{symbol}}: SMA, RSI, HH/HL.',
     quickPattern: 'Hanapin ang pattern sa {{symbol}}: support, resistance, double top/bottom.',
     quickAnalyze: 'Buong pagsusuri ng {{symbol}}: trend, pattern, cycle, risk.',
-    quickCycles: 'Buod ng cycle: Bitcoin 364/1064, US presidential cycle, regional signals.',
+    quickCycles: 'Buod ng cycle: Bitcoin 364/1064, neutral US macro weight, regional signals.',
     analyzeOnly: 'Buong pagsusuri ng {{symbol}}',
     askAgent: 'Itanong sa agent',
     analyzeNews: 'Suriin sa agent',
@@ -1105,7 +1109,7 @@ export const fil: Translations = {
     media2: 'Accreditation ng data citation',
     media3: 'Magkasamang webinar',
     eduTitle: 'Edukasyon / akademya',
-    eduBody: 'BTC + presidential cycle workshop para sa team at estudyante.',
+    eduBody: 'BTC + regional macro workshop para sa team at estudyante.',
     edu1: 'Mga materyales sa pagtuturo',
     edu2: 'Paper-trading sandbox',
     edu3: 'Classroom license',
@@ -1153,7 +1157,7 @@ export const fil: Translations = {
     suggestion: 'Mungkahi',
     clickHint: 'I-tap ang tag — kahulugan at mungkahi',
     layerCycle: {
-      body: 'Cycle layer — Bitcoin (364/1064) o presidential / regional macro.',
+      body: 'Cycle layer — Bitcoin (364/1064) o regional macro.',
       hint: 'Buksan ang Cycles bago palakihin ang paper trade size.',
     },
     layerPrice: {
@@ -1182,7 +1186,7 @@ export const fil: Translations = {
         hint: 'Ihambing ang coin na ito sa BTC phase sa Cycles. Mas mainam pumasok sa pagbaba / accumulation, hindi pagkatapos ng parabolic run.',
       },
       stock: {
-        body: 'Listed equity — shares ng kumpanya sa exchange. Ramdam din ng US names ang presidential cycle; mas umaasa ang iba sa regional macro.',
+        body: 'Listed equity — shares ng kumpanya sa exchange. Ramdam din ng US names ang regional macro; mas umaasa ang iba sa regional macro.',
         hint: 'Tingnan ang price phase vs 52-week high at region tag bago idagdag sa paper portfolio.',
       },
       etf: {
@@ -1216,12 +1220,12 @@ export const fil: Translations = {
         hint: 'Umasa sa BTC cycle (crypto) o global risk mood. Huwag masyadong i-fit sa isang local election calendar.',
       },
       us: {
-        body: 'USA — equity calendar na konektado sa midterms / presidential year. Dito nakatira ang S&P at Nasdaq.',
-        hint: 'Buksan ang Cycles page para sa US presidential phase. Ang Year 2 ay historically pinakamahina para sa US risk assets.',
+        body: 'USA — equity calendar na konektado sa midterms / regional season. Dito nakatira ang S&P at Nasdaq.',
+        hint: 'Buksan ang Cycles page para sa neutral US phase. Ang Year 2 ay historically pinakamahina para sa US risk assets.',
       },
       eu: {
         body: 'Europe — mas mahalaga ang ECB, fiscal calendars at EU equity seasonality kaysa US politics.',
-        hint: 'Magaan lang ang timbang ng presidential cycle; mas mabigat ang price phase at EU macro news.',
+        hint: 'Magaan lang ang timbang ng regional macro; mas mabigat ang price phase at EU macro news.',
       },
       asia: {
         body: 'Asia — JP / CN / IN calendars, lunar new year seasonality at local policy ang nangingibabaw.',
@@ -1233,7 +1237,7 @@ export const fil: Translations = {
       },
       pl: {
         body: 'Poland — WIG / PL assets. Mahalaga ang local elections, budget at dividend season.',
-        hint: 'Secondary lang ang US presidential cycle. Bantayan ang PL region phase at PLN liquidity sa Markets filters.',
+        hint: 'Secondary lang ang neutral US macro weight. Bantayan ang PL region phase at PLN liquidity sa Markets filters.',
       },
     },
     phase: {
@@ -1258,19 +1262,19 @@ export const fil: Translations = {
         hint: 'Mas maliit na size o maghintay. Gamitin ang RSI / Momentum + cycle picks imbes na pilitin ang trade.',
       },
       year_1: {
-        body: 'Presidential year 1 — policy adaptation. Historically mas malambot para sa US equities.',
+        body: 'US weight is neutral. The term-year model is off.',
         hint: 'Maging selektibo sa US assets. Mas mainam ang high-confidence setups lang.',
       },
       year_2: {
-        body: 'Presidential year 2 (midterms) — historically pinakamahinang US equity year sa cycle.',
+        body: 'US weight is neutral. The term-year model is off.',
         hint: 'Extra caution sa US risk. Mas mainam ang cash / hedges sa paper o very high confidence Buys lang.',
       },
       year_3: {
-        body: 'Presidential year 3 — historically pinakamalakas na US equity year ng term.',
+        body: 'US weight is neutral. The term-year model is off.',
         hint: 'Maaaring mas malakas ang US Buy biases — respetuhin pa rin ang price phase at confidence %.',
       },
       year_4: {
-        body: 'Presidential year 4 — election year; historically moderate, may late uncertainty.',
+        body: 'US weight is neutral. The term-year model is off.',
         hint: 'Asahan ang headline noise. Mas mainam ang malinaw na phases kaysa i-trade ang bawat poll spike.',
       },
       silne_wzrost: {

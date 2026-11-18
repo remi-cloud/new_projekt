@@ -130,11 +130,13 @@ async def save_opportunities(opportunities: list[Opportunity]) -> None:
 
 
 async def get_recent_opportunities(limit: int = 50) -> list[dict]:
+    from app.query_bounds import bounded_limit
+
     async with db_session() as db:
         db.row_factory = aiosqlite.Row
         cursor = await db.execute(
             "SELECT * FROM opportunities ORDER BY created_at DESC LIMIT ?",
-            (limit,),
+            (bounded_limit(limit, 200),),
         )
         rows = await cursor.fetchall()
         return [dict(row) for row in rows]

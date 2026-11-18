@@ -17,23 +17,48 @@ _ENDPOINTS = (
     "https://advanced-api-v2.pump.fun/coins/list?limit={limit}&sortBy=creationTime&direction=desc",
 )
 
+_status = {
+    "id": "pump.fun",
+    "http": None,
+    "detail": "Jeszcze nie sprawdzono. Pusta kolumna oznacza brak odpowiedzi źródła.",
+}
+
+
+def source_status() -> dict:
+    return dict(_status)
+
+
+def _remember(http: int | None, detail: str) -> None:
+    _status["http"] = http
+    _status["detail"] = detail
+
 
 async def fetch_recent_coins(limit: int = 60) -> list[dict]:
     limit = max(1, min(100, limit))
-    async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
+    saw_forbidden = False
+    async with httpx.AsyncClient(timeout=HTTP_TIMEOUT, follow_redirects=False) as client:
         for tmpl in _ENDPOINTS:
             url = tmpl.format(limit=limit)
             try:
                 resp = await client.get(url, headers={"Accept": "application/json", "User-Agent": UA})
+                if resp.status_code in {401, 403}:
+                    saw_forbidden = True
+                    logger.info("pump.fun odmówił HTTP %s — bez obchodzenia blokady", resp.status_code)
+                    continue
                 if resp.status_code >= 400:
-                    logger.debug("Pump.fun %s → HTTP %s", url[:60], resp.status_code)
+                    logger.info("pump.fun HTTP %s — kolumna zostaje pusta", resp.status_code)
                     continue
                 data = resp.json()
                 rows = _as_rows(data)
                 if rows:
+                    _remember(200, "Źródło odpowiedziało.")
                     return rows[:limit]
             except Exception as exc:
-                logger.debug("Pump.fun fetch failed (%s): %s", url[:60], exc)
+                logger.info("pump.fun nie odpowiedziało (%s)", type(exc).__name__)
+    if saw_forbidden:
+        _remember(403, "pump.fun zwróciło 403. Brak danych, bez obejść i bez scrapowania.")
+    else:
+        _remember(None, "pump.fun nie odpowiedziało. Pusta kolumna oznacza brak danych źródła.")
     return []
 
 

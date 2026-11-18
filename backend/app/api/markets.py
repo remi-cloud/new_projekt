@@ -17,6 +17,7 @@ from app.models.schemas import (
     SignalAction,
 )
 from app.paper.pricing import PaperTradeError, get_live_price_async
+from app.read_guard import forced_refresh_due
 from app.scanners.opportunity_scanner import scanner
 
 router = APIRouter(tags=["markets"])
@@ -80,7 +81,7 @@ async def market_assessments(
     asset_class: str | None = None,
     signal: str | None = None,
 ):
-    if not scanner.market_assessments:
+    if not scanner.market_assessments and forced_refresh_due("public-market-scan"):
         await scanner.scan()
     results = scanner.market_assessments
     if region:
@@ -107,7 +108,7 @@ async def market_assessment(symbol: str):
             raise HTTPException(status_code=404, detail=f"Nieznany instrument: {symbol}")
     else:
         pearl = None
-        if not scanner.market_assessments:
+        if not scanner.market_assessments and forced_refresh_due("public-market-scan"):
             try:
                 await scanner.scan()
             except Exception:

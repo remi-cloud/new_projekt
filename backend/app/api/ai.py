@@ -1,10 +1,12 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from app.ai import agent as ai_agent
+from app.ai.visibility import desk_portfolio_visible
+from app.desk_auth import supplied_desk_token, tokens_match
 from app.ai import db as ai_db
 from app.ai.learning import process_feedback
 from app.ai.academy import academy_payload
-from app.ai.llm import free_chain_labels, llm_configured, resolve_llm
+from app.ai.llm import active_llm_target, free_chain_labels, llm_reachable
 from app.config import settings
 from app.models.schemas import (
     AiAnalyzeResponse,
@@ -17,6 +19,12 @@ from app.models.schemas import (
 router = APIRouter(tags=["ai"])
 
 
+def _desk_open(request: Request) -> bool:
+    expected = (settings.desk_token or "").strip()
+    supplied = supplied_desk_token(request)
+    return bool(expected and supplied and tokens_match(supplied, expected))
+
+
 @router.get("/api/ai/academy")
 async def ai_academy():
     """Educational brief for the AI & security page. Static copy, no secrets."""
@@ -26,17 +34,21 @@ async def ai_academy():
 @router.get("/api/ai/status", response_model=AiStatusResponse)
 async def ai_status():
     stats = await ai_db.get_stats()
-    base_url, model, api_key, provider = resolve_llm()
-    shown_base = base_url if llm_configured() else ""
+    target = active_llm_target()
+    reachable = await llm_reachable(target) if target else False
+    base_url = target.base_url if target else ""
+    model = target.model if target and reachable else ""
+    provider = target.provider if target and reachable else "none"
+    shown_base = base_url if reachable else ""
     if shown_base.startswith("http://127.0.0.1") or shown_base.startswith("http://localhost"):
         shown_base = ""
     return AiStatusResponse(
         enabled=settings.ai_enabled,
-        llm_configured=llm_configured(),
+        llm_configured=reachable,
         model=model,
-        provider=provider if llm_configured() else "none",
+        provider=provider,
         base_url=shown_base,
-        requires_api_key=provider == "openai",
+        requires_api_key=bool(target and target.provider == "openai"),
         free_chain=free_chain_labels(),
         features=[
             "finance_guard",
@@ -57,9 +69,10 @@ async def ai_status():
 
 
 @router.post("/api/ai/chat", response_model=AiChatResponse)
-async def ai_chat(body: AiChatRequest):
+async def ai_chat(body: AiChatRequest, request: Request):
     if not body.message.strip():
         raise HTTPException(status_code=400, detail="Message required")
+    token = desk_portfolio_visible.set(_desk_open(request))
     try:
         result = await ai_agent.chat(
             message=body.message.strip(),
@@ -72,9 +85,14 @@ async def ai_chat(body: AiChatRequest):
         if "not configured" in text.lower() or text.startswith("LLM"):
             raise HTTPException(
                 status_code=503,
-                detail="Zewnętrzny czat AI jest wyłączony. Ustaw klucz albo CYCLICAL_AI_EXTERNAL=true.",
+                detail=(
+                    "Zewnętrzny czat AI jest wyłączony. Ustaw klucz albo "
+                    "CYCLICAL_AI_EXTERNAL_ENABLED=true."
+                ),
             ) from None
         raise HTTPException(status_code=502, detail="Czat AI nie odpowiedział.") from None
+    finally:
+        desk_portfolio_visible.reset(token)
     return AiChatResponse(**result)
 
 
@@ -95,6 +113,10 @@ async def ai_history(session_id: str, limit: int = 40):
 
 
 @router.post("/api/ai/analyze/{symbol}", response_model=AiAnalyzeResponse)
-async def ai_analyze_symbol(symbol: str, lang: str | None = None):
-    result = await ai_agent.analyze_symbol(symbol, locale=lang or "pl")
+async def ai_analyze_symbol(symbol: str, request: Request, lang: str | None = None):
+    token = desk_portfolio_visible.set(_desk_open(request))
+    try:
+        result = await ai_agent.analyze_symbol(symbol, locale=lang or "pl")
+    finally:
+        desk_portfolio_visible.reset(token)
     return AiAnalyzeResponse(**result)

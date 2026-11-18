@@ -21,18 +21,31 @@ export function AlertsPage() {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [attempt, setAttempt] = useState(0)
 
   const reload = () =>
     fetchNotificationStatus()
       .then((s) => {
+        if (!s?.settings) {
+          setStatus(null)
+          setSettings(null)
+          setError(t('alerts.empty'))
+          return
+        }
+        setError(null)
         setStatus(s)
         setSettings(s.settings)
       })
-      .catch(() => setError(t('alerts.loadError')))
+      .catch(() => {
+        setStatus(null)
+        setSettings(null)
+        setError(t('alerts.loadError'))
+      })
 
   useEffect(() => {
+    setLoading(true)
     reload().finally(() => setLoading(false))
-  }, [])
+  }, [attempt])
 
   const handleSave = async () => {
     if (!settings) return
@@ -42,8 +55,8 @@ export function AlertsPage() {
       const saved = await saveAlertSettings(settings)
       setSettings(saved)
       setMessage(t('alerts.saved'))
-    } catch {
-      setMessage(t('alerts.saveError'))
+    } catch (e) {
+      setMessage(formatThrownError(e, t('alerts.saveError')))
     } finally {
       setSaving(false)
     }
@@ -97,8 +110,14 @@ export function AlertsPage() {
   }
 
   if (loading) return <div className="page-loading">{t('alerts.loading')}</div>
-  if (error) return <ErrorState message={error} onRetry={() => window.location.reload()} />
-  if (!settings || !status) return null
+  if (error || !settings || !status) {
+    return (
+      <ErrorState
+        message={error || t('alerts.empty')}
+        onRetry={() => setAttempt((value) => value + 1)}
+      />
+    )
+  }
 
   return (
     <div className="alerts-page">

@@ -3,7 +3,7 @@ import { useDomainLabels } from '../i18n/useDomainLabels'
 import { RegionalCycleSnapshot } from '../types'
 
 const REGION_COLORS: Record<string, string> = {
-  us: 'presidential',
+  us: 'us',
   pl: 'polish',
   eu: 'europe',
   asia: 'asia',

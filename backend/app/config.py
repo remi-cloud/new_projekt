@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -94,7 +95,14 @@ class Settings(BaseSettings):
     openai_image_quality: str = "standard"
     openai_base_url: str = "https://api.openai.com/v1"
     # Off: chat stays local (Ollama) or refuses. On: keyless llm7.io is allowed.
-    ai_external_enabled: bool = False
+    # CYCLICAL_AI_EXTERNAL is a deprecated alias of CYCLICAL_AI_EXTERNAL_ENABLED.
+    ai_external_enabled: bool = Field(
+        default=False,
+        validation_alias=AliasChoices(
+            "CYCLICAL_AI_EXTERNAL_ENABLED",
+            "CYCLICAL_AI_EXTERNAL",
+        ),
+    )
     # Free keyless OpenAI-compatible gateway (no signup / no key)
     free_llm_base_url: str = "https://api.llm7.io/v1"
     free_llm_model: str = "codestral-latest"

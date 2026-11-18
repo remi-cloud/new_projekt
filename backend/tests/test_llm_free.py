@@ -18,7 +18,7 @@ def test_auto_uses_llm7_without_openai_key(monkeypatch):
     assert provider == "ollama"
     assert "127.0.0.1" in base
     assert model
-    assert key == "ollama"
+    assert key is None
 
 
 def test_free_chain_lists_llm7_models_then_ollama(monkeypatch):

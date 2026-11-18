@@ -73,7 +73,7 @@ def analyze_us_macro(as_of: date | None = None) -> MacroCycleResult:
         cycle_id="us_neutral",
         phase="neutral",
         signal=SignalAction.HOLD,
-        buy_weight=1.0,
+        buy_weight=0.5,
         bias="USA: waga neutralna, bez cyklu prezydenckiego",
         rationale="Cykl prezydencki wyłączony. Sygnał USA nie dokłada biasu kadencji.",
     )
@@ -352,7 +352,7 @@ def analyze_global_macro(
             cycle_id="global_forex_cycle",
             phase="usd_neutral_bias",
             signal=SignalAction.HOLD,
-            buy_weight=1.0,
+            buy_weight=0.5,
             bias="Forex: waga neutralna, bez cyklu prezydenckiego",
             rationale="Forex bez biasu kadencji USA. Ocena zostaje przy cenie i momentum.",
         )

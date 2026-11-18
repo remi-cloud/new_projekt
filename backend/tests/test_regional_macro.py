@@ -31,7 +31,8 @@ def test_polish_pre_election():
 def test_us_region_is_neutral():
     result = analyze_regional_macro("us", "stock", "AAPL", date(2026, 7, 13))
     assert result.cycle_id == "us_neutral"
-    assert result.buy_weight == 1.0
+    assert result.buy_weight == 0.5
+    assert result.base_confidence == 50.0
 
 
 def test_pl_region_not_presidential():

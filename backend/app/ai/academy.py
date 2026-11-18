@@ -61,7 +61,7 @@ def academy_payload() -> dict:
                         "title": "Czat na tym biurku",
                         "body": (
                             "Zewnętrzny czat jest wyłączony, dopóki nie ustawisz własnego klucza albo "
-                            "świadomie nie włączysz CYCLICAL_AI_EXTERNAL. Lokalne Ollama działa tylko na serwerze. "
+                            "świadomie nie włączysz CYCLICAL_AI_EXTERNAL_ENABLED. Lokalne Ollama działa tylko na serwerze. "
                             "Do czatu nie wkleja się kluczy API, haseł ani frazy odzyskiwania portfela."
                         ),
                     },

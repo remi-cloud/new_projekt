@@ -9,6 +9,7 @@ import { QuickTradeButtons } from '../components/QuickTradeButtons'
 import SignalTag from '../components/SignalTag'
 import SingularityTool from '../components/SingularityTool'
 import { useLocale } from '../context/LocaleContext'
+import { formatThrownError } from '../i18n/utils'
 import { focusedSymbol, focusMatches } from '../lib/focusSymbol'
 import { ASSET_LABELS, formatDirection } from '../lib/labels'
 import { positionPath } from '../lib/routes'
@@ -151,6 +152,8 @@ export default function SuperOpportunitiesPage() {
               try {
                 await triggerScan()
                 await load()
+              } catch (e) {
+                setError(formatThrownError(e, t('superDesk.fetchError')))
               } finally {
                 setBusy(false)
               }
@@ -281,7 +284,7 @@ function PositionCard({
         </div>
       )}
 
-      <div className="book-strip" aria-label="Bid Ask">
+      <div className="book-strip" aria-label={t('superDesk.bookAria')}>
         <div className="super-grid">
           <div className="stat bid-stat">
             <div className="stat-label">Bid</div>

@@ -23,6 +23,7 @@ export function useDashboard(options: UseDashboardOptions = {}) {
   const [error, setError] = useState<string | null>(null)
   const reloadTimer = useRef<number | null>(null)
   const dataRef = useRef<DashboardResponse | null>(null)
+  const alive = useRef(true)
   const [tickMs, setTickMs] = useState(() => getAutoRefreshIntervalMs())
 
   dataRef.current = data
@@ -82,6 +83,7 @@ export function useDashboard(options: UseDashboardOptions = {}) {
 
   useEffect(
     () => () => {
+      alive.current = false
       if (reloadTimer.current != null) window.clearTimeout(reloadTimer.current)
     },
     [],
@@ -103,11 +105,14 @@ export function useDashboard(options: UseDashboardOptions = {}) {
       const result = await triggerScan()
       await load()
       if (result.already_running) return
+      const watch = alive.current
       void (async () => {
         for (let i = 0; i < 40; i++) {
           await new Promise((r) => setTimeout(r, 3000))
+          if (!watch || !alive.current) return
           try {
             const dashboard = await fetchDashboard()
+            if (!alive.current) return
             setData(dashboard)
             if (!dashboard.scan_in_progress) break
           } catch {

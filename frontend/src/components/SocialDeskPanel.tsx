@@ -1,30 +1,44 @@
 import { useCallback, useEffect, useState } from 'react'
-import { fetchSocialPublished, fetchSocialStatus, type SocialDeskStatus } from '../api'
+import { fetchSocialDecisions, fetchSocialPublished, fetchSocialStatus, type SocialDeskStatus } from '../api'
 import { useLocale } from '../context/LocaleContext'
 
 type PublishedPost = {
   id?: number
   body: string
   published_at?: string | null
+  x_url?: string | null
+  source_name?: string
+}
+
+type DecisionRow = {
+  id?: number
+  title?: string
+  action?: string
+  reason?: string
+  score?: number
 }
 
 export function SocialDeskPanel({ refreshKey = 0 }: { refreshKey?: number }) {
   const { t } = useLocale()
   const [status, setStatus] = useState<SocialDeskStatus | null>(null)
   const [published, setPublished] = useState<PublishedPost[]>([])
+  const [decisions, setDecisions] = useState<DecisionRow[] | null>(null)
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
     try {
-      const [desk, sent] = await Promise.all([
+      const [desk, sent, log] = await Promise.all([
         fetchSocialStatus(),
         fetchSocialPublished(12),
+        fetchSocialDecisions(12),
       ])
       setStatus(desk)
       setPublished(sent.posts ?? [])
+      setDecisions(log ? (log.decisions ?? []) : null)
     } catch {
       setStatus(null)
       setPublished([])
+      setDecisions(null)
     } finally {
       setLoading(false)
     }
@@ -70,10 +84,34 @@ export function SocialDeskPanel({ refreshKey = 0 }: { refreshKey?: number }) {
             {published.map((row) => (
               <li key={row.id ?? row.published_at ?? row.body} className="social-desk-item">
                 <p className="social-desk-body">{row.body}</p>
+                {row.x_url ? (
+                  <a href={row.x_url} rel="noreferrer">
+                    {row.source_name || 'X'}
+                  </a>
+                ) : null}
               </li>
             ))}
           </ul>
         )}
+        {decisions ? (
+          <>
+            <h4>{t('macro.social.decisionsTitle')}</h4>
+            {decisions.length === 0 ? (
+              <p className="social-desk-empty">{t('macro.social.decisionsEmpty')}</p>
+            ) : (
+              <ul className="social-desk-list">
+                {decisions.map((row) => (
+                  <li key={row.id ?? `${row.action}-${row.title}`} className="social-desk-item">
+                    <p className="social-desk-body">
+                      {row.action}: {row.title || row.reason}
+                      {row.reason ? ` — ${row.reason}` : ''}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        ) : null}
       </div>
     </section>
   )

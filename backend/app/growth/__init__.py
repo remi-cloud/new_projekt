@@ -58,7 +58,9 @@ async def init_growth_db() -> None:
 
 async def subscribe_newsletter(email: str, locale: str | None = None, source: str = "web") -> dict:
     email = email.strip().lower()
-    if not EMAIL_RE.match(email):
+    locale = (locale or "")[:12] or None
+    source = (source or "web")[:40]
+    if not EMAIL_RE.match(email) or len(email) > 200:
         raise ValueError("Invalid email")
     now = datetime.now(timezone.utc).isoformat()
     async with db_session() as db:
@@ -71,8 +73,8 @@ async def subscribe_newsletter(email: str, locale: str | None = None, source: st
             (email, locale, source, now),
         )
         await db.commit()
-    logger.info("Newsletter signup: %s (source=%s, locale=%s)", email, source, locale or "—")
-    return {"ok": True, "email": email}
+    logger.info("Newsletter signup recorded")
+    return {"ok": True}
 
 
 async def create_lead(
@@ -84,10 +86,14 @@ async def create_lead(
     locale: str | None = None,
 ) -> dict:
     email = email.strip().lower()
-    name = (name or "").strip()
-    if not name or len(name) < 2:
+    name = (name or "").strip()[:120]
+    company = (company or "")[:160] or None
+    package = (package or "")[:80] or None
+    message = (message or "")[:4000] or None
+    locale = (locale or "")[:12] or None
+    if len(name) < 2:
         raise ValueError("Name required")
-    if not EMAIL_RE.match(email):
+    if not EMAIL_RE.match(email) or len(email) > 200:
         raise ValueError("Invalid email")
     now = datetime.now(timezone.utc).isoformat()
     async with db_session() as db:
@@ -100,7 +106,7 @@ async def create_lead(
         )
         await db.commit()
         lead_id = cur.lastrowid
-    logger.info("New business lead #%s: %s <%s> package=%s", lead_id, name, email, package or "—")
+    logger.info("New business lead #%s package=%s", lead_id, package or "—")
     return {"ok": True, "id": lead_id}
 
 

@@ -18,7 +18,7 @@ export const aboutDetailFr: AboutDetailBundle = {
             'Après l’ATH, le BTC entre souvent en phase baissière (~364 jours), puis en accumulation et vague haussière (~1064 jours). Le scanner suit les jours depuis l’ATH, la phase (bear / accumulation / bull / distribution) et le % d’avancement — filtre de contexte pour la crypto et les actifs corrélés.',
         },
         {
-          title: 'Cycle présidentiel américain',
+          title: 'Macro neutre américain',
           body:
             'Statistiquement, la 3e année de mandat tend à être la plus forte pour le S&P 500, la 2e (midterms) la plus faible. La plateforme cartographie l’année de mandat en cours et les biais historiques — non comme garantie, mais comme contexte macro pour les actifs US.',
         },
@@ -29,7 +29,7 @@ export const aboutDetailFr: AboutDetailBundle = {
         },
       ],
       inAppTitle: 'Où le voir',
-      inAppBody: 'Onglet Cycles (cartes BTC et présidentielles), Dashboard global, notations sur Marchés et Opportunités.',
+      inAppBody: 'Onglet Cycles (cartes BTC et régionalles), Dashboard global, notations sur Marchés et Opportunités.',
     },
     'own-schemas': {
       eyebrow: 'Méthodologie · Modèles',
@@ -40,7 +40,7 @@ export const aboutDetailFr: AboutDetailBundle = {
         {
           title: 'Couches d’évaluation',
           body:
-            'Chaque instrument passe par le contexte prix 52 semaines, l’alignement cycle BTC (crypto) ou cycle présidentiel (US), le momentum RSI et la carte régionale. Résultat : Acheter, Vendre, Conserver ou Observer.',
+            'Chaque instrument passe par le contexte prix 52 semaines, l’alignement cycle BTC (crypto) ou macro neutre (US), le momentum RSI et la carte régionale. Résultat : Acheter, Vendre, Conserver ou Observer.',
         },
         {
           title: 'Confiance du signal (%)',
@@ -170,7 +170,7 @@ export const aboutDetailFr: AboutDetailBundle = {
       eyebrow: 'Méthode · Étape 1',
       title: 'Nous cartographions les cycles',
       intro:
-        'Première étape : comprendre la phase de cycle globale et régionale — du BTC au rythme présidentiel US et aux cartes macro.',
+        'Première étape : comprendre la phase de cycle globale et régionale — du BTC au rythme régional US et aux cartes macro.',
       sections: [
         {
           title: 'Bitcoin comme horloge crypto',
@@ -180,7 +180,7 @@ export const aboutDetailFr: AboutDetailBundle = {
         {
           title: 'Mandat US et régions',
           body:
-            'Cycle présidentiel pour actifs US ; snapshots régionaux (UE, Asie, PL, EM) avec notation macro et instruments représentatifs.',
+            'Macro neutre pour actifs US ; snapshots régionaux (UE, Asie, PL, EM) avec notation macro et instruments représentatifs.',
         },
         {
           title: 'Le scanner combine tout',
@@ -245,7 +245,7 @@ export const aboutDetailFr: AboutDetailBundle = {
       eyebrow: 'Méthode · Étape 4',
       title: 'Nous pensons en années',
       intro:
-        'Les signaux servent l’allocation de capital sur de nombreuses années — les cycles BTC et présidentiels durent plus qu’une session de trading.',
+        'Les signaux servent l’allocation de capital sur de nombreuses années — les cycles BTC et régionals durent plus qu’une session de trading.',
       sections: [
         {
           title: 'La patience comme avantage',
