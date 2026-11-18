@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react'
-import { apiFetch, clearDeskToken, writeDeskToken } from '../lib/deskAuth'
+import { apiFetch, clearDeskToken, noteDeskSession } from '../lib/deskAuth'
 import { API_BASE } from '../lib/sameOrigin'
 import { useLocale } from '../context/LocaleContext'
 
@@ -43,7 +43,7 @@ export function DeskLoginPage() {
       setMessage(t('layout.loginBad'))
       return
     }
-    writeDeskToken(token)
+    noteDeskSession()
     setToken('')
     setMessage(t('layout.loginOk'))
   }

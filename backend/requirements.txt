@@ -11,6 +11,6 @@ aiosqlite==0.20.0
 curl_cffi>=0.7.0
 pywebpush==1.14.1
 py-vapid==1.9.2
-cryptography==44.0.3
+cryptography==50.0.0
 Pillow>=10.4.0
 googlenewsdecoder>=0.1.7

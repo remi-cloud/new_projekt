@@ -507,23 +507,23 @@ class RoiAssetInfo(BaseModel):
 
 
 class NewsletterRequest(BaseModel):
-    email: str
-    locale: str | None = None
-    source: str = "web"
+    email: str = Field(min_length=3, max_length=200)
+    locale: str | None = Field(default=None, max_length=12)
+    source: str = Field(default="web", max_length=40)
 
 
 class BusinessLeadRequest(BaseModel):
-    name: str
-    email: str
-    company: str | None = None
-    package: str | None = None
-    message: str | None = None
-    locale: str | None = None
+    name: str = Field(min_length=2, max_length=120)
+    email: str = Field(min_length=3, max_length=200)
+    company: str | None = Field(default=None, max_length=160)
+    package: str | None = Field(default=None, max_length=80)
+    message: str | None = Field(default=None, max_length=4000)
+    locale: str | None = Field(default=None, max_length=12)
 
 
 class WatchlistVoteRequest(BaseModel):
-    symbol: str
-    name: str | None = None
+    symbol: str = Field(min_length=1, max_length=24)
+    name: str | None = Field(default=None, max_length=80)
 
 
 # ── Scanner desk (heatmap / Superokazje / Singularity) ─────────────────

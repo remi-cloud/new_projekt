@@ -65,6 +65,47 @@ URL_HOSTS: tuple[str, ...] = (
     "who.int",
 )
 
+# Canonical name printed in the post. The feed label is not trusted.
+PUBLISHER_NAMES: dict[str, str] = {
+    "reuters.com": "Reuters",
+    "apnews.com": "Associated Press",
+    "afp.com": "AFP",
+    "bloomberg.com": "Bloomberg",
+    "bbc.com": "BBC",
+    "bbc.co.uk": "BBC",
+    "bbci.co.uk": "BBC",
+    "ft.com": "Financial Times",
+    "pap.pl": "PAP",
+    "federalreserve.gov": "Federal Reserve",
+    "ecb.europa.eu": "European Central Bank",
+    "bankofengland.co.uk": "Bank of England",
+    "whitehouse.gov": "White House",
+    "sec.gov": "U.S. Securities and Exchange Commission",
+    "imf.org": "IMF",
+    "bis.org": "BIS",
+    "worldbank.org": "World Bank",
+    "aljazeera.com": "Al Jazeera",
+    "nhk.or.jp": "NHK",
+    "kyodonews.net": "Kyodo",
+    "yna.co.kr": "Yonhap",
+    "en.yna.co.kr": "Yonhap",
+    "abc.net.au": "ABC",
+    "cbc.ca": "CBC",
+    "dw.com": "DW",
+    "france24.com": "France 24",
+    "euronews.com": "Euronews",
+    "nikkei.com": "Nikkei",
+    "asia.nikkei.com": "Nikkei",
+    "lemonde.fr": "Le Monde",
+    "efe.com": "EFE",
+    "ansa.it": "ANSA",
+    "dpa-international.com": "dpa",
+    "europa.eu": "European Commission",
+    "un.org": "United Nations",
+    "nato.int": "NATO",
+    "who.int": "WHO",
+}
+
 # Official institution feeds (press releases, not commentary).
 OFFICIAL_LABELS: tuple[str, ...] = (
     "federal reserve",

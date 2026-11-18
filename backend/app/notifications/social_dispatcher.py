@@ -133,6 +133,13 @@ async def publish_post(post_id: int, *, force: bool = False) -> dict:
         logger.info("czeka na domenę")
         raise DryRunPublicationBlocked("czeka na domenę")
 
+    if platform == "x":
+        now = datetime.now(timezone.utc)
+        posted_hour = await social_db.count_posted_since("x", (now - timedelta(hours=1)).isoformat())
+        max_per_hour = int(getattr(settings, "social_auto_max_per_hour", 2) or 2)
+        if posted_hour >= max_per_hour:
+            raise RuntimeError(f"limit {max_per_hour} postów na godzinę")
+
     try:
         result = await _publish_live(platform, post["body"])
         now = datetime.now(timezone.utc).isoformat()
@@ -168,13 +175,17 @@ def public_x_record(post: dict) -> dict:
 
 
 async def _notify_webhook(record: dict) -> None:
+    from app.net_guard import public_url_ok
+    import httpx
+
     url = (getattr(settings, "social_webhook_url", None) or "").strip()
     if not url:
         return
-    import httpx
-
+    if not url.lower().startswith("https://") or not public_url_ok(url):
+        logger.warning("Social webhook blocked")
+        return
     try:
-        async with httpx.AsyncClient(timeout=8) as client:
+        async with httpx.AsyncClient(timeout=8, follow_redirects=False) as client:
             await client.post(url, json={"event": "x_published", "post": record})
     except Exception as exc:
         logger.warning("Social webhook failed: %s", type(exc).__name__)

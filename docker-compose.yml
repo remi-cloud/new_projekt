@@ -18,7 +18,7 @@ services:
       CYCLICAL_DATABASE_PATH: /data/db/trader.db
       CYCLICAL_PORTFOLIO_DATABASE_PATH: /data/portfolio/portfolio.db
       CYCLICAL_PORTFOLIO_RESTORE_BACKUP: "false"
-      # Domyślnie wyłączone. .env może nadpisać każdą z tych wartości.
+      # Włączone w kodzie. Wysyłka i tak czeka na https własnej domeny.
       CYCLICAL_SOCIAL_AUTO_POST: "${CYCLICAL_SOCIAL_AUTO_POST:-true}"
       CYCLICAL_SOCIAL_DRY_RUN: "${CYCLICAL_SOCIAL_DRY_RUN:-true}"
       CYCLICAL_BINANCE_AI_BOT_DRY_RUN: "${CYCLICAL_BINANCE_AI_BOT_DRY_RUN:-true}"

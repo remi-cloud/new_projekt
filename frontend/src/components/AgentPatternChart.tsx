@@ -31,14 +31,18 @@ function extractSvg(
   return focus ? null : fallback
 }
 
-/** Strip scripts / event handlers from server-generated SVG before innerHTML. */
-function sanitizeSvg(svg: string): string {
-  let s = svg.trim()
-  if (!s.startsWith('<svg')) return ''
-  s = s.replace(/<script[\s\S]*?<\/script>/gi, '')
-  s = s.replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
-  s = s.replace(/javascript:/gi, '')
-  s = s.replace(/<foreignObject[\s\S]*?<\/foreignObject>/gi, '')
+const SVG_TAGS = new Set(['svg', 'rect', 'text', 'line', 'circle', 'title', 'desc', 'g'])
+
+/** Keep server-drawn charts. Drop anything that is not that small tag set. */
+export function sanitizeSvg(svg: string): string {
+  const s = svg.trim()
+  if (!s.startsWith('<svg') || !s.endsWith('</svg>')) return ''
+  const tags = s.match(/<\/?\s*([a-zA-Z0-9:-]+)/g) ?? []
+  for (const raw of tags) {
+    const name = raw.replace(/<\/?\s*/, '').toLowerCase()
+    if (!SVG_TAGS.has(name)) return ''
+  }
+  if (/on[a-z]+\s*=|javascript:|data:|href\s*=|xlink:|foreignobject|<script/i.test(s)) return ''
   return s
 }
 

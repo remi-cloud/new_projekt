@@ -113,7 +113,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 class PostRateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
-        if request.method != "POST":
+        if request.method in {"GET", "HEAD", "OPTIONS"}:
             return await call_next(request)
         path = request.url.path
         key = client_key(request)

@@ -1,19 +1,19 @@
 # Social desk — news → X / LinkedIn
 
-News agent składa posty z makro-newsów. Domyślnie kolejka jest **gotowa do publikacji na X** (status `ready`, bez auto-wysyłki). LinkedIn dochodzi, gdy dopiszesz go w `CYCLICAL_SOCIAL_PLATFORMS`.
+News agent składa posty z makro-newsów. Auto-X jest **włączone w kodzie**. Wysyłka idzie dopiero, gdy `CYCLICAL_PUBLIC_BASE_URL` jest https na własnej domenie. Localhost i tunele (trycloudflare, ngrok) czekają. LinkedIn dochodzi, gdy dopiszesz go w `CYCLICAL_SOCIAL_PLATFORMS`.
 
 ## Szybki start (lokalnie / Docker)
 
 1. Skopiuj zmienne z `.env.example` do `.env`.
-2. Zostaw:
+2. Zostaw auto włączone. Na localhost nic nie wyjdzie na X:
    ```
    CYCLICAL_SOCIAL_ENABLED=true
-   CYCLICAL_SOCIAL_DRY_RUN=false
-   CYCLICAL_SOCIAL_AUTO_POST=false
+   CYCLICAL_SOCIAL_DRY_RUN=true
+   CYCLICAL_SOCIAL_AUTO_POST=true
    CYCLICAL_SOCIAL_PLATFORMS=x
    ```
-3. Odśwież newsy (`POST /api/news/macro/refresh` lub przycisk na `/news`).
-4. Sprawdź `GET /api/social/posts` albo sekcję **Social desk** na `/news`.
+3. Harmonogram odświeża newsy i składa kolejkę. Publiczny przycisk odświeżenia nie publikuje.
+4. Wysłane posty: sekcja **Social desk** na `/news` i `GET /api/social/published`. Dziennik decyzji widzi zalogowane biurko.
 
 ## X (Twitter)
 
@@ -67,9 +67,9 @@ Nie wstawiaj tu `*.trycloudflare.com` — URL się zmienia przy każdym quick tu
 
 ## Auto-publikacja na X
 
-Domyślnie wyłączona (`CYCLICAL_SOCIAL_AUTO_POST=false`). Włączenie: ustaw `true` i zrestartuj proces. Ręczny przycisk Publikuj zostaje.
+Włączona domyślnie. Bramka to domena, nie drugi wyłącznik. Ręczny przycisk Publikuj zostaje zablokowany, dopóki `CYCLICAL_SOCIAL_DRY_RUN=true`.
 
-Reguły (serwer): biała lista w `backend/app/news/x_publish_whitelist.py`, próg `CYCLICAL_SOCIAL_AUTO_MIN_SCORE` (70), maksymalnie `CYCLICAL_SOCIAL_AUTO_MAX_PER_HOUR` (2) w oknie godziny, deduplikacja tematu, odrzucenie niepotwierdzonych. Dziennik: `GET /api/social/decisions`.
+Reguły (serwer): biała lista hostów w `backend/app/news/x_publish_whitelist.py` (nazwa w poście pochodzi z hosta, nie z etykiety kanału), próg `CYCLICAL_SOCIAL_AUTO_MIN_SCORE` (70), maksymalnie `CYCLICAL_SOCIAL_AUTO_MAX_PER_HOUR` (2) w oknie godziny i `CYCLICAL_SOCIAL_AUTO_MAX_PER_DAY` (2) na dobę, deduplikacja tematu, odrzucenie niepotwierdzonych, bez Oslo/Norwegii/CET. Dziennik: `GET /api/social/decisions` (biurko albo token wewnętrzny).
 
 Publiczny odczyt wysłanych postów (bez sekretów): `GET /api/social/published`.
 

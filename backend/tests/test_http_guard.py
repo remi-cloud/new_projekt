@@ -30,6 +30,18 @@ def test_cors_rejects_foreign_origin(client: TestClient):
     assert response.headers.get("access-control-allow-origin") in (None, "")
 
 
+def test_put_is_rate_limited(client: TestClient, monkeypatch):
+    _HITS.clear()
+    monkeypatch.setattr(settings, "post_rate_limit", 2)
+    monkeypatch.setattr(settings, "post_rate_window_seconds", 60)
+    body = {"phone": "", "sms_enabled": False, "ntfy_enabled": False, "ntfy_topic": ""}
+    codes = [client.put("/api/notifications/settings", json=body).status_code for _ in range(3)]
+    assert codes[0] != 429
+    assert codes[1] != 429
+    assert codes[2] == 429
+    _HITS.clear()
+
+
 def test_post_rate_limit(client: TestClient, monkeypatch):
     _HITS.clear()
     monkeypatch.setattr(settings, "post_rate_limit", 2)

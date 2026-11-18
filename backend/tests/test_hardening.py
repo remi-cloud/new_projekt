@@ -35,6 +35,8 @@ def test_auto_post_is_on_by_default_and_waits_without_a_domain(monkeypatch):
     assert live_domain_ready() is True
     monkeypatch.setattr(settings, "public_base_url", "https://example.trycloudflare.com")
     assert live_domain_ready() is False
+    monkeypatch.setattr(settings, "public_base_url", "https://demo.ngrok-free.app")
+    assert live_domain_ready() is False
 
 
 def test_shell_loader_exports_desk_token(tmp_path: Path):

@@ -44,11 +44,11 @@ Smoke po starcie: `./scripts/audit.sh`
 
 ### Docker
 
-Ten sam `docker compose` działa na **Macu M2 (arm64)** i na serwerze **amd64** (Hetzner). Obrazy bazują na oficjalnych bazach wieloarchitekturowych — Docker sam dobiera wariant procesora. Sekrety (token X, Twilio, klucze API) są tylko w pliku `.env`, nigdy w obrazie. Auto-publikacja na X jest **wyłączona**, dopóki w `.env` nie ustawisz `CYCLICAL_SOCIAL_AUTO_POST=true` i nie zrestartujesz stacku.
+Ten sam `docker compose` działa na **Macu M2 (arm64)** i na serwerze **amd64** (Hetzner). Obrazy bazują na oficjalnych bazach wieloarchitekturowych — Docker sam dobiera wariant procesora. Sekrety (token X, Twilio, klucze API) są tylko w pliku `.env`, nigdy w obrazie. Auto-publikacja na X jest **włączona w kodzie**, ale wysyła post dopiero gdy `CYCLICAL_PUBLIC_BASE_URL` jest https na własnej domenie (nie localhost i nie tunel).
 
 Baza i dziennik decyzji oraz cache siedzą na wolumenach (`trader-db`, `app-cache`). Portfel to wspólny folder `backend/data/baza_portfela` — ten sam dla Dockera i lokalnego uvicorn. Serwer działa jako uid 10001. Przy starcie entrypoint tylko na chwilę jest rootem, żeby ten folder był zapisywalny, i oddaje proces użytkownikowi `app`. Gdy folder należy do innego uid i nie da się go otworzyć, w logu jest polecenie `chown -R 10001:10001 backend/data/baza_portfela`.
 
-Posty na X i bot Binance startują w trybie próbnym (`CYCLICAL_SOCIAL_DRY_RUN` i `CYCLICAL_BINANCE_AI_BOT_DRY_RUN` domyślnie true). Auto-publikacja zostaje wyłączona.
+Ręczny przycisk Publikuj zostaje w trybie próbnym (`CYCLICAL_SOCIAL_DRY_RUN` domyślnie true). Automat na X i tak wysyła tylko na własnej domenie https. Bot Binance startuje w trybie próbnym.
 
 #### Mac M2 (Apple Silicon, arm64)
 
@@ -73,7 +73,7 @@ Otwórz port **8080** (albo postaw Caddy/Nginx z HTTPS przed tym portem). Logi: 
 
 #### Render (amd64)
 
-Blueprint `render.yaml` buduje jeden kontener z głównego `Dockerfile` (strona i API na porcie, który poda Render). Sekrety ustaw w panelu Render. `CYCLICAL_SOCIAL_AUTO_POST` zostaw `false`.
+Blueprint `render.yaml` buduje jeden kontener z głównego `Dockerfile` (strona i API na porcie, który poda Render). Sekrety ustaw w panelu Render. Auto-X zostaw włączone — i tak nie wyśle posta, dopóki publiczny adres nie jest własną domeną https.
 
 ### Lokalnie (dev ręcznie)
 

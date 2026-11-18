@@ -7,7 +7,12 @@ from dataclasses import dataclass
 
 from app.models.schemas import MacroNewsItem
 from app.news.public_urls import public_site_base
-from app.news.x_auto import X_AUTHOR_FOOTER, X_MAX_CHARS, strip_forbidden_place
+from app.news.x_auto import (
+    X_AUTHOR_FOOTER,
+    X_MAX_CHARS,
+    strip_forbidden_place,
+    verified_source_name,
+)
 
 
 DISCLAIMER_PL = "Edukacja rynkowa · nie porada inwestycyjna · KAR Digital"
@@ -41,7 +46,7 @@ def _footer_link(item: MacroNewsItem) -> str:
 
 
 def _source_block(item: MacroNewsItem) -> tuple[str, str]:
-    name = strip_forbidden_place(item.source or "").strip()
+    name = verified_source_name(item.url) or strip_forbidden_place(item.source or "").strip()
     url = (item.url or "").strip()
     return name, url
 

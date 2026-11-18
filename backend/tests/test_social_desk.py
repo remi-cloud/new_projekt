@@ -56,6 +56,18 @@ def test_social_status_shape(client):
         assert key in data
 
 
+def test_desk_session_can_read_decisions(client, monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "internal_api_token", "")
+    monkeypatch.setattr(settings, "desk_token", "pytest-desk")
+    denied = client.get("/api/social/decisions")
+    assert denied.status_code == 403
+    opened = client.get("/api/social/decisions", headers={"X-Desk-Token": "pytest-desk"})
+    assert opened.status_code == 200
+    assert "decisions" in opened.json()
+
+
 def test_social_posts_list_is_internal(client, monkeypatch):
     from app.config import settings
 

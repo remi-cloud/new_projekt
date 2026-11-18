@@ -1,34 +1,30 @@
+import { API_BASE } from './sameOrigin'
+
 const STORAGE_KEY = 'cyclical-desk-token'
 
-export function readDeskToken(): string {
+function forgetStoredToken(): void {
   try {
-    return sessionStorage.getItem(STORAGE_KEY) ?? ''
+    sessionStorage.removeItem(STORAGE_KEY)
   } catch {
-    return ''
+    /* private mode */
   }
 }
 
-export function writeDeskToken(value: string): void {
-  sessionStorage.setItem(STORAGE_KEY, value.trim())
+/** Drop any token left by an older build. The session is an HttpOnly cookie. */
+forgetStoredToken()
+
+export function noteDeskSession(): void {
+  forgetStoredToken()
   window.dispatchEvent(new Event('desk-auth'))
 }
 
 export function clearDeskToken(): void {
-  sessionStorage.removeItem(STORAGE_KEY)
+  forgetStoredToken()
+  void fetch(`${API_BASE}/desk/logout`, { method: 'POST', credentials: 'same-origin' }).catch(() => undefined)
   window.dispatchEvent(new Event('desk-auth'))
 }
 
-export function deskAuthHeaders(method: string, headers?: HeadersInit): Headers {
-  const next = new Headers(headers)
-  const verb = method.toUpperCase()
-  if (verb !== 'GET' && verb !== 'HEAD' && verb !== 'OPTIONS') {
-    const token = readDeskToken()
-    if (token) next.set('X-Desk-Token', token)
-  }
-  return next
-}
-
 export async function apiFetch(input: string, init: RequestInit = {}): Promise<Response> {
-  const headers = deskAuthHeaders(init.method || 'GET', init.headers)
-  return globalThis.fetch(input, { ...init, headers })
+  const headers = new Headers(init.headers)
+  return globalThis.fetch(input, { ...init, headers, credentials: 'same-origin' })
 }

@@ -5,7 +5,7 @@ import { LOCALE_STORAGE_KEY } from '../i18n'
 import { DeskLoginPage } from './DeskLoginPage'
 
 describe('Desk login', () => {
-  it('stores the token in session memory after a successful check', async () => {
+  it('does not keep the token in session storage after a successful check', async () => {
     localStorage.setItem(LOCALE_STORAGE_KEY, 'pl')
     sessionStorage.clear()
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -28,8 +28,8 @@ describe('Desk login', () => {
     expect(await screen.findByRole('heading', { name: 'Logowanie biurka' })).toBeTruthy()
     fireEvent.change(screen.getByLabelText('Token biurka'), { target: { value: 'sekret-test' } })
     fireEvent.click(screen.getByRole('button', { name: 'Wejdź' }))
-    expect(await screen.findByText('Zalogowano. Token jest tylko w tej sesji przeglądarki.')).toBeTruthy()
-    expect(sessionStorage.getItem('cyclical-desk-token')).toBe('sekret-test')
+    expect(await screen.findByText('Zalogowano. Sesja jest w ciasteczku, którego skrypt strony nie odczyta.')).toBeTruthy()
+    expect(sessionStorage.getItem('cyclical-desk-token')).toBeNull()
     vi.unstubAllGlobals()
   })
 })
