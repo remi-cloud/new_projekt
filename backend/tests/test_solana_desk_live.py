@@ -228,6 +228,48 @@ def test_checker_still_rejects_before_a_real_send():
     assert assess_risk(token, DEFAULT_SETTINGS).ok is False
 
 
+@pytest.mark.asyncio
+async def test_confirmation_waits_between_polls_and_then_accepts():
+    from app.solana_desk.live import _confirmed
+
+    waits: list[float] = []
+
+    async def pause(seconds: float) -> None:
+        waits.append(seconds)
+
+    class Client:
+        def __init__(self) -> None:
+            self.seen = 0
+
+        async def rpc(self, method, params):
+            assert method == "getSignatureStatuses"
+            self.seen += 1
+            if self.seen < 3:
+                return {"result": {"value": [None]}}
+            return {"result": {"value": [{"confirmationStatus": "confirmed", "err": None}]}}
+
+    assert await _confirmed(Client(), "sig", pause) is True
+    assert waits == [0.5, 0.5]
+
+
+@pytest.mark.asyncio
+async def test_confirmation_timeout_is_not_a_single_instant_poll():
+    from app.solana_desk.live import _CONFIRM_POLLS, _confirmed
+
+    waits: list[float] = []
+
+    async def pause(seconds: float) -> None:
+        waits.append(seconds)
+
+    class Client:
+        async def rpc(self, method, params):
+            return {"result": {"value": [None]}}
+
+    assert await _confirmed(Client(), "sig", pause) is False
+    assert len(waits) == _CONFIRM_POLLS
+    assert set(waits) == {0.5}
+
+
 def test_arm_api_is_desk_only_and_does_not_activate_real(client):
     status = client.get("/api/solana/status")
     assert status.status_code == 200

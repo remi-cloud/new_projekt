@@ -130,6 +130,15 @@ def _equity(book: dict, rows: list[dict], prices: dict[str, float]) -> float:
     return finite(book.get("cash_sol")) + marked
 
 
+def _open_count(rows: list[dict], *, skip_mint: str | None = None) -> int:
+    """Open and pending slots. The row being filled is already reserved."""
+    return sum(
+        1
+        for item in rows
+        if item.get("status") in {"pending", "open"} and item.get("mint") != skip_mint
+    )
+
+
 async def _fill_pending(
     book: dict,
     row: dict,
@@ -144,6 +153,7 @@ async def _fill_pending(
         for item in rows
         if item.get("status") == "pending" and item.get("mint") != row.get("mint")
     )
+    open_count = _open_count(rows, skip_mint=str(row.get("mint") or ""))
     block = opening_block(
         kill_switch=bool(book.get("kill_switch")),
         running=bool(book.get("running", True)),
@@ -151,10 +161,16 @@ async def _fill_pending(
         cash_sol=finite(book.get("cash_sol")),
         reserved_sol=others,
         day_pnl_sol=_day_pnl(book, rows, prices),
-        open_count=0,
+        open_count=open_count,
         settings=settings,
     )
-    if block in {"wyłącznik awaryjny", "biurko zatrzymane", "dzienny limit straty", "brak wolnego SOL"}:
+    if block in {
+        "wyłącznik awaryjny",
+        "biurko zatrzymane",
+        "dzienny limit straty",
+        "brak wolnego SOL",
+        "limit otwartych pozycji",
+    }:
         await delete_position(row["mint"])
         _bump(book, "sniper", "skipped")
         _note(book, "sniper", f"Anulowano {row.get('symbol')}: {block}.")
@@ -181,7 +197,7 @@ async def _fill_pending(
                 cash_sol=finite(book.get("cash_sol")),
                 reserved_sol=others,
                 day_pnl_sol=_day_pnl(book, rows, prices),
-                open_count=0,
+                open_count=open_count,
                 running=bool(book.get("running", True)),
                 kill_switch=bool(book.get("kill_switch")),
                 settings=settings,

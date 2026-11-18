@@ -261,8 +261,17 @@ def _quote_params(side: str, mint: str, amount_sol: float, atoms: str, slippage_
     }
 
 
+_CONFIRM_POLLS = 40
+_CONFIRM_INTERVAL = 0.5
+
+
 async def _confirmed(client, signature: str, pause) -> bool:
-    for _ in range(8):
+    """Poll until confirmed/finalized or the window ends.
+
+    A zero wait made every poll happen in the same instant, so a transaction
+    that confirmed a moment later was reported as unconfirmed.
+    """
+    for _ in range(_CONFIRM_POLLS):
         data = await client.rpc(
             "getSignatureStatuses",
             [[signature], {"searchTransactionHistory": True}],
@@ -273,7 +282,7 @@ async def _confirmed(client, signature: str, pause) -> bool:
                 raise _locked("Transakcja wróciła z błędem. Pozycja nie została zapisana jako sukces.")
             if value.get("confirmationStatus") in {"confirmed", "finalized"}:
                 return True
-        await pause(0)
+        await pause(_CONFIRM_INTERVAL)
     return False
 
 
