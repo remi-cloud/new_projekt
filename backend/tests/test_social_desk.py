@@ -375,6 +375,7 @@ async def test_auto_x_does_not_repost_the_same_topic_or_key():
     with (
         patch.object(sd, "post_to_x", new_callable=AsyncMock, return_value={"external_id": "9"}) as post,
         patch.object(sd, "x_configured", return_value=True),
+        patch.object(sd.settings, "social_dry_run", False),
         patch.object(sd.settings, "public_base_url", "https://kardigital.example"),
         patch.object(sd.social_db, "count_posted_since", new_callable=AsyncMock, return_value=0),
         patch.object(sd.social_db, "posted_topic_keys", new_callable=AsyncMock, return_value=set()),
@@ -386,6 +387,7 @@ async def test_auto_x_does_not_repost_the_same_topic_or_key():
     with (
         patch.object(sd, "post_to_x", new_callable=AsyncMock) as again,
         patch.object(sd, "x_configured", return_value=True),
+        patch.object(sd.settings, "social_dry_run", False),
         patch.object(sd.settings, "public_base_url", "https://kardigital.example"),
         patch.object(sd.social_db, "count_posted_since", new_callable=AsyncMock, return_value=0),
         patch.object(sd.social_db, "posted_topic_keys", new_callable=AsyncMock, return_value=set()),
@@ -393,6 +395,33 @@ async def test_auto_x_does_not_repost_the_same_topic_or_key():
         repeat = await sd.run_auto_x([first])
     assert repeat["published"] == 0
     again.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_dry_run_blocks_auto_x_even_with_domain_and_keys():
+    from app.news.social_db import init_social_db
+    from app.notifications import social_dispatcher as sd
+
+    await init_social_db()
+    with (
+        patch.object(sd, "post_to_x", new_callable=AsyncMock) as post,
+        patch.object(sd, "x_configured", return_value=True),
+        patch.object(sd.settings, "social_dry_run", True),
+        patch.object(sd.settings, "social_auto_post", True),
+        patch.object(sd.settings, "public_base_url", "https://kardigital.example"),
+        patch.object(sd.social_db, "count_posted_since", new_callable=AsyncMock, return_value=0),
+    ):
+        result = await sd.run_auto_x(
+            [
+                _item(
+                    id="dry-domain-1",
+                    url="https://www.reuters.com/markets/fed-holds-live",
+                    source="Reuters",
+                )
+            ]
+        )
+    assert result["published"] == 0
+    post.assert_not_called()
 
 
 def test_published_endpoint_has_no_secrets(client):

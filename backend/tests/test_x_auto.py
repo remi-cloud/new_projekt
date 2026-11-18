@@ -157,6 +157,7 @@ async def test_auto_unwraps_google_news_to_publisher_host():
     with (
         patch.object(sd, "ensure_clickable_url", new=_unwrap),
         patch.object(sd, "x_configured", return_value=False),
+        patch.object(sd.settings, "social_dry_run", False),
         patch.object(sd.settings, "public_base_url", "https://kardigital.example"),
         patch.object(sd.social_db, "count_posted_since", new=AsyncMock(return_value=0)),
         patch.object(sd.social_db, "posted_topic_keys", new=AsyncMock(return_value=set())),

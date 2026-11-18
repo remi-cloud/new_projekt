@@ -81,6 +81,11 @@ async def _cooldown_ok(platform: str) -> bool:
 
 
 async def _publish_live(platform: str, body: str) -> dict:
+    if settings.social_dry_run:
+        raise DryRunPublicationBlocked(
+            "Publikacja zablokowana: tryb próbny (DRY-RUN). "
+            "Ustaw CYCLICAL_SOCIAL_DRY_RUN=false, aby wysłać post."
+        )
     if platform == "x":
         return await post_to_x(body)
     if platform == "linkedin":
@@ -301,6 +306,8 @@ async def run_auto_x(items: list[MacroNewsItem], locale: str = "pl") -> dict:
     published_hour = 0
     for decision, item in ranked:
         final = decision
+        if final.action == "publish" and settings.social_dry_run:
+            final = AutoDecision("reject", "tryb próbny (DRY-RUN)", final.score, final.topic)
         if final.action == "publish" and not x_configured():
             final = AutoDecision("reject", "brak tokenów X", final.score, final.topic)
         if final.action == "publish" and not live_domain_ready():
@@ -438,7 +445,8 @@ async def queue_social_from_news_items(items: list[MacroNewsItem], locale: str =
 
             guard = await _queue_live_guard(item, composed.body, composed.platform)
             should_live = (
-                guard is None
+                not settings.social_dry_run
+                and guard is None
                 and await _cooldown_ok(composed.platform)
                 and (
                     (composed.platform == "x" and x_configured())
