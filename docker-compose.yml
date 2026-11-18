@@ -26,6 +26,8 @@ services:
       CYCLICAL_DESK_TOKEN: "${CYCLICAL_DESK_TOKEN:-}"
       # Nginx i Caddy siedzą w sieci Dockera. Pusty poza compose = brak zaufania do X-Forwarded-For.
       CYCLICAL_TRUSTED_PROXIES: ${CYCLICAL_TRUSTED_PROXIES:-172.16.0.0/12,10.0.0.0/8,192.168.0.0/16}
+      # Pętla Solana Desk jest osobną usługą. API tylko czyta dziennik.
+      SOLANA_DESK_AUTOSTART: "false"
     volumes:
       # Baza SQLite: alerty, newsy i dziennik decyzji (tabela social_decisions).
       - trader-db:/data/db
@@ -73,6 +75,28 @@ services:
     depends_on:
       frontend:
         condition: service_healthy
+    restart: unless-stopped
+
+  # Papierowy handel memecoinami. Przetrwa restart. Klucz portfela tylko z .env.
+  solana-desk:
+    image: cyclical-trader-backend:latest
+    container_name: cyclical-trader-solana-desk
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      CYCLICAL_DATABASE_PATH: /data/db/trader.db
+      CYCLICAL_PORTFOLIO_DATABASE_PATH: /data/portfolio/portfolio.db
+      SOLANA_REAL_TRADING: "${SOLANA_REAL_TRADING:-false}"
+      SOLANA_DESK_AUTOSTART: "true"
+    command: ["python", "-m", "app.solana_desk.worker"]
+    volumes:
+      - trader-db:/data/db
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      disable: true
     restart: unless-stopped
 
 volumes:

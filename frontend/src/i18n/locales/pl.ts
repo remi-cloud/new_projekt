@@ -8,6 +8,7 @@ export const pl: Translations = {
     fomo: 'FOMO Ghost',
     axiom: 'Axiom',
     launch: 'Launch Scout',
+    solana: 'Solana Desk',
     aiHacking: "AI i hacking",
     radar: 'Radar',
     cycles: 'Cykle', news: 'News', alerts: 'Alerty', about: 'O nas', portfolio: 'Portfel', agent: 'Agent AI',

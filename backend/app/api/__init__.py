@@ -25,6 +25,7 @@ from app.api import (
     roi,
     singularity,
     social,
+    solana_desk,
     spa,
     super_opportunities,
     telemetry,
@@ -56,4 +57,5 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(super_opportunities.router)
     app.include_router(singularity.router)
     app.include_router(predator.router)
+    app.include_router(solana_desk.router)
     spa.mount_static(app)

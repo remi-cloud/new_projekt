@@ -39,6 +39,8 @@ export default defineConfig({
       CYCLICAL_PORTFOLIO_MIGRATE_LEGACY: 'false',
       CYCLICAL_AUTO_BACKUP_ENABLED: 'false',
       CYCLICAL_PEARL_HUNTER_ENABLED: 'false',
+      SOLANA_DESK_AUTOSTART: 'false',
+      SOLANA_REAL_TRADING: 'false',
     },
   },
 })

@@ -13,3 +13,4 @@ py-vapid==1.9.2
 cryptography>=50.0.0
 Pillow>=10.4.0
 googlenewsdecoder>=0.1.7
+solders==0.26.0
