@@ -48,6 +48,12 @@ async def lifespan(app: FastAPI):
     from app.axiom.db import init_axiom_db
 
     await init_axiom_db()
+    from app.solana_desk.db import init_solana_desk_db
+
+    await init_solana_desk_db()
+    from app.solana_desk.worker import start_embedded
+
+    await start_embedded()
     ensure_vapid_keys()
     try:
         from app.cycles.seasonality_monitor import run_seasonality_monitor
@@ -115,6 +121,9 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(_initial_axiom())
     asyncio.create_task(_initial_launch_scout())
     yield
+    from app.solana_desk.worker import stop_embedded
+
+    await stop_embedded()
     stop_scheduler()
 
 

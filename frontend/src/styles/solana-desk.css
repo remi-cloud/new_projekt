@@ -1,0 +1,121 @@
+.solana-page {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.solana-banner,
+.solana-note {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-gold);
+  background: rgba(184, 151, 90, 0.06);
+  color: var(--text-secondary);
+}
+
+.solana-stats,
+.solana-agents,
+.solana-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.solana-agents {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.solana-agent,
+.solana-card,
+.solana-report {
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+}
+
+.solana-agent span,
+.solana-card span,
+.mini-stat span {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.solana-agent strong,
+.solana-card strong {
+  display: block;
+  margin: 4px 0;
+  font-weight: 500;
+}
+
+.solana-agent p,
+.solana-report p,
+.solana-card p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+.solana-up { color: var(--accent-green); }
+.solana-down { color: var(--accent-red); }
+
+.solana-live,
+.solana-journal {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.solana-row {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  min-width: 0;
+}
+
+.solana-row b { font-weight: 600; }
+.solana-row small,
+.solana-mint {
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.solana-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.solana-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
+.solana-form input {
+  width: 100%;
+  min-width: 0;
+}
+
+.solana-section {
+  margin: 22px 0 10px;
+  font-size: 0.95rem;
+}
+
+@media (max-width: 720px) {
+  .solana-stats,
+  .solana-form {
+    grid-template-columns: 1fr 1fr;
+  }
+  .solana-agents {
+    grid-template-columns: 1fr;
+  }
+}

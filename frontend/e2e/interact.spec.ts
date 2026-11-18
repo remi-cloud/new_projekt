@@ -16,6 +16,7 @@ const ROUTES = [
   '/fomo',
   '/axiom',
   '/launch',
+  '/solana',
   '/cykle',
   '/kalkulator',
   '/news',

@@ -28,6 +28,7 @@ const KNOWN: Record<string, TranslationPath> = {
   '/fomo': 'nav.fomo',
   '/axiom': 'nav.axiom',
   '/launch': 'nav.launch',
+  '/solana': 'nav.solana',
   '/logowanie': 'layout.loginTitle',
 }
 

@@ -8,6 +8,7 @@ export const fil: Translations = {
     fomo: 'FOMO Ghost',
     axiom: 'Axiom',
     launch: 'Launch Scout',
+    solana: 'Solana Desk',
     aiHacking: "AI at seguridad",
     radar: 'Radar',
     cycles: 'Siklo', news: 'Balita', alerts: 'Alerto', about: 'Tungkol sa amin', portfolio: 'Portfolio', agent: 'AI Agent',
