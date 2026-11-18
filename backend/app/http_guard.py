@@ -11,13 +11,15 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from app.config import settings
+from app.public_surface import PUBLIC_WRITE_PATHS
 
 _HITS: dict[str, deque[float]] = defaultdict(deque)
 
 # The sha256 allows the one stylesheet lightweight-charts injects for the attribution mark.
 _CSP = (
     "default-src 'self'; "
-    "script-src 'self'; "
+    "script-src 'self' https://s3.tradingview.com; "
+    "frame-src https://www.tradingview.com https://s.tradingview.com https://www.tradingview-widget.com; "
     "style-src 'self' https://fonts.googleapis.com 'sha256-3pRED1tOXas1FXFoPb9TGCjmYe9XQsmO9OV23khV2nY='; "
     "style-src-attr 'unsafe-inline'; "
     "font-src 'self' https://fonts.gstatic.com data:; "
@@ -113,10 +115,18 @@ class PostRateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
         if request.method != "POST":
             return await call_next(request)
-        limit = max(1, int(settings.post_rate_limit or 120))
-        window = max(1, int(settings.post_rate_window_seconds or 60))
+        path = request.url.path
+        key = client_key(request)
+        if path == "/api/desk/login":
+            limit, window, bucket_key = 5, 900, f"login:{key}"
+        elif path in PUBLIC_WRITE_PATHS:
+            limit, window, bucket_key = 20, 60, f"guest:{key}"
+        else:
+            limit = max(1, int(settings.post_rate_limit or 120))
+            window = max(1, int(settings.post_rate_window_seconds or 60))
+            bucket_key = key
         now = time.monotonic()
-        bucket = _HITS[client_key(request)]
+        bucket = _HITS[bucket_key]
         while bucket and now - bucket[0] > window:
             bucket.popleft()
         if len(bucket) >= limit:

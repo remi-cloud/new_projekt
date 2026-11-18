@@ -4,10 +4,17 @@ import { fetchAiAcademy, type AiAcademy } from '../api'
 import { ErrorState } from '../components/Loading'
 import { useLocale } from '../context/LocaleContext'
 
+const PART_LABEL: Record<string, string> = {
+  ai: 'AI',
+  nauka: 'Nauka',
+  security: 'Cyberbezpieczeństwo',
+}
+
 export function AiHackingPage() {
   const { t } = useLocale()
   const [data, setData] = useState<AiAcademy | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [partId, setPartId] = useState('ai')
 
   const load = () => {
     setError(null)
@@ -19,6 +26,11 @@ export function AiHackingPage() {
   useEffect(() => {
     load()
   }, [])
+
+  useEffect(() => {
+    if (!data?.parts.length) return
+    if (!data.parts.some((part) => part.id === partId)) setPartId(data.parts[0].id)
+  }, [data, partId])
 
   if (error && !data) return <ErrorState message={error} onRetry={load} />
   if (!data) return <div className="page-loading">{t('aiHacking.loading')}</div>
@@ -35,7 +47,22 @@ export function AiHackingPage() {
         </Link>
       </header>
 
-      {data.parts.map((part) => (
+      <div className="filter-chips" role="tablist">
+        {data.parts.map((part) => (
+          <button
+            key={part.id}
+            type="button"
+            role="tab"
+            aria-selected={partId === part.id}
+            className={`chip${partId === part.id ? ' active' : ''}`}
+            onClick={() => setPartId(part.id)}
+          >
+            {PART_LABEL[part.id] ?? part.title}
+          </button>
+        ))}
+      </div>
+
+      {data.parts.filter((part) => part.id === partId).map((part) => (
         <section key={part.id} className="ai-hack-part" aria-labelledby={`ai-hack-${part.id}`}>
           <div className="about-section-head">
             <h3 id={`ai-hack-${part.id}`} className="about-section-title">
@@ -53,18 +80,25 @@ export function AiHackingPage() {
           </div>
           {part.links && part.links.length > 0 && (
             <div className="ai-hack-links">
-              {part.links.map((link) => (
-                <a
-                  key={link.href}
-                  className="ai-hack-link tap-target"
-                  href={link.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <strong>{link.label}</strong>
-                  {link.note && <span>{link.note}</span>}
-                </a>
-              ))}
+              {part.links.map((link) =>
+                link.href.startsWith('/') ? (
+                  <Link key={link.href} className="ai-hack-link tap-target" to={link.href}>
+                    <strong>{link.label}</strong>
+                    {link.note && <span>{link.note}</span>}
+                  </Link>
+                ) : (
+                  <a
+                    key={link.href}
+                    className="ai-hack-link tap-target"
+                    href={link.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <strong>{link.label}</strong>
+                    {link.note && <span>{link.note}</span>}
+                  </a>
+                ),
+              )}
             </div>
           )}
         </section>

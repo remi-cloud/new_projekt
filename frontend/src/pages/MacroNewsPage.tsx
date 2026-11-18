@@ -147,12 +147,6 @@ export function MacroNewsPage() {
         }
         return
       }
-      try {
-        const fresh = await refreshMacroNews(locale)
-        if (!cancelled) setFeed(fresh)
-      } catch {
-        if (!cancelled) await load(tab, true)
-      }
     })()
     return () => {
       cancelled = true
@@ -206,6 +200,9 @@ export function MacroNewsPage() {
           {t('macro.lead')} <strong>{t('macro.leadHighlight')}</strong>.
         </p>
       </header>
+      <p className="desk-source-down" role="status">
+        Wyłączone źródła: Yahoo Finance, Space.com, Fox Business, Euronews, Blockchain.com — nie odpowiadają.
+      </p>
 
       <div className="macro-news-status-bar macro-status-enter">
         <span className={`macro-news-live-pill ${connected ? 'on' : ''}`}>

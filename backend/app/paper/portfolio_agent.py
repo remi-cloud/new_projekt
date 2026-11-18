@@ -107,8 +107,6 @@ async def refresh_snapshot() -> dict:
     payload = {
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "source": "portfolio_agent",
-        "db_path": str(portfolio_database_path()),
-        "folder": str(portfolio_dir()),
         "portfolio": portfolio,
     }
     _write_snapshot_file(payload)

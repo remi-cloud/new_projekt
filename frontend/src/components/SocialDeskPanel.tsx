@@ -56,7 +56,9 @@ export function SocialDeskPanel({ refreshKey = 0 }: { refreshKey?: number }) {
         X: {status.x_configured ? t('macro.social.ready') : t('macro.social.noTokens')} · LinkedIn:{' '}
         {status.linkedin_configured ? t('macro.social.ready') : t('macro.social.noTokens')}
         {status.auto_post
-          ? ` · auto ≤ ${status.auto_max_per_day ?? 2}/24h · próg ${status.auto_min_score ?? 70}`
+          ? status.domain_ready
+            ? ` · auto ≤ ${status.auto_max_per_hour ?? 2}/h · ≤ ${status.auto_max_per_day ?? 2}/24h · próg ${status.auto_min_score ?? 70}`
+            : ' · auto włączone · czeka na domenę'
           : ' · auto wyłączone'}
       </p>
       <div className="social-desk-log">

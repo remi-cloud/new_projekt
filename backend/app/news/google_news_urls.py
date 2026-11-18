@@ -52,14 +52,26 @@ def _search_fallback(title: str = "") -> str:
     return search_url_for_title(title or "markets")
 
 
+def decoder_from_module(module) -> object | None:
+    for name in ("new_decoderv1", "new_decoderv2", "gnewsdecoder"):
+        candidate = getattr(module, name, None)
+        if callable(candidate):
+            return candidate
+    return None
+
+
 def _decode_sync(url: str) -> str | None:
     try:
-        from googlenewsdecoder import new_decoderv1
+        import googlenewsdecoder as module
     except ImportError:
         logger.warning("googlenewsdecoder not installed — cannot unwrap Google News links")
         return None
+    decode = decoder_from_module(module)
+    if decode is None:
+        logger.warning("googlenewsdecoder has no decoder function in this version")
+        return None
     try:
-        result = new_decoderv1(url)
+        result = decode(url)
     except Exception as exc:
         logger.debug("Google News decode failed: %s", exc)
         return None

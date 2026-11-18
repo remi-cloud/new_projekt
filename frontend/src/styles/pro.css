@@ -255,9 +255,9 @@
 }
 
 .mobile-menu-btn {
-  border: 1px solid var(--border-strong);
-  background: transparent;
-  color: var(--text-primary);
+  border: 1px solid #e6c35c;
+  background: #14120c;
+  color: #f6f1e4;
   font: inherit;
   font-size: var(--text-xs);
   letter-spacing: 0.06em;
@@ -312,9 +312,18 @@
   }
 }
 
+.bottom-nav-item {
+  color: #f2ead8;
+}
+
+.bottom-nav-item.active {
+  color: #e6c35c;
+}
+
 .bottom-nav-label {
   font-size: 0.68rem;
   letter-spacing: 0.02em;
+  color: inherit;
 }
 
 .super-card.deep-focus {

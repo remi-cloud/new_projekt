@@ -28,6 +28,8 @@ export function RoiEquityChart({
   const optRef = useRef<ISeriesApi<'Line'> | null>(null)
   const pesRef = useRef<ISeriesApi<'Line'> | null>(null)
   const priceRef = useRef<ISeriesApi<'Line'> | null>(null)
+  const dataRef = useRef({ equity, buyHold, optimistic, pessimistic, price })
+  dataRef.current = { equity, buyHold, optimistic, pessimistic, price }
 
   useEffect(() => {
     const el = wrapRef.current
@@ -94,10 +96,34 @@ export function RoiEquityChart({
       }
     }
     mount()
+    const applyNow = () => {
+      const chartNow = chartRef.current
+      if (!chartNow || !equityRef.current) return
+      const current = dataRef.current
+      const points = (rows: RoiCurvePoint[]) => {
+        const seen = new Set<number>()
+        return rows
+          .filter((p) => Number.isFinite(p.time) && Number.isFinite(p.equity))
+          .sort((a, b) => a.time - b.time)
+          .filter((p) => (seen.has(p.time) ? false : (seen.add(p.time), true)))
+          .map((p) => ({ time: p.time as UTCTimestamp, value: p.equity }))
+      }
+      const put = (series: { setData: (data: { time: UTCTimestamp; value: number }[]) => void } | null, data: { time: UTCTimestamp; value: number }[]) => {
+        if (!series || data.length < 2) return
+        try { series.setData(data) } catch { /* narrow frame */ }
+      }
+      put(equityRef.current, points(current.equity))
+      put(optRef.current, points(current.optimistic ?? []))
+      put(pesRef.current, points(current.pessimistic ?? []))
+      put(bhRef.current, points(current.buyHold ?? []))
+    }
+    applyNow()
     const ro = new ResizeObserver(() => {
       try {
-        if (!chart) mount()
-        else if (el.clientWidth > 1) chart.applyOptions({ width: el.clientWidth })
+        if (!chart) {
+          mount()
+          applyNow()
+        } else if (el.clientWidth > 1) chart.applyOptions({ width: el.clientWidth })
       } catch {
         /* The scale can be null for one frame on a narrow phone. */
       }

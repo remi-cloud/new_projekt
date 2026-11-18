@@ -152,6 +152,8 @@ def evaluate_auto(
     recent_topics: set[str],
     min_score: int,
     max_per_day: int,
+    posted_last_hour: int = 0,
+    max_per_hour: int = 2,
 ) -> AutoDecision:
     topic = topic_key(title)
     if not is_whitelisted(source, url):
@@ -167,6 +169,8 @@ def evaluate_auto(
         return AutoDecision("reject", "brak linku do oryginalnego artykułu", 0, topic)
     if topic and topic in recent_topics:
         return AutoDecision("reject", "duplikat tematu", 0, topic)
+    if posted_last_hour >= max_per_hour:
+        return AutoDecision("reject", f"limit {max_per_hour} postów na godzinę", 0, topic)
     if posted_last_day >= max_per_day:
         return AutoDecision("reject", f"limit {max_per_day} postów na dobę", 0, topic)
     score = score_item(

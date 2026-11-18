@@ -41,14 +41,12 @@ RSS_SOURCES: list[tuple[str, str, MacroNewsCategory]] = [
     ("https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10000161", "CNBC · Tesla", "musk"),
     ("https://electrek.co/feed/", "Electrek", "musk"),
     ("https://www.teslarati.com/feed/", "Teslarati", "musk"),
-    ("https://www.space.com/feeds/all", "Space.com", "musk"),
 
     # ── Trump / USA — pro-growth & policy (priority) ───────────────
     ("https://news.google.com/rss/search?q=Donald+Trump+(economy+OR+tariff+OR+deregulation+OR+%22America+First%22)+when:1h&hl=en-US&gl=US&ceid=US:en", "Trump · Economy", "usa"),
     ("https://news.google.com/rss/search?q=Trump+(energy+OR+drill+OR+%22energy+dominance%22+OR+border)+when:1h&hl=en-US&gl=US&ceid=US:en", "Trump · Energy", "usa"),
     ("https://news.google.com/rss/search?q=Trump+White+House+OR+executive+order+when:1h&hl=en-US&gl=US&ceid=US:en", "Trump · WH", "usa"),
     ("https://moxie.foxnews.com/google-publisher/politics.xml", "Fox News · Politics", "usa"),
-    ("https://moxie.foxbusiness.com/google-publisher/politics.xml", "Fox Business · Politics", "usa"),
     ("https://nypost.com/politics/feed/", "NY Post · Politics", "usa"),
     ("https://www.washingtonexaminer.com/news/feed/", "Washington Examiner", "usa"),
 
@@ -72,7 +70,6 @@ RSS_SOURCES: list[tuple[str, str, MacroNewsCategory]] = [
     ("https://www.federalreserve.gov/feeds/speeches.xml", "Fed · Speeches", "fed"),
 
     # ── USA — markets & politics ────────────────────────────────────
-    ("https://finance.yahoo.com/news/rssindex", "Yahoo Finance", "macro"),
     ("https://feeds.marketwatch.com/marketwatch/topstories/", "MarketWatch", "macro"),
     ("https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114", "CNBC", "macro"),
     ("https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100727362", "CNBC · Economy", "macro"),
@@ -82,8 +79,6 @@ RSS_SOURCES: list[tuple[str, str, MacroNewsCategory]] = [
     ("https://www.ft.com/markets?format=rss", "FT · Markets", "macro"),
     ("https://www.ft.com/world?format=rss", "FT · World", "global"),
     ("https://www.ft.com/?format=rss", "Financial Times", "macro"),
-    ("https://moxie.foxbusiness.com/google-publisher/economy.xml", "Fox Business · Economy", "macro"),
-    ("https://moxie.foxbusiness.com/google-publisher/latest.xml", "Fox Business", "macro"),
 
     # ── Europe ────────────────────────────────────────────────────
     ("https://feeds.bbci.co.uk/news/business/rss.xml", "BBC Business", "global"),
@@ -92,7 +87,6 @@ RSS_SOURCES: list[tuple[str, str, MacroNewsCategory]] = [
     ("https://rss.dw.com/rdf/rss-en-bus", "DW · Business", "global"),
     ("https://rss.dw.com/rdf/rss-en-world", "DW · World", "global"),
     ("https://www.france24.com/en/business/rss", "France 24 · Business", "global"),
-    ("https://www.euronews.com/rss?format=mrss&level=theme&name=business", "Euronews · Business", "global"),
     ("https://www.handelsblatt.com/contentexport/feed/top-themen", "Handelsblatt", "global"),
     ("https://www.lemonde.fr/economie/rss_full.xml", "Le Monde · Économie", "global"),
     ("https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/economia/portada", "El País · Economía", "global"),
@@ -108,7 +102,6 @@ RSS_SOURCES: list[tuple[str, str, MacroNewsCategory]] = [
     ("https://www.abc.net.au/news/feed/51120/rss.xml", "ABC Australia", "global"),
     ("https://www.cbc.ca/webfeed/rss/rss-world", "CBC World", "global"),
     ("https://www.france24.com/en/rss", "France 24", "global"),
-    ("https://www.euronews.com/rss?level=theme&name=news", "Euronews", "global"),
     ("https://www.lemonde.fr/international/rss_full.xml", "Le Monde · International", "global"),
     ("https://www.lemonde.fr/pixels/rss_full.xml", "Le Monde · Pixels", "global"),
     ("https://timesofindia.indiatimes.com/rssfeeds/296589292.cms", "Times of India · World", "global"),
@@ -134,7 +127,6 @@ RSS_SOURCES: list[tuple[str, str, MacroNewsCategory]] = [
     ("https://cointelegraph.com/rss", "Cointelegraph", "crypto"),
     ("https://decrypt.co/feed", "Decrypt", "crypto"),
     ("https://www.theblock.co/rss.xml", "The Block", "crypto"),
-    ("https://blog.blockchain.com/rss/", "Blockchain.com", "crypto"),
     ("https://news.google.com/rss/search?q=site:bitcoinmagazine.com+when:1h&hl=en-US&gl=US&ceid=US:en", "Bitcoin Magazine", "crypto"),
     ("https://news.google.com/rss/search?q=site:cryptoslate.com+when:1h&hl=en-US&gl=US&ceid=US:en", "CryptoSlate", "crypto"),
     ("https://news.google.com/rss/search?q=Bitcoin+OR+BTC+when:1h&hl=en-US&gl=US&ceid=US:en", "Google · Bitcoin", "crypto"),

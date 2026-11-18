@@ -55,23 +55,20 @@ function arm(page: Page, auth: string) {
     const text = msg.text()
     if (/content security policy|violates the following/i.test(text)) note(page, auth, 'csp', text)
     if (msg.type() !== 'error') return
-    if (/favicon|401|400|409|503|ERR_BLOCKED_BY_CLIENT/i.test(text)) return
+    if (/favicon|ERR_BLOCKED_BY_CLIENT/i.test(text)) return
+    if (/Failed to load resource/i.test(text) && /\/api\/(social\/posts|social\/decisions|desk\/login)/.test(text)) return
+    if (/Failed to load resource/i.test(text) && /503/.test(text) && /\/api\/dashboard/.test(text)) return
     note(page, auth, 'console', text)
   })
   page.on('response', (res) => {
     const url = res.url()
     if (!url.includes('/api/')) return
     const status = res.status()
-    if (status >= 500 && !(status === 503 && url.includes('/api/dashboard'))) {
-      note(page, auth, 'http', `${status} ${url}`)
-    }
-    if (
-      status === 401 &&
-      auth === 'token' &&
-      !url.includes('/social/posts') &&
-      !url.includes('/social/decisions') &&
-      !url.includes('/desk/login')
-    ) {
+    const expected =
+      (status === 401 && (url.includes('/social/posts') || url.includes('/social/decisions') || url.includes('/desk/login'))) ||
+      (status === 409 && url.includes('/social/posts/') && url.includes('/publish')) ||
+      (status === 503 && url.includes('/api/dashboard'))
+    if ((status === 400 || status === 401 || status === 409 || status === 503 || status >= 500) && !expected) {
       note(page, auth, 'http', `${status} ${url}`)
     }
   })
@@ -100,7 +97,7 @@ async function walk(page: Page, auth: string) {
     for (let i = 0; i < total; i += 1) {
       const control = controls.nth(i)
       const label = ((await control.innerText().catch(() => '')) || '').trim()
-      if (!label || /reset|wyczyść|purge|usuń wszystkie|github|ic3|cert/i.test(label)) continue
+      if (!label || /reset|wyczyść|purge|usuń wszystkie|github|ic3|cert|wejdź|zapisz|wyślij|publikuj|subskryb/i.test(label)) continue
       const urlBefore = page.url()
       await control.scrollIntoViewIfNeeded().catch(() => undefined)
       await control.click({ timeout: 700 }).catch(() => undefined)

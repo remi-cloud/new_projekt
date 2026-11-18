@@ -780,6 +780,7 @@ export const it: Translations = {
     empty: 'No candidates in this tier yet. Refresh after the scout collects pairs.',
     error: 'Could not load Launch Scout',
     sourceDown: 'Launch Scout has no fresh tick. The list fills in when the source is back.',
+    blockedSources: 'Pump.fun e four.meme sono spesso bloccati. Una colonna vuota significa che la fonte non ha risposto.',
     all: 'All',
     seed: 'Seed',
     fresh: 'Fresh',

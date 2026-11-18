@@ -1,7 +1,7 @@
 # Cykliczny Trader · Kar Digital
 # Strona: http://localhost:8080  (frontend proxy → backend /api)
-# Sekrety tylko z pliku .env. Auto-publikacja na X jest wyłączona,
-# dopóki CYCLICAL_SOCIAL_AUTO_POST nie zostanie ustawione na true.
+# Sekrety tylko z pliku .env. Auto-X jest włączone, ale nie wyśle posta
+# bez https na CYCLICAL_PUBLIC_BASE_URL (własna domena).
 
 services:
   backend:
@@ -19,7 +19,7 @@ services:
       CYCLICAL_PORTFOLIO_DATABASE_PATH: /data/portfolio/portfolio.db
       CYCLICAL_PORTFOLIO_RESTORE_BACKUP: "false"
       # Domyślnie wyłączone. .env może nadpisać każdą z tych wartości.
-      CYCLICAL_SOCIAL_AUTO_POST: "${CYCLICAL_SOCIAL_AUTO_POST:-false}"
+      CYCLICAL_SOCIAL_AUTO_POST: "${CYCLICAL_SOCIAL_AUTO_POST:-true}"
       CYCLICAL_SOCIAL_DRY_RUN: "${CYCLICAL_SOCIAL_DRY_RUN:-true}"
       CYCLICAL_BINANCE_AI_BOT_DRY_RUN: "${CYCLICAL_BINANCE_AI_BOT_DRY_RUN:-true}"
       # Puste = zmiany stanu zwracają 403. Ustaw w .env, nie w tym pliku.

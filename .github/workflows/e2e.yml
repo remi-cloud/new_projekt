@@ -1,6 +1,8 @@
 name: E2E
 
-on: [push]
+on:
+  push:
+  pull_request:
 
 jobs:
   interact:
@@ -25,6 +27,8 @@ jobs:
         working-directory: frontend
         run: |
           npm ci
+          npm test
+          npm run lint
           npm run build
           mkdir -p ../backend/static/assets
           cp -R dist/. ../backend/static/

@@ -157,7 +157,7 @@ const DEX_ALIASES: Record<string, string> = {
 
 /** Stable Dex Arena lane key from dex_id / source. */
 export function normalizeDexLane(dexId?: string | null, source?: string | null): string {
-  let raw = (dexId || source || '').toLowerCase().trim()
+  const raw = (dexId || source || '').toLowerCase().trim()
   if (!raw) return 'other'
   if (DEX_ALIASES[raw]) return DEX_ALIASES[raw]
   if (raw.includes('pump')) return 'pumpfun'

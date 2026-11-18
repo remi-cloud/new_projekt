@@ -8,7 +8,6 @@ POLISH_INVESTING_IDS: dict[str, int] = {
     "MWIG40.WA": 37656,
     "SWIG80.WA": 37660,
     "WIG20TR.WA": 996591,
-    "WIG20LEV.WA": 49602,
     # WIG20 blue chips
     "PKO.WA": 8737,
     "PKN.WA": 8785,

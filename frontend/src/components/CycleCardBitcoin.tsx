@@ -144,8 +144,16 @@ export function CycleCardBitcoin({ cycle }: { cycle: BitcoinCycleStatus }) {
           {cmp && (
             <div className="phase-meta" style={{ marginTop: '0.5rem' }}>
               {t('cyclesCard.btcVsSpx', {
-                verdict: cmp.verdict ?? '—',
-                regime: cmp.regime ?? '—',
+                verdict: ({
+                  partially: 'częściowo',
+                  similar_to_spx: 'jak S&P',
+                  idiosyncratic: 'własny ruch',
+                } as Record<string, string>)[cmp.verdict ?? ''] ?? cmp.verdict ?? '—',
+                regime: ({
+                  equity_beta: 'beta akcji',
+                  mixed: 'mieszany',
+                  crypto_idiosyncratic: 'krypto własne',
+                } as Record<string, string>)[cmp.regime ?? ''] ?? cmp.regime ?? '—',
                 corr,
               })}
             </div>

@@ -262,14 +262,16 @@ export interface SocialDeskStatus {
   enabled: boolean
   dry_run: boolean
   auto_post: boolean
+  auto_max_per_hour?: number
+  auto_max_per_day?: number
+  auto_min_score?: number
+  domain_ready?: boolean
   platforms?: string[]
   cooldown_minutes: number
   max_per_cycle: number
   public_base_url: string | null
   x_configured: boolean
   linkedin_configured: boolean
-  auto_min_score?: number
-  auto_max_per_day?: number
 }
 
 export async function fetchSocialStatus(): Promise<SocialDeskStatus> {

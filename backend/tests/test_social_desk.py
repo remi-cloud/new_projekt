@@ -103,11 +103,11 @@ async def test_pipeline_dry_run_marks_posts_and_does_not_raise():
         auto_rows = [row for row in rows if row["news_id"] == "n-pipe-auto-1"]
         assert queued_rows
         saved = await sd.publish_post(queued_rows[0]["id"], force=False)
-    assert queued["posted"] == 0
+        assert queued["posted"] == 0
     assert queued["queued"] >= 1
     assert auto["published"] == 0
     assert all(row["status"] == "dry_run" for row in queued_rows)
-    assert auto_rows and all(row["status"] == "dry_run" for row in auto_rows)
+    assert auto_rows == []
     assert saved.get("dry_run") is True
     assert saved["status"] == "dry_run"
     px.assert_not_called()
@@ -214,6 +214,7 @@ async def test_publish_force_without_tokens(client):
     )
     with (
         patch.object(sd.settings, "social_dry_run", False),
+        patch.object(sd.settings, "public_base_url", "https://kardigital.example"),
         patch("app.notifications.social_dispatcher.x_configured", return_value=False),
     ):
         r = client.post(f"/api/social/posts/{post_id}/publish")
@@ -237,6 +238,7 @@ async def test_publish_rejects_post_without_source(client):
     )
     with (
         patch.object(sd.settings, "social_dry_run", False),
+        patch.object(sd.settings, "public_base_url", "https://kardigital.example"),
         patch("app.notifications.social_dispatcher.x_configured", return_value=True),
     ):
         r = client.post(f"/api/social/posts/{post_id}/publish")
@@ -261,6 +263,7 @@ async def test_publish_rejects_post_without_author_handle(client):
     )
     with (
         patch.object(sd.settings, "social_dry_run", False),
+        patch.object(sd.settings, "public_base_url", "https://kardigital.example"),
         patch("app.notifications.social_dispatcher.x_configured", return_value=True),
     ):
         r = client.post(f"/api/social/posts/{post_id}/publish")
@@ -288,6 +291,7 @@ async def test_published_feed_lists_a_sent_post(client):
     )
     with (
         patch.object(sd.settings, "social_dry_run", False),
+        patch.object(sd.settings, "public_base_url", "https://kardigital.example"),
         patch("app.notifications.social_dispatcher.x_configured", return_value=True),
         patch(
             "app.notifications.social_dispatcher.post_to_x",

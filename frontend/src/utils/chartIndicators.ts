@@ -6,7 +6,7 @@ export interface IndicatorPoint {
   value: number
 }
 
-export interface RsiPoint extends IndicatorPoint {}
+export type RsiPoint = IndicatorPoint
 
 export interface RsiSeries {
   points: RsiPoint[]

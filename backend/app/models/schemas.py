@@ -262,7 +262,7 @@ class AlertSettings(BaseModel):
     phone: str = ""
     sms_enabled: bool = False
     push_enabled: bool = True
-    ntfy_enabled: bool = True
+    ntfy_enabled: bool = False
     ntfy_topic: str = ""
     min_confidence: float = Field(default=60, ge=40, le=95)
     alert_on_signal_change: bool = True
