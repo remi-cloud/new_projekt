@@ -259,7 +259,7 @@ export const en: Translations = {
     skip: 'Skip to content',
     loginNav: 'Sign in',
     loginTitle: 'Desk sign-in',
-    loginLead: 'The token stays in this tab. It is not stored in the repository.',
+    loginLead: 'The password stays on the server. The browser only receives a cookie that page scripts cannot read.',
     loginToken: 'Desk token',
     loginSubmit: 'Enter',
     loginOk: 'Signed in. The desk session is an HttpOnly cookie.',
@@ -571,6 +571,7 @@ export const en: Translations = {
   },
   instrument: {
     notFound: 'Instrument not found: {{symbol}}',
+    bookAria: 'Order book and heatmap',
     backToMarkets: 'Back to markets',
     backMarkets: '← Markets',
     eyebrow: 'Instrument · Cyclical analysis',
@@ -985,6 +986,7 @@ export const en: Translations = {
   },
   superDesk: {
     title: 'Super setups',
+    bookAria: 'Bid and ask book',
     lead: 'A liquidation heatmap sits on every position (entry / stop / target + liq).',
     hydrating: 'Loading the full 3D map…',
     singularity: 'Singularity',

@@ -25,6 +25,7 @@ from app.ai.tools import (
     run_tool,
     tools_context_string,
 )
+from app.ai.visibility import PRIVATE_TOOLS, hidden_portfolio, portfolio_visible, redact_private_tools
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -254,15 +255,16 @@ async def chat(
     ctx = tools_context_string(tool_results)
     if focus:
         ctx = f"Focus symbol for this turn: {focus}\n\n" + ctx
-    try:
-        from app.paper.portfolio_memory import get_agent_portfolio_context
+    if portfolio_visible():
+        try:
+            from app.paper.portfolio_memory import get_agent_portfolio_context
 
-        paper_ctx = await get_agent_portfolio_context()
-        ctx += "\n\nPaper portfolio (session memory from portfolio.db):\n" + json.dumps(
-            paper_ctx, ensure_ascii=False
-        )
-    except Exception as exc:
-        logger.debug("Paper portfolio inject skipped: %s", exc)
+            paper_ctx = await get_agent_portfolio_context()
+            ctx += "\n\nPaper portfolio (session memory from portfolio.db):\n" + json.dumps(
+                paper_ctx, ensure_ascii=False
+            )
+        except Exception as exc:
+            logger.debug("Paper portfolio inject skipped: %s", exc)
 
     inject_n = max(3, min(12, int(getattr(settings, "ai_learning_inject_limit", 8) or 8)))
     lessons = await ai_db.get_learning_notes(limit=inject_n)
@@ -312,6 +314,7 @@ async def chat(
     elif critic.get("issues"):
         final = draft + "\n\n(Uwaga wewnętrzna: " + "; ".join(critic["issues"][:2]) + ")"
 
+    tool_results = redact_private_tools(tool_results)
     desk_ui = build_desk_ui(focus, tool_results)
     meta = {
         "tools": [t.get("tool") for t in tool_results],
@@ -376,7 +379,10 @@ async def _generate(
                         "search_knowledge",
                     ):
                         args["symbol"] = focus
-                    result = await run_tool(name, args)
+                    if name in PRIVATE_TOOLS and not portfolio_visible():
+                        result = hidden_portfolio()
+                    else:
+                        result = await run_tool(name, args)
                     llm_blocks.append({"tool": name, "result": result})
                     payload = result
                     if isinstance(result, dict) and result.get("svg"):
@@ -554,7 +560,7 @@ def _pack(
 
 async def analyze_symbol(symbol: str, locale: str = "pl") -> dict[str, Any]:
     focus = resolve_focus_symbol(symbol, symbol) or symbol.strip()
-    tool_results = await build_desk_tool_bundle(focus)
+    tool_results = redact_private_tools(await build_desk_tool_bundle(focus))
     desk_ui = build_desk_ui(focus, tool_results)
     ctx = f"Focus symbol for this turn: {focus}\n\n" + tools_context_string(tool_results)
 

@@ -20,6 +20,10 @@ export function writeDeskToken(_value: string): void {
   window.dispatchEvent(new Event('desk-auth'))
 }
 
+export function noteDeskSession(): void {
+  writeDeskToken('')
+}
+
 export function clearDeskToken(): void {
   dropLegacyToken()
   window.dispatchEvent(new Event('desk-auth'))

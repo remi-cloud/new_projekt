@@ -146,9 +146,20 @@ def csrf_ok(request: Request) -> bool:
     if origin in allowed:
         return True
     host = (request.headers.get("host") or "").split(":")[0]
-    if host and origin.split("://", 1)[-1].split(":")[0] == host:
-        return True
-    return request.headers.get("x-cyclical-request") == "1"
+    return bool(host) and origin.split("://", 1)[-1].split(":")[0] == host
+
+
+def supplied_desk_token(request: Request) -> str:
+    """Header for API clients. A valid session cookie stands in for the desk token.
+
+    The cookie holds a random session id, not the desk token.
+    """
+    header = request.headers.get("x-desk-token", "").strip()
+    if header:
+        return header
+    if session_valid(request.cookies.get(COOKIE_NAME)):
+        return (settings.desk_token or "").strip()
+    return ""
 
 
 def tokens_match(supplied: str, expected: str) -> bool:
@@ -213,14 +224,20 @@ class DeskAuthMiddleware(BaseHTTPMiddleware):
                 status_code=403,
                 content={"detail": "Biurko zamknięte. Ustaw CYCLICAL_DESK_TOKEN."},
             )
+        if not csrf_ok(request):
+            return JSONResponse(status_code=403, content={"detail": "Żądanie spoza biurka."})
         header = request.headers.get("x-desk-token", "")
         if header:
             if tokens_match(header, expected):
+                note_login_success(request)
                 return await call_next(request)
+            if note_login_failure(request) > _LOGIN_MAX:
+                return JSONResponse(
+                    status_code=429,
+                    content={"detail": "Za dużo błędnych prób z tego adresu. Poprawny token nadal wchodzi."},
+                )
             return JSONResponse(status_code=401, content={"detail": "Zły token biurka."})
         if session_valid(request.cookies.get(COOKIE_NAME)):
-            if not csrf_ok(request):
-                return JSONResponse(status_code=403, content={"detail": "Żądanie spoza biurka."})
             return await call_next(request)
         return JSONResponse(
             status_code=401,

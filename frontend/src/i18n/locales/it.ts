@@ -224,7 +224,7 @@ export const it: Translations = {
     skip: 'Skip to content',
     loginNav: 'Sign in',
     loginTitle: 'Desk sign-in',
-    loginLead: 'The token stays in this tab. It is not stored in the repository.',
+    loginLead: 'The password stays on the server. The browser only receives a cookie that page scripts cannot read.',
     loginToken: 'Desk token',
     loginSubmit: 'Enter',
     loginOk: 'Accesso eseguito. La sessione è in un cookie HttpOnly.',
@@ -497,7 +497,7 @@ export const it: Translations = {
     world: 'Mondo', all: 'Tutti', count: '{{n}} strumenti', empty: 'Nessuno strumento per i filtri selezionati.',
   },
   instrument: {
-    notFound: 'Strumento non trovato: {{symbol}}', backToMarkets: 'Torna ai mercati', backMarkets: '← Mercati',
+    notFound: 'Strumento non trovato: {{symbol}}', bookAria: 'Book ordini e heatmap', backToMarkets: 'Torna ai mercati', backMarkets: '← Mercati',
     eyebrow: 'Strumento · Analisi ciclica', tapExpand: 'Tocca per ingrandire →',
     confidenceTooltip: 'Confidenza segnale {{n}}% — più alto significa migliore opportunità di {{action}}',
     confidenceBuy: 'acquisto', confidenceSell: 'vendita', momentumTag: 'Momentum + ciclo',
@@ -738,6 +738,7 @@ export const it: Translations = {
   },
   superDesk: {
     title: 'Super setups',
+    bookAria: 'Book bid e ask',
     lead: 'A liquidation heatmap sits on every position (entry / stop / target + liq).',
     hydrating: 'Loading the full 3D map…',
     singularity: 'Singularity',

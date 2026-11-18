@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from app.data.whale_flows import fetch_whale_snapshot
 from app.desk_auth import require_desk
 from app.models.schemas import SuperOpportunitiesResponse, SuperOpportunity
+from app.read_guard import forced_refresh_due
 from app.scanners.super_opportunities import (
     build_super_opportunities,
     build_super_opportunity,

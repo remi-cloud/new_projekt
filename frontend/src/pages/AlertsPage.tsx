@@ -55,8 +55,8 @@ export function AlertsPage() {
       const saved = await saveAlertSettings(settings)
       setSettings(saved)
       setMessage(t('alerts.saved'))
-    } catch {
-      setMessage(t('alerts.saveError'))
+    } catch (e) {
+      setMessage(formatThrownError(e, t('alerts.saveError')))
     } finally {
       setSaving(false)
     }

@@ -6,6 +6,7 @@ import pytest
 
 from app.models.schemas import MacroNewsItem
 from app.news.social_composer import compose_x
+from app.news.x_publish_whitelist import PUBLISHER_NAMES, URL_HOSTS
 from app.news.x_auto import (
     assert_post_has_source,
     evaluate_auto,
@@ -37,6 +38,10 @@ def _decide(**kwargs):
     )
     base.update(kwargs)
     return evaluate_auto(**base)
+
+
+def test_every_whitelisted_host_has_a_publisher_name():
+    assert set(URL_HOSTS) <= set(PUBLISHER_NAMES)
 
 
 def test_whitelist_allows_named_outlets_and_blocks_the_rest():
@@ -128,7 +133,7 @@ def test_unconfirmed_single_source_is_rejected():
 
 @pytest.mark.asyncio
 async def test_auto_unwraps_google_news_to_publisher_host():
-    from unittest.mock import patch
+    from unittest.mock import AsyncMock, patch
 
     from app.models.schemas import MacroNewsItem
     from app.news.social_db import init_social_db, list_decisions
@@ -152,7 +157,10 @@ async def test_auto_unwraps_google_news_to_publisher_host():
     with (
         patch.object(sd, "ensure_clickable_url", new=_unwrap),
         patch.object(sd, "x_configured", return_value=False),
+        patch.object(sd.settings, "social_dry_run", False),
         patch.object(sd.settings, "public_base_url", "https://kardigital.example"),
+        patch.object(sd.social_db, "count_posted_since", new=AsyncMock(return_value=0)),
+        patch.object(sd.social_db, "posted_topic_keys", new=AsyncMock(return_value=set())),
     ):
         await sd.run_auto_x([item])
     rows = await list_decisions(10)
@@ -172,7 +180,7 @@ def test_compose_x_includes_source_name_and_article_url():
     item = MacroNewsItem(
         id="n1",
         title="Fed holds rates",
-        summary="Decision in Oslo at 14:00 CET rattled Norway.",
+        summary="Decision in Oslo at 14:00CET rattled Norway and a Norwegian bank.",
         url="https://www.reuters.com/markets/fed-holds",
         source="Reuters",
         category="fed",
@@ -187,7 +195,12 @@ def test_compose_x_includes_source_name_and_article_url():
     lowered = body.lower()
     assert "oslo" not in lowered
     assert "norway" not in lowered
+    assert "norwegian" not in lowered
     assert "cet" not in lowered
+    fake = item.model_copy(update={"source": "Blog oszusta"})
+    attributed = compose_x(fake).body
+    assert "Źródło: Reuters" in attributed
+    assert "oszusta" not in attributed.lower()
     assert_post_has_source(body, "Reuters", item.url)
 
 
@@ -230,6 +243,8 @@ def test_author_place_is_stripped_but_poland_the_story_stays():
     assert "europe/warsaw" not in lowered
     assert "czas lokalny" not in lowered
     assert "oslo" not in strip_forbidden_place("Notatka z Oslo, Norway, CEST").lower()
+    assert "norge" not in strip_forbidden_place("Notatka z Norge").lower()
+    assert "cet" not in strip_forbidden_place("Decyzja 14:00CET").lower()
 
 
 def test_publish_blocked_without_source_line():
@@ -240,6 +255,12 @@ def test_publish_blocked_without_source_line():
             "Źródło: Reuters\n— @robi44610 | Kar Digital",
             "Reuters",
             "",
+        )
+    with pytest.raises(RuntimeError, match="Norwegię|Oslo|czas"):
+        assert_post_has_source(
+            "Źródło: Reuters\nhttps://www.reuters.com/world/norway\n— @robi44610 | Kar Digital",
+            "Reuters",
+            "https://www.reuters.com/world/norway",
         )
     with pytest.raises(RuntimeError, match="robi44610"):
         assert_post_has_source(

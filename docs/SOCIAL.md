@@ -5,15 +5,15 @@ News agent składa posty z makro-newsów. Auto-X jest włączone w kodzie. Tryb 
 ## Szybki start (lokalnie / Docker)
 
 1. Skopiuj zmienne z `.env.example` do `.env`.
-2. Zostaw:
+2. Zostaw auto włączone. Na localhost nic nie wyjdzie na X:
    ```
    CYCLICAL_SOCIAL_ENABLED=true
    CYCLICAL_SOCIAL_DRY_RUN=true
    CYCLICAL_SOCIAL_AUTO_POST=true
    CYCLICAL_SOCIAL_PLATFORMS=x
    ```
-3. Odśwież newsy (`POST /api/news/macro/refresh` lub przycisk na `/news`).
-4. Sprawdź `GET /api/social/posts` albo sekcję **Social desk** na `/news`.
+3. Harmonogram odświeża newsy i składa kolejkę. Publiczny przycisk odświeżenia nie publikuje.
+4. Wysłane posty: sekcja **Social desk** na `/news` i `GET /api/social/published`. Dziennik decyzji widzi zalogowane biurko.
 
 ## X (Twitter)
 
@@ -69,7 +69,7 @@ Nie wstawiaj tu `*.trycloudflare.com` — URL się zmienia przy każdym quick tu
 
 Domyślnie włączona (`CYCLICAL_SOCIAL_AUTO_POST=true`) i zatrzymana przez tryb próbny oraz bramkę domeny. Ręczny Publikuj używa tej samej białej listy i limitu 2/h.
 
-Reguły (serwer): biała lista w `backend/app/news/x_publish_whitelist.py`, próg `CYCLICAL_SOCIAL_AUTO_MIN_SCORE` (70), maksymalnie `CYCLICAL_SOCIAL_AUTO_MAX_PER_HOUR` (2) w oknie godziny, deduplikacja tematu, odrzucenie niepotwierdzonych. Dziennik: `GET /api/social/decisions`.
+Reguły (serwer): biała lista hostów w `backend/app/news/x_publish_whitelist.py` (nazwa w poście pochodzi z hosta, nie z etykiety kanału), próg `CYCLICAL_SOCIAL_AUTO_MIN_SCORE` (70), maksymalnie `CYCLICAL_SOCIAL_AUTO_MAX_PER_HOUR` (2) w oknie godziny i `CYCLICAL_SOCIAL_AUTO_MAX_PER_DAY` (2) na dobę, deduplikacja tematu, odrzucenie niepotwierdzonych, bez Oslo/Norwegii/CET. Dziennik: `GET /api/social/decisions` (biurko albo token wewnętrzny).
 
 Publiczny odczyt wysłanych postów (bez sekretów): `GET /api/social/published`.
 

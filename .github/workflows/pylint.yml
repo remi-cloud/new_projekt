@@ -25,10 +25,12 @@ jobs:
         env:
           PYTHONPATH: .
         run: |
-          # App targets 3.12 (PEP 604 unions). Lint app package only — not tests —
-          # and ignore noisy duplicate/cyclic refactor warnings that predate this desk stack.
+          # App targets 3.12 (PEP 604 unions). Lint app package only — not tests.
+          # duplicate-code, cyclic-import and import-error stay as they were.
+          # Line length stays enforced; 120 matches the long data strings already in the desk.
           pylint app \
-            --fail-under=7.5 \
+            --fail-under=9 \
+            --max-line-length=120 \
             --disable=duplicate-code,cyclic-import,import-error \
             --ignore-paths='^app/static'
       - name: Pytest

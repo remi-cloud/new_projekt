@@ -10,12 +10,12 @@ import re
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from email.utils import parsedate_to_datetime
+from urllib.parse import urljoin
 from xml.etree import ElementTree
 
 import httpx
 
 from app.config import settings
-from app.http_safety import UnsafeUrlError, guarded_get
 from app.models.schemas import MacroNewsCategory, MacroNewsFeed, MacroNewsItem
 from app.news.google_news_urls import resolve_item_urls
 from app.news.ideology_lens import sort_by_alignment
@@ -497,13 +497,26 @@ async def _fetch_one_feed(
     source: str,
     default_category: MacroNewsCategory,
 ) -> list[dict]:
+    from app.net_guard import public_url_ok
+
+    current = url
     try:
-        try:
-            resp = await guarded_get(client, url)
-        except UnsafeUrlError as exc:
-            logger.warning("RSS blocked %s (%s): %s", source, url, exc)
+        resp = None
+        for _ in range(4):
+            if not public_url_ok(current):
+                logger.warning("RSS url blocked %s", source)
+                return []
+            resp = await client.get(current, follow_redirects=False)
+            if resp.status_code not in {301, 302, 303, 307, 308}:
+                break
+            location = resp.headers.get("location")
+            if not location:
+                return []
+            current = urljoin(current, location)
+        else:
             return []
-        resp.raise_for_status()
+        if resp is None or resp.status_code >= 400:
+            return []
         return _parse_rss_xml(resp.content, source, default_category)
     except Exception as exc:
         logger.warning("RSS fetch failed %s (%s): %s", source, url, exc)

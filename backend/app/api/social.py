@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import secrets
-
 from fastapi import APIRouter, HTTPException, Request
 
 from app.config import settings
+from app.desk_auth import supplied_desk_token, tokens_match
 from app.news import social_db
 from app.notifications.social_dispatcher import (
     DryRunPublicationBlocked,
@@ -22,10 +21,16 @@ router = APIRouter(tags=["social"])
 
 
 def _require_internal(request: Request) -> None:
-    expected = (settings.internal_api_token or "").strip()
-    supplied = request.headers.get("x-internal-token", "")
-    if not expected or not secrets.compare_digest(supplied, expected):
-        raise HTTPException(status_code=403, detail="Kolejka i dziennik są tylko wewnętrzne.")
+    """Desk session or the internal token. Empty secrets keep the log closed."""
+    internal = (settings.internal_api_token or "").strip()
+    supplied_internal = request.headers.get("x-internal-token", "")
+    if internal and supplied_internal and tokens_match(supplied_internal, internal):
+        return
+    desk = (settings.desk_token or "").strip()
+    supplied = supplied_desk_token(request)
+    if desk and supplied and tokens_match(supplied, desk):
+        return
+    raise HTTPException(status_code=403, detail="Kolejka i dziennik są tylko wewnętrzne.")
 
 
 @router.get("/api/social/status")

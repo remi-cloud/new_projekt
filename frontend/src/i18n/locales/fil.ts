@@ -224,7 +224,7 @@ export const fil: Translations = {
     skip: 'Skip to content',
     loginNav: 'Sign in',
     loginTitle: 'Desk sign-in',
-    loginLead: 'The token stays in this tab. It is not stored in the repository.',
+    loginLead: 'The password stays on the server. The browser only receives a cookie that page scripts cannot read.',
     loginToken: 'Desk token',
     loginSubmit: 'Enter',
     loginOk: 'Naka-sign in. Nasa HttpOnly cookie ang session ng desk.',
@@ -497,7 +497,7 @@ export const fil: Translations = {
     world: 'Mundo', all: 'Lahat', count: '{{n}} instrumento', empty: 'Walang instrumento para sa napiling filter.',
   },
   instrument: {
-    notFound: 'Hindi nahanap ang instrumento: {{symbol}}', backToMarkets: 'Bumalik sa merkado', backMarkets: '← Merkado',
+    notFound: 'Hindi nahanap ang instrumento: {{symbol}}', bookAria: 'Order book at heatmap', backToMarkets: 'Bumalik sa merkado', backMarkets: '← Merkado',
     eyebrow: 'Instrumento · Cyclical analysis', tapExpand: 'I-tap para palakihin →',
     confidenceTooltip: 'Signal confidence {{n}}% — mas mataas, mas malakas ang {{action}} opportunity',
     confidenceBuy: 'pagbili', confidenceSell: 'pagbebenta', momentumTag: 'Momentum + siklo',
@@ -738,6 +738,7 @@ export const fil: Translations = {
   },
   superDesk: {
     title: 'Super setups',
+    bookAria: 'Bid at ask book',
     lead: 'A liquidation heatmap sits on every position (entry / stop / target + liq).',
     hydrating: 'Loading the full 3D map…',
     singularity: 'Singularity',

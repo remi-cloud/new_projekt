@@ -16,6 +16,7 @@ from app.news.macro_news import (
 )
 from app.news.google_news_urls import ensure_clickable_url, is_unsafe_news_url, search_url_for_title
 from app.news.public_urls import strip_loopback_origin
+from app.net_guard import public_url_ok
 from app.news.news_alerts import news_alert_engine
 from app.notifications.news_dispatcher import dispatch_news_alerts
 from app.models.schemas import MacroNewsFeed
@@ -24,6 +25,7 @@ from app.realtime.broadcaster import broadcaster
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["news"])
 _last_full_refresh = 0.0
+_refresh_lock = asyncio.Lock()
 
 
 async def on_news_image_ready(news_id: str, image_url: str) -> None:
@@ -66,6 +68,11 @@ async def macro_news(category: str | None = None, limit: int = 50, lang: str | N
 
 @router.post("/api/news/macro/refresh", response_model=MacroNewsFeed)
 async def macro_news_refresh(lang: str | None = None):
+    async with _refresh_lock:
+        return await _macro_news_refresh_locked(lang)
+
+
+async def _macro_news_refresh_locked(lang: str | None = None):
     global _last_full_refresh
     gap = max(30, int(getattr(settings, "news_refresh_min_gap_seconds", 300) or 300))
     now = time.monotonic()
@@ -76,14 +83,7 @@ async def macro_news_refresh(lang: str | None = None):
     events = news_alert_engine.diff(all_items)
     if events:
         await dispatch_news_alerts(events)
-    try:
-        from app.notifications.social_dispatcher import queue_social_from_news_items
-
-        social = await queue_social_from_news_items(all_items, locale=lang or "pl")
-        if social.get("queued"):
-            logger.info("Social desk queued: %s", social)
-    except Exception as exc:
-        logger.warning("Social desk queue failed: %s", exc)
+    # Auto-X runs from the scheduler only. This public refresh must not post.
     asyncio.create_task(kick_news_images(feed.items))
     return await get_macro_news(limit=100, locale=lang)
 
@@ -97,18 +97,24 @@ async def news_outbound(news_id: str):
         raise HTTPException(status_code=404, detail="News item not found")
     url = await ensure_clickable_url(item.url, item.title)
     cleaned = strip_loopback_origin(url) or ""
-    if cleaned.startswith("/") or not cleaned:
-        url = search_url_for_title(item.title or "markets")
-    elif is_unsafe_news_url(url):
-        url = search_url_for_title(item.title or "markets")
-    return RedirectResponse(url=url, status_code=307)
+    if (
+        not cleaned.startswith("http")
+        or cleaned.startswith("/")
+        or is_unsafe_news_url(cleaned)
+        or not public_url_ok(cleaned)
+    ):
+        cleaned = search_url_for_title(item.title or "markets")
+    return RedirectResponse(url=cleaned, status_code=307)
 
 
 @router.get("/api/news/images/{news_id}")
 async def news_image(news_id: str):
-    if not news_id or ".." in news_id or "/" in news_id:
+    if not news_id or ".." in news_id or "/" in news_id or "\\" in news_id:
         raise HTTPException(status_code=400, detail="Invalid news id")
-    path = image_file_path(news_id)
+    root = image_file_path(news_id).parent.resolve()
+    path = image_file_path(news_id).resolve()
+    if not path.is_relative_to(root):
+        raise HTTPException(status_code=400, detail="Invalid news id")
     if not path.is_file():
         raise HTTPException(status_code=404, detail="Image not found")
     return FileResponse(path, media_type="image/webp", filename=f"{news_id}.webp")
