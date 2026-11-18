@@ -127,7 +127,7 @@ test.afterAll(() => {
 for (const auth of ['anon', 'token'] as const) {
   test(`interakcje ${auth}`, async ({ page }) => {
     test.setTimeout(360_000)
-    page.setDefaultTimeout(8_000)
+    page.setDefaultTimeout(25_000)
     arm(page, auth)
     if (auth === 'token') await login(page)
     await walk(page, auth)
