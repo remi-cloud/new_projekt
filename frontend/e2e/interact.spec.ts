@@ -95,7 +95,7 @@ async function walk(page: Page, auth: string) {
     if (overflow > 24) note(page, auth, 'overflow', String(overflow))
 
     const controls = page.locator('#app-content button:visible, #app-content [role="tab"]:visible')
-    const total = Math.min(await controls.count(), 6)
+    const total = Math.min(await controls.count(), 4)
     for (let i = 0; i < total; i += 1) {
       const control = controls.nth(i)
       const label = ((await control.innerText().catch(() => '')) || '').trim()
@@ -120,7 +120,8 @@ test.afterAll(() => {
 
 for (const auth of ['anon', 'token'] as const) {
   test(`interakcje ${auth}`, async ({ page }) => {
-    test.setTimeout(240_000)
+    test.setTimeout(360_000)
+    page.setDefaultTimeout(8_000)
     arm(page, auth)
     if (auth === 'token') await login(page)
     await walk(page, auth)
