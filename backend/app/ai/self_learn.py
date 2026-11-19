@@ -166,11 +166,18 @@ async def learn_from_news_exchange(question: str, answer: str) -> bool:
 
 
 async def run_self_learn_cycle() -> dict:
-    """One autonomous learning tick. Safe to call from scheduler."""
+    """One autonomous learning tick. Safe to call from scheduler.
+
+    Price post-mortems run even when no model key is set. The news distill still
+    needs a configured LLM.
+    """
+    from app.ai.learning import review_predictions
+
+    post = await review_predictions()
     if not settings.ai_enabled or not settings.ai_self_learn_enabled:
-        return {"ok": False, "reason": "disabled", "added": 0}
+        return {"ok": False, "reason": "disabled", "added": post["added"], "postmortem": post}
     if not llm_configured():
-        return {"ok": False, "reason": "llm_not_configured", "added": 0}
+        return {"ok": True, "reason": "rules_only", "added": post["added"], "postmortem": post}
 
     ctx = await _collect_context()
     if len(ctx) < 80:
@@ -185,8 +192,8 @@ async def run_self_learn_cycle() -> dict:
         )
         lessons = _parse_lessons(raw)
     except Exception as exc:
-        logger.warning("Self-learn LLM failed: %s", exc)
-        return {"ok": False, "reason": str(exc), "added": 0}
+        logger.warning("Self-learn LLM failed: %s", type(exc).__name__)
+        return {"ok": False, "reason": type(exc).__name__, "added": post["added"], "postmortem": post}
 
     added = 0
     for item in lessons:
@@ -199,5 +206,5 @@ async def run_self_learn_cycle() -> dict:
         if ok:
             added += 1
 
-    logger.info("Self-learn cycle: proposed=%d added=%d", len(lessons), added)
-    return {"ok": True, "proposed": len(lessons), "added": added}
+    logger.info("Self-learn cycle: proposed=%d added=%d postmortem=%d", len(lessons), added, post["added"])
+    return {"ok": True, "proposed": len(lessons), "added": added + post["added"], "postmortem": post}

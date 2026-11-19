@@ -37,6 +37,38 @@ class OpportunityScanner:
         self._price_stats: dict[str, dict] = {}
         self.scan_in_progress: bool = False
         self._scan_lock = asyncio.Lock()
+        self._btc_source_error: str | None = None
+
+    def _set_regional(self) -> None:
+        snapshot = build_regional_cycles_snapshot()
+        self.regional_cycles = [
+            RegionalCycleSnapshot(
+                region=region,
+                region_label=REGION_LABELS.get(region, region),
+                cycle_id=macro.cycle_id,
+                phase=macro.phase,
+                signal=macro.signal,
+                buy_weight=round(macro.buy_weight, 2),
+                bias=macro.bias,
+                rationale=macro.rationale,
+            )
+            for region, macro in snapshot.items()
+        ]
+
+    async def ensure_bitcoin_cycle(self) -> BitcoinCycleStatus | None:
+        """ATH clock and regional seasons without a full 200-name quote scan."""
+        if not self.regional_cycles:
+            self._set_regional()
+        if self.bitcoin_cycle:
+            return self.bitcoin_cycle
+        try:
+            ath_date, ath_price, btc_price = await fetch_bitcoin_ath()
+            self.bitcoin_cycle = analyze_bitcoin_cycle(ath_date, ath_price, btc_price)
+            self._btc_source_error = None
+        except Exception as exc:
+            self._btc_source_error = f"coingecko: {type(exc).__name__}"
+            logger.warning("Bitcoin cycle source failed: %s", self._btc_source_error)
+        return self.bitcoin_cycle
 
     async def scan(self, *, force: bool = False) -> list[Opportunity]:
         """Run a full market scan. Concurrent callers wait for the in-flight scan
@@ -60,20 +92,8 @@ class OpportunityScanner:
         logger.info("Starting full market scan (%d assets)...", len(MONITORED_ASSETS))
         ath_date, ath_price, btc_price = await fetch_bitcoin_ath()
         self.bitcoin_cycle = analyze_bitcoin_cycle(ath_date, ath_price, btc_price)
-        snapshot = build_regional_cycles_snapshot()
-        self.regional_cycles = [
-            RegionalCycleSnapshot(
-                region=region,
-                region_label=REGION_LABELS.get(region, region),
-                cycle_id=macro.cycle_id,
-                phase=macro.phase,
-                signal=macro.signal,
-                buy_weight=round(macro.buy_weight, 2),
-                bias=macro.bias,
-                rationale=macro.rationale,
-            )
-            for region, macro in snapshot.items()
-        ]
+        self._btc_source_error = None
+        self._set_regional()
         self.quotes, self._price_stats = await fetch_quotes_with_stats()
         self._reassess()
         self.last_scan_at = datetime.now(timezone.utc)

@@ -60,9 +60,11 @@ def academy_payload() -> dict:
                     {
                         "title": "Czat na tym biurku",
                         "body": (
-                            "Zewnętrzny czat jest wyłączony, dopóki nie ustawisz własnego klucza albo "
-                            "świadomie nie włączysz CYCLICAL_AI_EXTERNAL_ENABLED. Lokalne Ollama działa tylko na serwerze. "
-                            "Do czatu nie wkleja się kluczy API, haseł ani frazy odzyskiwania portfela."
+                            "Czat idzie na Grok (api.x.ai), gdy właściciel wklei klucz XAI do środowiska i zrestartuje serwer. "
+                            "Bez klucza zostaje lokalny skrót z narzędzi, a pasek mówi „Tryb lokalny · narzędzia”. "
+                            "OpenAI jest zapasem. llm7 tylko po świadomym włączeniu zewnętrznego czatu. "
+                            "Ollama tylko gdy dostawca jest ustawiony na ollama. "
+                            "Pełna analiza jest na zalogowanym biurku. Do czatu nie wkleja się kluczy, haseł ani frazy odzyskiwania portfela."
                         ),
                     },
                     {

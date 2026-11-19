@@ -189,6 +189,8 @@ _BASE_ASSETS = [
     {"symbol": "EURJPY=X", "name": "EUR/JPY", "asset_class": "forex", "region": "global"},
     {"symbol": "EURGBP=X", "name": "EUR/GBP", "asset_class": "forex", "region": "global"},
     {"symbol": "DX-Y.NYB", "name": "US Dollar Index", "asset_class": "forex", "region": "global"},
+    {"symbol": "USDPLN=X", "name": "USD/PLN", "asset_class": "forex", "region": "pl"},
+    {"symbol": "^TNX", "name": "US 10Y yield", "asset_class": "bond", "region": "us"},
 ]
 
 MONITORED_ASSETS = _dedupe_assets(

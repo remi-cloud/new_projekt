@@ -67,7 +67,30 @@ async def init_ai_db() -> None:
         await db.execute(
             "CREATE INDEX IF NOT EXISTS idx_ai_messages_session ON ai_messages(session_id, created_at)"
         )
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS ai_calls (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                symbol TEXT NOT NULL,
+                stance TEXT NOT NULL,
+                price REAL NOT NULL,
+                session_id TEXT,
+                created_at TEXT NOT NULL,
+                checked_at TEXT,
+                outcome TEXT
+            )
+        """)
+        await _ensure_column(db, "ai_learning_notes", "symbol", "TEXT")
+        await _ensure_column(db, "ai_learning_notes", "helpful", "INTEGER NOT NULL DEFAULT 0")
+        await _ensure_column(db, "ai_learning_notes", "unhelpful", "INTEGER NOT NULL DEFAULT 0")
+        await _ensure_column(db, "ai_learning_notes", "retired", "INTEGER NOT NULL DEFAULT 0")
         await db.commit()
+
+
+async def _ensure_column(db, table: str, name: str, ddl: str) -> None:
+    cur = await db.execute(f"PRAGMA table_info({table})")
+    have = {row[1] for row in await cur.fetchall()}
+    if name not in have:
+        await db.execute(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}")
     await _seed_knowledge_if_empty()
     await _ensure_seasonality_knowledge()
     await _ensure_btc_seasonality_knowledge()
@@ -372,18 +395,37 @@ async def search_knowledge(query: str, limit: int = 5) -> list[dict]:
 async def get_learning_notes(limit: int = 8) -> list[dict]:
     async with db_session() as db:
         cur = await db.execute(
-            """SELECT id, topic, lesson, source, confidence, use_count FROM ai_learning_notes
-               ORDER BY confidence DESC, use_count DESC, id DESC LIMIT ?""",
+            """SELECT id, topic, lesson, source, confidence, use_count, symbol, helpful, unhelpful
+               FROM ai_learning_notes
+               WHERE retired = 0
+               ORDER BY confidence DESC, id DESC LIMIT ?""",
             (limit,),
         )
         rows = await cur.fetchall()
     return [
-        {"id": r[0], "topic": r[1], "lesson": r[2], "source": r[3], "confidence": r[4], "use_count": r[5]}
+        {
+            "id": r[0],
+            "topic": r[1],
+            "lesson": r[2],
+            "source": r[3],
+            "confidence": r[4],
+            "use_count": r[5],
+            "symbol": r[6],
+            "helpful": r[7],
+            "unhelpful": r[8],
+            "retired": 0,
+        }
         for r in rows
     ]
 
 
-async def add_learning_note(topic: str, lesson: str, source: str = "self_critique", confidence: float = 0.75) -> bool:
+async def add_learning_note(
+    topic: str,
+    lesson: str,
+    source: str = "self_critique",
+    confidence: float = 0.75,
+    symbol: str | None = None,
+) -> bool:
     """Insert a learning note; skip near-duplicates. Returns True if inserted."""
     text = (lesson or "").strip()
     if len(text) < 12:
@@ -392,22 +434,30 @@ async def add_learning_note(topic: str, lesson: str, source: str = "self_critiqu
     needle = text[:80].lower()
     async with db_session() as db:
         cur = await db.execute(
-            "SELECT id, lesson FROM ai_learning_notes ORDER BY id DESC LIMIT 80"
+            "SELECT id, lesson, symbol FROM ai_learning_notes ORDER BY id DESC LIMIT 80"
         )
         rows = await cur.fetchall()
-        for _id, existing in rows:
+        wanted = (symbol or "").upper()
+        for _id, existing, existing_symbol in rows:
             ex = (existing or "").lower()
-            if needle in ex or ex[:80] in text.lower():
-                # Reinforce existing lesson instead of duplicating
+            same_symbol = not wanted or (existing_symbol or "").upper() in {"", wanted}
+            if same_symbol and (needle in ex or ex[:80] in text.lower()):
                 await db.execute(
-                    "UPDATE ai_learning_notes SET use_count = use_count + 1, confidence = MIN(0.95, confidence + 0.02) WHERE id = ?",
-                    (_id,),
+                    """UPDATE ai_learning_notes
+                       SET use_count = use_count + 1,
+                           confidence = MIN(0.95, confidence + 0.02),
+                           retired = 0,
+                           symbol = COALESCE(?, symbol)
+                       WHERE id = ?""",
+                    (wanted or None, _id),
                 )
                 await db.commit()
                 return False
         await db.execute(
-            "INSERT INTO ai_learning_notes (topic, lesson, source, confidence, use_count, created_at) VALUES (?, ?, ?, ?, 0, ?)",
-            (topic[:80], text[:2000], source, confidence, now),
+            """INSERT INTO ai_learning_notes
+               (topic, lesson, source, confidence, use_count, created_at, symbol, helpful, unhelpful, retired)
+               VALUES (?, ?, ?, ?, 0, ?, ?, 0, 0, 0)""",
+            (topic[:80], text[:2000], source, confidence, now, wanted or None),
         )
         await db.commit()
     return True
@@ -456,6 +506,83 @@ async def add_feedback(session_id: str, message_id: int | None, rating: int, cor
         await db.commit()
 
 
+async def mark_lesson_outcome(note_id: int, helpful: bool) -> bool:
+    """Score a lesson after a later answer. Two unhelpful marks with no help retire it."""
+    async with db_session() as db:
+        if helpful:
+            await db.execute(
+                """UPDATE ai_learning_notes
+                   SET helpful = helpful + 1, confidence = MIN(0.95, confidence + 0.03)
+                   WHERE id = ? AND retired = 0""",
+                (note_id,),
+            )
+            await db.commit()
+            return False
+        await db.execute(
+            """UPDATE ai_learning_notes
+               SET unhelpful = unhelpful + 1, confidence = MAX(0.15, confidence - 0.08)
+               WHERE id = ? AND retired = 0""",
+            (note_id,),
+        )
+        cur = await db.execute(
+            "SELECT helpful, unhelpful FROM ai_learning_notes WHERE id = ?",
+            (note_id,),
+        )
+        row = await cur.fetchone()
+        retired = bool(row and row[1] >= 2 and row[1] > row[0])
+        if retired:
+            await db.execute("UPDATE ai_learning_notes SET retired = 1 WHERE id = ?", (note_id,))
+        await db.commit()
+        return retired
+
+
+async def get_message_meta(session_id: str, message_id: int | None) -> dict:
+    if not session_id or not message_id:
+        return {}
+    async with db_session() as db:
+        cur = await db.execute(
+            "SELECT meta_json FROM ai_messages WHERE id = ? AND session_id = ?",
+            (message_id, session_id),
+        )
+        row = await cur.fetchone()
+    if not row or not row[0]:
+        return {}
+    try:
+        data = json.loads(row[0])
+    except json.JSONDecodeError:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+async def record_market_call(symbol: str, stance: str, price: float, session_id: str | None = None) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    async with db_session() as db:
+        await db.execute(
+            "INSERT INTO ai_calls (symbol, stance, price, session_id, created_at) VALUES (?, ?, ?, ?, ?)",
+            (symbol.upper(), stance, float(price), session_id, now),
+        )
+        await db.commit()
+
+
+async def open_market_calls() -> list[dict]:
+    async with db_session() as db:
+        cur = await db.execute(
+            "SELECT id, symbol, stance, price FROM ai_calls WHERE checked_at IS NULL ORDER BY id"
+        )
+        rows = await cur.fetchall()
+    return [{"id": r[0], "symbol": r[1], "stance": r[2], "price": r[3]} for r in rows]
+
+
+async def close_market_call(call_id: int, outcome: str) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    async with db_session() as db:
+        await db.execute(
+            "UPDATE ai_calls SET checked_at = ?, outcome = ? WHERE id = ?",
+            (now, outcome, call_id),
+        )
+        await db.commit()
+
+
 async def bump_learning_use(note_id: int) -> None:
     async with db_session() as db:
         await db.execute("UPDATE ai_learning_notes SET use_count = use_count + 1 WHERE id = ?", (note_id,))
@@ -465,5 +592,5 @@ async def bump_learning_use(note_id: int) -> None:
 async def get_stats() -> dict[str, int]:
     async with db_session() as db:
         k = await (await db.execute("SELECT COUNT(*) FROM ai_knowledge")).fetchone()
-        l = await (await db.execute("SELECT COUNT(*) FROM ai_learning_notes")).fetchone()
+        l = await (await db.execute("SELECT COUNT(*) FROM ai_learning_notes WHERE retired = 0")).fetchone()
     return {"knowledge_entries": k[0] if k else 0, "learning_notes": l[0] if l else 0}

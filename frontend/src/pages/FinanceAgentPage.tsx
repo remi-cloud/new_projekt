@@ -18,6 +18,7 @@ import {
 import { formatThrownError, resolveApiMessage } from '../i18n/utils'
 import { consumeAgentSeed, instrumentAnalysisPrompt } from '../lib/agentSeed'
 import { resolveAgentSymbol } from '../lib/agentSymbol'
+import { deskSessionOpen } from '../lib/deskAuth'
 
 const SESSION_KEY = 'cyclical_ai_session'
 
@@ -50,6 +51,7 @@ export function FinanceAgentPage() {
   const { t, locale } = useLocale()
   const [searchParams, setSearchParams] = useSearchParams()
   const [status, setStatus] = useState<AiStatus | null>(null)
+  const [deskOpen, setDeskOpen] = useState(false)
   const [sessionId, setSessionId] = useState<string>(() => localStorage.getItem(SESSION_KEY) || '')
   const [messages, setMessages] = useState<ChatEntry[]>([])
   const [input, setInput] = useState('')
@@ -73,6 +75,15 @@ export function FinanceAgentPage() {
   useEffect(() => {
     knownRef.current = knownSymbols
   }, [knownSymbols])
+
+  useEffect(() => {
+    const refreshDesk = () => {
+      void deskSessionOpen().then(setDeskOpen)
+    }
+    refreshDesk()
+    window.addEventListener('desk-auth', refreshDesk)
+    return () => window.removeEventListener('desk-auth', refreshDesk)
+  }, [])
 
   useEffect(() => {
     fetchAiStatus()
@@ -184,8 +195,8 @@ export function FinanceAgentPage() {
         })
         applyResponse(res, q, requested, gen)
         setInput('')
-      } catch {
-        if (gen === requestGenRef.current) setError(t('agent.errorSend'))
+      } catch (err) {
+        if (gen === requestGenRef.current) setError(formatThrownError(err, t('agent.errorSend')))
       } finally {
         if (gen === requestGenRef.current) setLoading(false)
       }
@@ -240,6 +251,10 @@ export function FinanceAgentPage() {
 
   const handleAnalyzeOnly = async () => {
     if (loading) return
+    if (!deskOpen) {
+      setError(t('agent.analyzeNeedsDesk'))
+      return
+    }
     const sym = canonicalizeToolbarSymbol()
     if (!sym) return
     const gen = ++requestGenRef.current
@@ -261,8 +276,8 @@ export function FinanceAgentPage() {
         desk_ui: res.desk_ui,
       }
       applyResponse(fake, t('agent.analyzeOnly').replace('{{symbol}}', sym), sym, gen)
-    } catch {
-      if (gen === requestGenRef.current) setError(t('agent.errorAnalyze'))
+    } catch (err) {
+      if (gen === requestGenRef.current) setError(formatThrownError(err, t('agent.errorAnalyze')))
     } finally {
       if (gen === requestGenRef.current) setLoading(false)
     }
@@ -279,6 +294,8 @@ export function FinanceAgentPage() {
         question: lastQuestion,
         answer: lastAssistant?.content,
       })
+      const next = await fetchAiStatus()
+      setStatus(next)
     } catch {
       /* ignore */
     }
@@ -323,6 +340,7 @@ export function FinanceAgentPage() {
               {status.free_chain && status.free_chain.length > 0
                 ? ` · ${t('agent.freeChain')}: ${status.free_chain.join(' → ')}`
                 : ''}
+              {status.requires_api_key ? ` · ${t('agent.needsXaiKey')}` : ''}
               {' · '}
               {t('agent.knowledge')}: {status.knowledge_entries} · {t('agent.learning')}: {status.learning_notes}
             </span>
@@ -364,8 +382,14 @@ export function FinanceAgentPage() {
           <button type="button" className="btn btn-ghost agent-quick-btn" onClick={() => handleQuick('cycles')} disabled={loading}>
             {t('agent.btnCycles')}
           </button>
-          <button type="button" className="btn btn-primary agent-quick-btn" onClick={handleAnalyzeOnly} disabled={loading}>
-            {t('agent.btnAnalyze')}
+          <button
+            type="button"
+            className="btn btn-primary agent-quick-btn"
+            onClick={handleAnalyzeOnly}
+            disabled={loading || !deskOpen}
+            title={deskOpen ? t('agent.btnAnalyze') : t('agent.analyzeNeedsDesk')}
+          >
+            {deskOpen ? t('agent.btnAnalyze') : t('agent.btnAnalyzeGuest')}
           </button>
           <button type="button" className="btn btn-ghost agent-quick-btn" onClick={newSession} disabled={loading}>
             {t('agent.newChat')}

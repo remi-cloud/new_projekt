@@ -84,18 +84,35 @@ class Settings(BaseSettings):
     pexels_api_key: str = ""
 
     # AI Finance Agent
-    # provider: auto (OpenAI if key set, else free chain) | openai | llm7 | ollama
-    # Free chain: every LLM7 model, then local Ollama if that call fails.
+    # provider: xai | auto | openai | llm7 | ollama
+    # xai and auto share one chain: xAI (if a key is set) → OpenAI (if a key is set)
+    # → llm7 only when external chat is enabled → Ollama only when provider is ollama.
+    # No key and no explicit opt-in: chat stays on local desk tools.
     ai_enabled: bool = True
-    ai_provider: str = "auto"
+    ai_provider: str = "xai"
+    # Official xAI API is OpenAI-compatible. Either env name is accepted.
+    # CYCLICAL_XAI_* wins when both the prefixed and the bare name are set.
+    xai_api_key: str = Field(
+        default="",
+        validation_alias=AliasChoices("CYCLICAL_XAI_API_KEY", "XAI_API_KEY"),
+    )
+    xai_model: str = Field(
+        default="grok-4",
+        validation_alias=AliasChoices("CYCLICAL_XAI_MODEL", "XAI_MODEL"),
+    )
+    xai_base_url: str = Field(
+        default="https://api.x.ai/v1",
+        validation_alias=AliasChoices("CYCLICAL_XAI_BASE_URL", "XAI_BASE_URL"),
+    )
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
     openai_image_model: str = "dall-e-3"
     openai_image_size: str = "1792x1024"
     openai_image_quality: str = "standard"
     openai_base_url: str = "https://api.openai.com/v1"
-    # Off: chat stays local (Ollama) or refuses. On: keyless llm7.io is allowed.
-    # CYCLICAL_AI_EXTERNAL is a deprecated alias of CYCLICAL_AI_EXTERNAL_ENABLED.
+    # Off: no keyless llm7.io calls. On: llm7 is allowed after the keyed providers.
+    # CYCLICAL_AI_EXTERNAL is an alias of CYCLICAL_AI_EXTERNAL_ENABLED.
+    # The new name wins when both are set.
     ai_external_enabled: bool = Field(
         default=False,
         validation_alias=AliasChoices(

@@ -189,6 +189,8 @@ class ChartResponse(BaseModel):
     day_low: Optional[float] = None
     prev_close: Optional[float] = None
     cycle_markers: list[CycleMarker] = Field(default_factory=list)
+    source: str = ""
+    source_errors: list[str] = Field(default_factory=list)
 
 
 class Opportunity(BaseModel):

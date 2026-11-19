@@ -13,6 +13,13 @@ from app.ai.pattern_detector import detect_patterns
 from app.ai.trend_analyzer import analyze_trend
 from app.data.chart_data import fetch_chart
 from app.data.assets import MONITORED_ASSETS
+from app.data.market_feed import (
+    EXTRA_ALIASES,
+    chart_source_errors,
+    market_overview,
+    quote_one,
+    search_symbols,
+)
 from app.scanners.opportunity_scanner import scanner
 
 logger = logging.getLogger(__name__)
@@ -36,6 +43,7 @@ SYMBOL_ALIASES = {
     "spcx": "SPCX",
     # Common typo for iShares IG Corp Bond ETF
     "liq": "LQD",
+    **EXTRA_ALIASES,
 }
 
 # Common English / filler tokens that normalize to real tickers (e.g. ON) or noise.
@@ -131,7 +139,7 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "get_market_context",
-            "description": "Get cyclical assessment, signal and rationale for a symbol from our scanner",
+            "description": "Cyclical assessment for a symbol, or a live quote with the source name when the scanner has not run",
             "parameters": {
                 "type": "object",
                 "properties": {"symbol": {"type": "string"}},
@@ -315,6 +323,30 @@ TOOL_DEFINITIONS = [
     {
         "type": "function",
         "function": {
+            "name": "get_market_overview",
+            "description": (
+                "Whole-market snapshot: major crypto with market cap and BTC dominance, "
+                "US and global indices, AAPL/TSLA/NVDA, gold/silver/oil, EURUSD, USDPLN, DXY, "
+                "US10Y, Fed funds and CPI. Each figure names its source. Missing rows list source_errors."
+            ),
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_symbols",
+            "description": "Resolve a typed name or ticker (gold, WIG20, US10Y, ETH) to a desk symbol",
+            "parameters": {
+                "type": "object",
+                "properties": {"query": {"type": "string"}},
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "get_macro_cycles",
             "description": (
                 "Bitcoin ATH cycle (364/1064) with BTC monthly seasonality + vs-SPX verdict/regime, "
@@ -400,11 +432,29 @@ def resolve_focus_symbol(message: str, explicit_symbol: str | None = None) -> st
     return extract_symbol_from_text(message or "")
 
 
+def _chart_miss(symbol: str, chart) -> dict[str, Any]:
+    errors = list(getattr(chart, "source_errors", None) or []) or chart_source_errors(symbol)
+    detail = "; ".join(errors) if errors else "yahoo, a potem binance/coingecko/coincap albo stooq — pusto"
+    return {
+        "error": f"Brak świec dla {symbol}: {detail}",
+        "symbol": symbol,
+        "source_errors": errors,
+    }
+
+
 async def load_pattern_desk(symbol: str, range_: str = "3M") -> dict[str, Any]:
     """Single OHLC fetch shared by detect_patterns + render_pattern_chart."""
     chart = await fetch_chart(symbol, range_)
     if not chart or not chart.candles:
-        return {"symbol": symbol, "range": range_, "candles": [], "analysis": None, "error": "No candles"}
+        miss = _chart_miss(symbol, chart)
+        return {
+            "symbol": symbol,
+            "range": range_,
+            "candles": [],
+            "analysis": None,
+            "error": miss["error"],
+            "source_errors": miss["source_errors"],
+        }
     pa = detect_patterns(symbol, chart.candles)
     return {
         "symbol": symbol,
@@ -412,6 +462,8 @@ async def load_pattern_desk(symbol: str, range_: str = "3M") -> dict[str, Any]:
         "candles": chart.candles,
         "analysis": pa,
         "error": None,
+        "source": getattr(chart, "source", "") or "",
+        "source_errors": list(getattr(chart, "source_errors", None) or []),
     }
 
 
@@ -469,6 +521,8 @@ async def build_desk_tool_bundle(symbol: str, range_: str = "3M") -> list[dict[s
                     "change_7d_pct": trend.change_7d_pct,
                     "change_30d_pct": trend.change_30d_pct,
                     "summary": trend.summary,
+                    "source": desk.get("source") or "",
+                    "source_errors": desk.get("source_errors") or [],
                 },
             }
         )
@@ -476,7 +530,11 @@ async def build_desk_tool_bundle(symbol: str, range_: str = "3M") -> list[dict[s
         results.append(
             {
                 "tool": "analyze_trend",
-                "result": {"error": desk.get("error") or "No candles", "symbol": symbol},
+                "result": {
+                    "error": desk.get("error") or "No candles",
+                    "symbol": symbol,
+                    "source_errors": desk.get("source_errors") or [],
+                },
             }
         )
 
@@ -522,7 +580,7 @@ async def run_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
                 return {"error": "Unknown symbol"}
             chart = await fetch_chart(symbol, arguments.get("range", "3M"))
             if not chart or not chart.candles:
-                return {"error": f"No candles for {symbol}", "symbol": symbol}
+                return _chart_miss(symbol, chart)
             trend = analyze_trend(symbol, chart.candles)
             return {
                 "symbol": symbol,
@@ -533,6 +591,8 @@ async def run_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
                 "change_7d_pct": trend.change_7d_pct,
                 "change_30d_pct": trend.change_30d_pct,
                 "summary": trend.summary,
+                "source": chart.source,
+                "source_errors": list(chart.source_errors),
             }
         if name == "detect_patterns":
             symbol = normalize_symbol(arguments.get("symbol", ""))
@@ -540,15 +600,26 @@ async def run_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
                 return {"error": "Unknown symbol"}
             desk = await load_pattern_desk(symbol, arguments.get("range", "3M"))
             if desk.get("error") or desk.get("analysis") is None:
-                return {"error": desk.get("error") or "No candles", "symbol": symbol}
-            return _pattern_payload(symbol, desk["analysis"])
+                return {
+                    "error": desk.get("error") or "No candles",
+                    "symbol": symbol,
+                    "source_errors": desk.get("source_errors") or [],
+                }
+            payload = _pattern_payload(symbol, desk["analysis"])
+            payload["source"] = desk.get("source") or ""
+            payload["source_errors"] = desk.get("source_errors") or []
+            return payload
         if name == "render_pattern_chart":
             symbol = normalize_symbol(arguments.get("symbol", ""))
             if not symbol:
                 return {"error": "Unknown symbol"}
             desk = await load_pattern_desk(symbol, arguments.get("range", "3M"))
             if desk.get("error") or desk.get("analysis") is None:
-                return {"error": desk.get("error") or "No candles", "symbol": symbol}
+                return {
+                    "error": desk.get("error") or "No candles",
+                    "symbol": symbol,
+                    "source_errors": desk.get("source_errors") or [],
+                }
             pa = desk["analysis"]
             svg = render_pattern_svg(symbol, desk["candles"], pa)
             return {
@@ -570,7 +641,8 @@ async def run_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
             for preset in ("1M", "3M", "1Y"):
                 chart = await fetch_chart(symbol, preset)
                 if not chart or not chart.candles:
-                    frames.append({"range": preset, "error": "no_data"})
+                    miss = _chart_miss(symbol, chart)
+                    frames.append({"range": preset, "error": miss["error"], "source_errors": miss["source_errors"]})
                     continue
                 trend = analyze_trend(symbol, chart.candles)
                 votes += score_map.get(trend.direction, 0)
@@ -604,7 +676,7 @@ async def run_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
                 return {"error": "Unknown symbol"}
             chart = await fetch_chart(symbol, arguments.get("range", "3M"))
             if not chart or not chart.candles:
-                return {"error": f"No candles for {symbol}", "symbol": symbol}
+                return _chart_miss(symbol, chart)
             candles = chart.candles
             price = float(candles[-1].close)
             atr = _atr(candles, 14)
@@ -674,8 +746,6 @@ async def run_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
             symbol = normalize_symbol(arguments.get("symbol", ""))
             if not symbol:
                 return {"error": "Unknown symbol"}
-            if not scanner.market_assessments:
-                await scanner.scan()
             for a in scanner.market_assessments:
                 if a.symbol.upper() == symbol.upper():
                     return {
@@ -687,8 +757,34 @@ async def run_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
                         "macro_cycle": a.macro_cycle,
                         "rationale": a.rationale,
                         "momentum_pick": a.is_momentum_pick,
+                        "source": "scanner",
                     }
-            return {"error": f"No assessment for {symbol}"}
+            tick = await quote_one(symbol)
+            errors = list((tick or {}).get("errors") or [])
+            if tick and tick.get("price") is not None:
+                return {
+                    "symbol": symbol,
+                    "price": tick["price"],
+                    "change_pct_24h": tick.get("change_pct_24h"),
+                    "change_pct_7d": tick.get("change_pct_7d"),
+                    "source": tick.get("source"),
+                    "source_errors": errors,
+                    "rationale": (
+                        f"Skaner nie ma jeszcze oceny cyklicznej dla {symbol}. "
+                        f"Ostatnia cena ze źródła {tick.get('source')}."
+                    ),
+                }
+            return {
+                "error": f"Brak oceny i notowania dla {symbol}",
+                "symbol": symbol,
+                "source_errors": errors,
+                "rationale": "Źródła: " + ("; ".join(errors) if errors else "brak odpowiedzi"),
+            }
+        if name == "get_market_overview":
+            return await market_overview()
+        if name == "search_symbols":
+            query = str(arguments.get("query") or "")
+            return {"query": query, "matches": search_symbols(query)}
         if name == "search_knowledge":
             hits = await ai_db.search_knowledge(arguments.get("query", ""), limit=5)
             notes = await ai_db.get_learning_notes(limit=3)
@@ -697,7 +793,7 @@ async def run_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
             from app.cycles.bitcoin_seasonality import btc_seasonality_desk_brief
 
             if not scanner.bitcoin_cycle:
-                await scanner.scan()
+                await scanner.ensure_bitcoin_cycle()
             btc = scanner.bitcoin_cycle
             btc_payload: dict = {
                 "phase": btc.phase.value if btc else None,
@@ -777,8 +873,10 @@ async def run_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
                 }
                 for e in (gbook.get("adopted") or [])[:12]
             ]
+            cycle_errors = [scanner._btc_source_error] if getattr(scanner, "_btc_source_error", None) else []
             return {
                 "bitcoin": btc_payload,
+                "source_errors": cycle_errors,
                 "seasonality_health": season_health,
                 "global_cycle_book": {
                     "meta": gbook.get("meta"),
@@ -1064,6 +1162,26 @@ async def auto_tools_for_question(
             )
         )
     )
+    if any(
+        k in low
+        for k in (
+            "cały rynek",
+            "caly rynek",
+            "whole market",
+            "dominac",
+            "przegląd rynku",
+            "przeglad rynku",
+            "fed funds",
+            "cpi",
+            "us10",
+            "dxy",
+            "nasdaq",
+            "wig20",
+            "nikkei",
+        )
+    ):
+        results.append({"tool": "get_market_overview", "result": await run_tool("get_market_overview", {})})
+
     if sym and want_desk:
         results.extend(await build_desk_tool_bundle(sym))
     elif sym:
@@ -1327,20 +1445,22 @@ async def auto_tools_for_question(
     return results
 
 
+def _slim_tool_result(result: dict) -> dict:
+    """Keep the numbers the reply quotes. Drop chart geometry that blows the prompt."""
+    heavy = {"svg", "geometry", "month_returns", "candles", "adopted"}
+    slim = {key: value for key, value in result.items() if key not in heavy}
+    if "svg" in result:
+        slim["svg"] = "[svg omitted — shown in UI]"
+    return slim
+
+
 def tools_context_string(tool_results: list[dict]) -> str:
     slim: list[dict] = []
     for block in tool_results:
         res = block.get("result")
-        if isinstance(res, dict) and res.get("svg"):
-            slim.append(
-                {
-                    **block,
-                    "result": {
-                        **{k: v for k, v in res.items() if k != "svg"},
-                        "svg": "[svg omitted — shown in UI]",
-                    },
-                }
-            )
+        if isinstance(res, dict):
+            slim.append({**block, "result": _slim_tool_result(res)})
         else:
             slim.append(block)
-    return json.dumps(slim, ensure_ascii=False, indent=2)[:8000]
+    # Valid JSON only. A mid-string cut made the fallback ignore real tool data.
+    return json.dumps(slim, ensure_ascii=False)

@@ -346,7 +346,7 @@ export interface AiStatus {
   features: string[]
   knowledge_entries: number
   learning_notes: number
-  /** Free-mode failover, e.g. llm7:codestral-latest → ollama:llama3.2. Empty when paid OpenAI is active. */
+  /** Keyless failover labels. Empty when xAI or OpenAI is the first live target. */
   free_chain?: string[]
 }
 

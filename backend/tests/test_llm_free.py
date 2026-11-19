@@ -3,22 +3,32 @@ import pytest
 from app.ai.llm import chat_completion, extract_message, free_targets, llm_configured, llm_provider, resolve_llm
 
 
-def test_auto_uses_llm7_without_openai_key(monkeypatch):
+def test_auto_without_keys_is_not_configured(monkeypatch):
     from app.config import settings
 
     monkeypatch.setattr(settings, "ai_enabled", True)
     monkeypatch.setattr(settings, "ai_provider", "auto")
     monkeypatch.setattr(settings, "openai_api_key", "")
+    monkeypatch.setattr(settings, "xai_api_key", "")
+    monkeypatch.setattr(settings, "ai_external_enabled", False)
+    monkeypatch.setattr(settings, "ollama_base_url", "http://127.0.0.1:11434/v1")
+    monkeypatch.setattr(settings, "ollama_model", "llama3.2")
+    assert llm_configured() is False
+    assert resolve_llm() == ("", "", None, "none")
+
+
+def test_ollama_only_when_provider_says_so(monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "ai_enabled", True)
+    monkeypatch.setattr(settings, "ai_provider", "ollama")
+    monkeypatch.setattr(settings, "openai_api_key", "")
+    monkeypatch.setattr(settings, "xai_api_key", "")
     monkeypatch.setattr(settings, "ai_external_enabled", False)
     monkeypatch.setattr(settings, "ollama_base_url", "http://127.0.0.1:11434/v1")
     monkeypatch.setattr(settings, "ollama_model", "llama3.2")
     assert llm_configured() is True
     assert llm_provider() == "ollama"
-    base, model, key, provider = resolve_llm()
-    assert provider == "ollama"
-    assert "127.0.0.1" in base
-    assert model
-    assert key is None
 
 
 def test_free_chain_lists_llm7_models_then_ollama(monkeypatch):

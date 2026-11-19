@@ -248,6 +248,7 @@ export interface Translations {
     lead: string
     modeLlm: string
     modeLocal: string
+    needsXaiKey: string
     freeChain: string
     knowledge: string
     learning: string
@@ -256,6 +257,8 @@ export interface Translations {
     btnPattern: string
     btnCycles: string
     btnAnalyze: string
+    btnAnalyzeGuest: string
+    analyzeNeedsDesk: string
     newChat: string
     empty: string
     hintTrend: string
