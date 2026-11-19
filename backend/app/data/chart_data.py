@@ -7,6 +7,7 @@ import httpx
 
 from app.data.assets import MONITORED_ASSETS, resolve_yahoo_symbol
 from app.data.investing_com import INVESTING_CHART_PRESETS, fetch_investing_chart, uses_investing
+from app.data.market_feed import load_fallback_candles
 from app.models.schemas import ChartCandle, ChartResponse
 
 logger = logging.getLogger(__name__)
@@ -145,6 +146,40 @@ async def _fetch_yahoo_candles(
     return candles, meta
 
 
+def _yahoo_fail(exc: Exception) -> str:
+    if isinstance(exc, httpx.HTTPStatusError):
+        return f"yahoo: HTTP {exc.response.status_code}"
+    return f"yahoo: {type(exc).__name__}"
+
+
+def _chart_from_candles(
+    symbol: str,
+    preset: str,
+    candles: list[ChartCandle],
+    source: str,
+    errors: list[str],
+    meta_info: dict,
+) -> ChartResponse:
+    current = float(candles[-1].close)
+    prev = float(candles[-2].close) if len(candles) >= 2 else current
+    change = _price_round(current - prev)
+    change_pct = round((change / prev) * 100, 2) if prev else 0.0
+    return ChartResponse(
+        symbol=symbol,
+        name=str(meta_info.get("name", symbol)),
+        interval=preset.lower() if preset in INTRADAY_PRESETS else "1d",
+        range=preset,
+        currency="USD",
+        candles=candles,
+        current_price=_price_round(current),
+        change=change,
+        change_pct=change_pct,
+        prev_close=_price_round(prev),
+        source=source,
+        source_errors=errors,
+    )
+
+
 def _ranges_for_preset(preset: str, primary_range: str) -> list[str]:
     fallbacks = PRESET_RANGE_FALLBACKS.get(preset, [])
     ordered: list[str] = []
@@ -193,9 +228,6 @@ async def fetch_chart(symbol: str, preset: str = "3M") -> ChartResponse | None:
                     yr,
                     interval,
                 )
-                # Micro-cap crypto often has no intraday/daily grid — jump to weekly sooner.
-                if symbol.endswith("-USD") and yr == ranges_to_try[0]:
-                    break
 
             if not candles:
                 for yr, iv in COARSE_GRID_FALLBACKS:
@@ -213,45 +245,53 @@ async def fetch_chart(symbol: str, preset: str = "3M") -> ChartResponse | None:
                         )
                         break
 
-            if not candles or ymeta is None:
-                return None
+            if candles and ymeta is not None:
+                if max_candles:
+                    candles = candles[-max_candles:]
+                if aggregate_n > 1:
+                    candles = _aggregate_candles(candles, aggregate_n)
+            if candles and ymeta is not None:
+                display_interval = preset.lower() if preset in INTRADAY_PRESETS else used_interval
 
-            if max_candles:
-                candles = candles[-max_candles:]
-            if aggregate_n > 1:
-                candles = _aggregate_candles(candles, aggregate_n)
-            if not candles:
-                return None
+                current = float(ymeta.get("regularMarketPrice") or candles[-1].close)
+                prev = float(
+                    ymeta.get("chartPreviousClose")
+                    or ymeta.get("previousClose")
+                    or (candles[-2].close if len(candles) >= 2 else current)
+                )
+                change = _price_round(current - prev)
+                change_pct = round((change / prev) * 100, 2) if prev else 0.0
 
-            display_interval = preset.lower() if preset in INTRADAY_PRESETS else used_interval
-
-            current = float(ymeta.get("regularMarketPrice") or candles[-1].close)
-            prev = float(
-                ymeta.get("chartPreviousClose")
-                or ymeta.get("previousClose")
-                or (candles[-2].close if len(candles) >= 2 else current)
-            )
-            change = _price_round(current - prev)
-            change_pct = round((change / prev) * 100, 2) if prev else 0.0
-
-            return ChartResponse(
-                symbol=symbol,
-                name=meta_info.get("name", symbol),
-                interval=display_interval,
-                range=preset,
-                currency=ymeta.get("currency", "USD"),
-                candles=candles,
-                current_price=_price_round(current),
-                change=change,
-                change_pct=change_pct,
-                day_high=_price_round(float(ymeta["regularMarketDayHigh"]))
-                if ymeta.get("regularMarketDayHigh")
-                else None,
-                day_low=_price_round(float(ymeta["regularMarketDayLow"]))
-                if ymeta.get("regularMarketDayLow")
-                else None,
-                prev_close=_price_round(prev),
-            )
+                return ChartResponse(
+                    symbol=symbol,
+                    name=meta_info.get("name", symbol),
+                    interval=display_interval,
+                    range=preset,
+                    currency=ymeta.get("currency", "USD"),
+                    candles=candles,
+                    current_price=_price_round(current),
+                    change=change,
+                    change_pct=change_pct,
+                    day_high=_price_round(float(ymeta["regularMarketDayHigh"]))
+                    if ymeta.get("regularMarketDayHigh")
+                    else None,
+                    day_low=_price_round(float(ymeta["regularMarketDayLow"]))
+                    if ymeta.get("regularMarketDayLow")
+                    else None,
+                    prev_close=_price_round(prev),
+                    source="yahoo",
+                    source_errors=[],
+                )
+        yahoo_errors = ["yahoo: empty chart"]
     except Exception as exc:
-        logger.warning("Chart fetch failed for %s preset=%s: %s", symbol, preset, exc)
+        yahoo_errors = [_yahoo_fail(exc)]
+        logger.warning("Chart fetch failed for %s preset=%s: %s", symbol, preset, yahoo_errors[0])
+
+    try:
+        candles, source, nested = await load_fallback_candles(symbol, preset)
+    except Exception as exc:
+        candles, source, nested = [], "", [f"fallback: {type(exc).__name__}"]
+    errors = [*yahoo_errors, *nested]
+    if not candles:
         return None
+    return _chart_from_candles(symbol, preset, candles, source, errors, meta_info)

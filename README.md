@@ -162,6 +162,12 @@ Skaner działa w trybie **real-time**:
 
 Konfiguracja: `.env.example` (VAPID, Twilio, progi alertów).
 
+### Agent AI — Grok
+
+Łańcuch to xAI Grok (`https://api.x.ai/v1`, model `grok-4`), potem OpenAI, potem llm7 tylko po świadomym włączeniu, a Ollama tylko gdy `CYCLICAL_AI_PROVIDER=ollama`. Właściciel wkleja klucz do `.env` (`XAI_API_KEY` albo `CYCLICAL_XAI_API_KEY`) i restartuje serwer. Bez klucza czat zostaje przy narzędziach, a `/api/ai/status` pokazuje `provider=none` i `requires_api_key=true`. Pasek agenta mówi „Tryb lokalny · narzędzia”. Pełna analiza wymaga zalogowanego biurka. Klucza nie commitujemy.
+
+Notowania narzędzi i stron idą najpierw na Yahoo, a przy pudle na Binance / CoinGecko / CoinCap (krypto), Stooq (akcje, indeksy, FX, surowce) i klucz-free CSV FRED (Fed funds, CPI, US10Y). Brak serii jest nazwany źródłem, nie ogólnym „brak danych”.
+
 ### Backup / auto-save
 
 Pełny snapshot przed wyjściem:

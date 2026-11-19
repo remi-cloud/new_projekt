@@ -286,6 +286,10 @@ async def test_ollama_gets_no_bearer_and_status_needs_a_live_probe(client, monke
             raise httpx.ConnectError("down")
 
     monkeypatch.setattr("app.ai.llm.httpx.AsyncClient", _Down)
+    monkeypatch.setattr(settings, "ai_provider", "xai")
+    monkeypatch.setattr(settings, "xai_api_key", "")
+    monkeypatch.setattr(settings, "openai_api_key", "")
+    monkeypatch.setattr(settings, "ai_external_enabled", False)
     assert await llm_reachable(LlmTarget("http://127.0.0.1:11434/v1", "llama", None, "ollama")) is False
     status = client.get("/api/ai/status")
     assert status.status_code == 200

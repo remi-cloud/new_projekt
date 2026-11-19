@@ -208,17 +208,15 @@ def test_retired_feeds_and_dead_symbols_are_gone():
 
 
 def test_external_llm_is_off_without_opt_in(monkeypatch):
-    from app.ai.llm import _local_target, _targets_for_request
+    from app.ai.llm import _targets_for_request
 
     monkeypatch.setattr(settings, "ai_provider", "auto")
     monkeypatch.setattr(settings, "openai_api_key", "")
+    monkeypatch.setattr(settings, "xai_api_key", "")
     monkeypatch.setattr(settings, "ai_external_enabled", False)
     monkeypatch.setattr(settings, "ollama_base_url", "http://127.0.0.1:11434/v1")
     monkeypatch.setattr(settings, "ollama_model", "llama3.2")
-    targets = _targets_for_request()
-    assert targets
-    assert all(_local_target(target) for target in targets)
-    assert all(target.provider != "llm7" for target in targets)
+    assert _targets_for_request() == []
 
 
 def test_sqlite_backup_uses_the_backup_api(tmp_path, monkeypatch):

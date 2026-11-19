@@ -8,6 +8,7 @@ from typing import Any
 
 from app.ai import db as ai_db
 from app.ai.critic import critique_response
+from app.ai.learning import apply_learned_corrections, review_predictions, stance_from_reply
 from app.ai.finance_guard import finance_only_message, is_finance_related
 from app.ai.llm import (
     chat_completion,
@@ -29,6 +30,11 @@ from app.ai.visibility import PRIVATE_TOOLS, hidden_portfolio, portfolio_visible
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+
+GROK_NOTE = (
+    "Grok nie jest skonfigurowany — ustaw XAI_API_KEY. "
+    "Poniżej skrót z narzędzi, bez modelu."
+)
 
 SYSTEM_PROMPT = """You are Cyclical Academy Supermind Desk — a synthetic Wall Street investment committee with 15+ years of desk judgment.
 You fuse three thinking styles (inspired by, NOT impersonating anyone):
@@ -66,6 +72,7 @@ RULES:
   - is_super when super_score ≥ 72. Stop default = ATR14×1.5; risk_pct clamp 0.25–2% of paper equity.
   - In First principles / Asymmetry + Setup + Risk: state ACCEPT / REJECT / WAIT and why (cite R:R + size).
   - If tools lack R:R — say so, cut size or WAIT; never invent payoff asymmetry.
+- Whole-market questions (indices, stocks, FX, commodities, dominance, Fed, CPI, US10Y): call get_market_overview. Name the source on every figure. If source_errors is set, say which source failed. Never fill a missing price with a guess.
 - Never guarantee profits. State uncertainty explicitly. If lenses conflict, say so and lower conviction.
 
 ALWAYS structure the answer with these headings (match user language):
@@ -266,18 +273,26 @@ async def chat(
         except Exception as exc:
             logger.debug("Paper portfolio inject skipped: %s", exc)
 
+    call_price = _price_from_tools(tool_results)
+    if focus and call_price is not None:
+        try:
+            await review_predictions({focus: call_price})
+        except Exception as exc:
+            logger.debug("Prediction review skipped: %s", type(exc).__name__)
+
     inject_n = max(3, min(12, int(getattr(settings, "ai_learning_inject_limit", 8) or 8)))
     lessons = await ai_db.get_learning_notes(limit=inject_n)
     if lessons:
-        ctx += "\n\nLearned lessons (apply when relevant):\n" + json.dumps(lessons, ensure_ascii=False)
-        for note in lessons:
-            if note.get("id") is not None:
-                try:
-                    await ai_db.bump_learning_use(int(note["id"]))
-                except Exception:
-                    pass
+        ctx += "\n\nLearned lessons (apply when relevant; a WAIT lesson overrides a repeated bull/ACCEPT):\n"
+        ctx += json.dumps(lessons, ensure_ascii=False)
 
-    draft, llm_tool_blocks = await _generate(message, history, ctx, focus)
+    draft, llm_tool_blocks, used_llm = await _generate(message, history, ctx, focus)
+    draft, applied_ids = apply_learned_corrections(draft, lessons, focus)
+    for note_id in applied_ids:
+        try:
+            await ai_db.bump_learning_use(note_id)
+        except Exception as exc:
+            logger.debug("Lesson use bump skipped: %s", type(exc).__name__)
     for block in llm_tool_blocks:
         bsym = (block.get("result") or {}).get("symbol")
         # Prefer focus-symbol tool results; skip conflicting other symbols for chart tools
@@ -307,25 +322,36 @@ async def chat(
                 }
             )
 
-    critic = await critique_response(message, draft, ctx)
+    if used_llm:
+        critic = await critique_response(message, draft, ctx)
+    else:
+        critic = {"score": None, "issues": [], "revised_answer": None}
     final = draft
-    if critic.get("revised_answer"):
+    if used_llm and critic.get("revised_answer"):
         final = critic["revised_answer"]
-    elif critic.get("issues"):
+    elif used_llm and critic.get("issues"):
         final = draft + "\n\n(Uwaga wewnętrzna: " + "; ".join(critic["issues"][:2]) + ")"
 
     tool_results = redact_private_tools(tool_results)
     desk_ui = build_desk_ui(focus, tool_results)
     meta = {
         "tools": [t.get("tool") for t in tool_results],
-        "critic_score": critic.get("score"),
-        "llm": llm_configured(),
+        "critic_score": critic.get("score") if used_llm else None,
+        "llm": used_llm,
         "tool_data": _prioritize_tool_data(tool_results, 12),
         "focus_symbol": focus,
         "desk_ui": desk_ui,
+        "applied_lesson_ids": applied_ids,
     }
     mid = await ai_db.add_message(sid, "assistant", final, meta)
     await ai_db.touch_session(sid, message[:60])
+    if focus and call_price is not None:
+        stance = stance_from_reply(final)
+        if stance in {"bull", "bear"}:
+            try:
+                await ai_db.record_market_call(focus, stance, call_price, sid)
+            except Exception as exc:
+                logger.debug("Call record skipped: %s", type(exc).__name__)
 
     try:
         from app.ai.self_learn import learn_from_news_exchange
@@ -334,7 +360,17 @@ async def chat(
     except Exception:
         pass
 
-    return _pack(sid, final, mid, tool_results, critic.get("score"), len(llm_tool_blocks), focus, desk_ui)
+    return _pack(
+        sid,
+        final,
+        mid,
+        tool_results,
+        critic.get("score") if used_llm else None,
+        len(llm_tool_blocks),
+        focus,
+        desk_ui,
+        used_llm,
+    )
 
 
 async def _generate(
@@ -342,7 +378,7 @@ async def _generate(
     history: list[dict],
     tool_context: str,
     focus: str | None,
-) -> tuple[str, list[dict[str, Any]]]:
+) -> tuple[str, list[dict[str, Any]], bool]:
     llm_blocks: list[dict[str, Any]] = []
 
     if llm_configured():
@@ -395,23 +431,65 @@ async def _generate(
                         }
                     )
                 data2 = await chat_completion(messages)
-                return message_content(extract_message(data2)), llm_blocks
+                return message_content(extract_message(data2)), llm_blocks, True
 
             content = message_content(msg)
             if content:
-                return content, llm_blocks
+                return content, llm_blocks, True
         except Exception as exc:
-            logger.warning("LLM chat failed, fallback: %s", exc)
+            logger.warning("LLM chat failed, fallback: %s", type(exc).__name__)
 
-    return _compose_fallback(message, tool_context, focus), llm_blocks
+    return _local_reply(message, tool_context, focus), llm_blocks, False
+
+
+def _local_reply(message: str, tool_context: str, focus: str | None) -> str:
+    body = _compose_fallback(message, tool_context, focus)
+    if llm_configured():
+        return body
+    return f"{GROK_NOTE}\n\n{body}"
+
+
+def _price_from_tools(tool_results: list[dict]) -> float | None:
+    for block in tool_results:
+        result = block.get("result") if isinstance(block, dict) else None
+        if not isinstance(result, dict):
+            continue
+        raw = result.get("price")
+        if raw is None:
+            continue
+        try:
+            price = float(raw)
+        except (TypeError, ValueError):
+            continue
+        if price > 0:
+            return price
+    return None
+
+
+def _thesis_line(trend: dict, market: dict) -> str:
+    summary = trend.get("summary")
+    if summary:
+        source = trend.get("source")
+        return f"{summary} (źródło: {source})" if source else str(summary)
+    if trend.get("error"):
+        return str(trend["error"])
+    if market.get("rationale"):
+        return str(market["rationale"])
+    errors = trend.get("source_errors") or market.get("source_errors") or []
+    if errors:
+        return "Brak pełnych danych trendu — " + "; ".join(str(item) for item in errors[:4])
+    return "Brak pełnych danych trendu — żadne źródło nie oddało serii świec."
 
 
 def _compose_fallback(message: str, tool_context: str, focus: str | None = None) -> str:
     try:
-        # Strip optional "Focus symbol…" prefix before JSON array
+        # Tool JSON is an array. Lessons and portfolio text may follow it.
         raw = tool_context.lstrip()
         idx = raw.find("[")
-        data = json.loads(raw[idx:]) if idx >= 0 else []
+        if idx < 0:
+            data = []
+        else:
+            data, _end = json.JSONDecoder().raw_decode(raw[idx:])
     except json.JSONDecodeError:
         data = []
 
@@ -455,6 +533,11 @@ def _compose_fallback(message: str, tool_context: str, focus: str | None = None)
             f"Asymmetric bet: R:R={rr_f if rr_f is not None else rr} → {verdict}. "
             f"MTF/trend: {mtf.get('summary') or trend.get('summary') or 'brak pełnej konfluencji'}."
         )
+    elif risk.get("error"):
+        first_lens = (
+            f"Asymmetric bet: brak R:R — {risk['error']}. "
+            f"MTF/trend: {mtf.get('summary') or trend.get('summary') or 'brak pełnej konfluencji'}."
+        )
     else:
         first_lens = (
             "Asymmetric bet: brak R:R z tools → WAIT / mniejszy size. "
@@ -474,9 +557,14 @@ def _compose_fallback(message: str, tool_context: str, focus: str | None = None)
         ),
         f"macro_phase={mkt.get('macro_phase')}" if mkt.get("macro_phase") else None,
     ]
-    liq_lens = " · ".join(str(x) for x in liq_bits if x) or (
-        "Płynność/cykl: brak mocnego sygnału makro w tool data — horyzont ostrożny."
-    )
+    cycle_errors = cycles.get("source_errors") if isinstance(cycles, dict) else None
+    liq_joined = " · ".join(str(x) for x in liq_bits if x)
+    if liq_joined:
+        liq_lens = liq_joined
+    elif cycle_errors:
+        liq_lens = "Makro niedostępne — " + "; ".join(str(item) for item in cycle_errors[:4])
+    else:
+        liq_lens = "Płynność/cykl: brak mocnego sygnału makro w tool data — horyzont ostrożny."
 
     # Soft conflict: MTF vs market signal
     mkt_sig = str(mkt.get("signal") or "").lower()
@@ -489,7 +577,7 @@ def _compose_fallback(message: str, tool_context: str, focus: str | None = None)
         f"**Instrument & bias** — {sym}: {bias} (merged conviction ~{strength:.0f}%)",
         "",
         "**Thesis**",
-        trend.get("summary") or mkt.get("rationale") or "Brak pełnych danych trendu — ograniczamy ekspozycję.",
+        _thesis_line(trend, mkt),
         "",
         "**Council lenses**",
         f"- **Value / Capital**: {value_lens}",
@@ -543,6 +631,7 @@ def _pack(
     tool_count: int,
     focus_symbol: str | None,
     desk_ui: dict | None = None,
+    llm_active: bool = False,
 ) -> dict:
     return {
         "session_id": session_id,
@@ -551,10 +640,10 @@ def _pack(
         "tools_used": [t.get("tool") for t in tools] if tools else [],
         "tool_results": tools,
         "critic_score": critic_score,
-        "llm_active": llm_configured(),
         "tool_count": tool_count,
         "focus_symbol": focus_symbol,
         "desk_ui": desk_ui,
+        "llm_active": llm_active,
     }
 
 
@@ -580,11 +669,11 @@ async def analyze_symbol(symbol: str, locale: str = "pl") -> dict[str, Any]:
                 "desk_ui": desk_ui,
             }
         except Exception as exc:
-            logger.warning("Analyze symbol LLM failed: %s", exc)
+            logger.warning("Analyze symbol LLM failed: %s", type(exc).__name__)
 
     return {
         "symbol": focus,
-        "summary": _compose_fallback(f"analiza {focus}", ctx, focus),
+        "summary": _local_reply(f"analiza {focus}", ctx, focus),
         "tools": tool_results,
         "llm_active": False,
         "focus_symbol": focus,

@@ -9,6 +9,7 @@ import httpx
 from app.config import settings
 from app.cycles.momentum_cycle import compute_momentum_indicators
 from app.data.assets import MONITORED_ASSETS, resolve_yahoo_symbol
+from app.data.market_feed import PRIORITY_SYMBOLS, supplement_quote
 from app.data.investing_com import fetch_investing_quote, uses_investing
 from app.models.schemas import AssetClass, AssetQuote
 
@@ -130,7 +131,7 @@ async def _fetch_yahoo_asset(
         resp.raise_for_status()
         result = resp.json()["chart"]["result"]
         if not result:
-            return None, stats
+            return await _quote_from_feed(client, asset, now)
 
         meta = result[0]["meta"]
         quote = (result[0].get("indicators") or {}).get("quote") or [{}]
@@ -150,7 +151,7 @@ async def _fetch_yahoo_asset(
         if not closes:
             price = float(meta.get("regularMarketPrice", 0))
             if not price:
-                return None, stats
+                return await _quote_from_feed(client, asset, now)
             return AssetQuote(
                 symbol=symbol,
                 name=asset["name"],
@@ -181,5 +182,34 @@ async def _fetch_yahoo_asset(
         return asset_quote, stats
 
     except Exception as exc:
-        logger.warning("Yahoo fetch failed for %s: %s", symbol, exc)
-        return None, stats
+        logger.warning("Yahoo fetch failed for %s: %s", symbol, type(exc).__name__)
+        return await _quote_from_feed(client, asset, now)
+
+
+async def _quote_from_feed(
+    client: httpx.AsyncClient, asset: dict, now: datetime
+) -> tuple[Optional[AssetQuote], dict]:
+    """Priority names only. The long tail stays empty when Yahoo is down."""
+    if asset["symbol"].upper() not in PRIORITY_SYMBOLS:
+        return None, {}
+    fed = await supplement_quote(client, asset["symbol"])
+    if not fed or fed.get("price") is None:
+        return None, {}
+    closes = [float(value) for value in fed.get("closes") or []]
+    stats: dict = {}
+    if closes:
+        stats = {"high_52w": max(closes), "low_52w": min(closes)}
+        if len(closes) >= 30:
+            stats.update(compute_momentum_indicators(closes))
+    price = float(fed["price"])
+    change_24h = fed.get("change_pct_24h")
+    change_7d = fed.get("change_pct_7d")
+    return AssetQuote(
+        symbol=asset["symbol"],
+        name=asset["name"],
+        asset_class=AssetClass(asset["asset_class"]),
+        price=_quote_price_round(price),
+        change_pct_24h=change_24h,
+        change_pct_7d=change_7d,
+        updated_at=now,
+    ), stats
