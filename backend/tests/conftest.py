@@ -20,6 +20,8 @@ os.environ.setdefault("CYCLICAL_AUTO_BACKUP_ENABLED", "false")
 os.environ.setdefault("CYCLICAL_DESK_TOKEN", "pytest-desk")
 os.environ.setdefault("SOLANA_DESK_AUTOSTART", "false")
 os.environ.setdefault("SOLANA_REAL_TRADING", "false")
+os.environ.setdefault("SOLANA_DESK_QUOTES", "off")
+os.environ.setdefault("SOLANA_REQUIRE_PANEL_ARM", "false")
 
 import pytest
 from fastapi.testclient import TestClient

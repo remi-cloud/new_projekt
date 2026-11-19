@@ -146,7 +146,16 @@ def parse_dex_pair(raw: dict, now: datetime | None = None) -> TokenView | None:
     volume = raw.get("volume") or {}
     change = raw.get("priceChange") or {}
     liquidity = raw.get("liquidity") or {}
-    vol = finite(volume.get("h1")) or finite(volume.get("m5")) * 12 or finite(volume.get("h24")) / 24
+    vol_m5 = finite(volume.get("m5"))
+    vol_h1 = finite(volume.get("h1"))
+    vol = vol_h1 or vol_m5 * 12 or finite(volume.get("h24")) / 24
+    avg_5m = vol_h1 / 12 if vol_h1 > 0 else 0.0
+    spike = (vol_m5 / avg_5m) if avg_5m > 0 and vol_m5 > 0 else None
+    txns = raw.get("txns") if isinstance(raw.get("txns"), dict) else {}
+    m5 = txns.get("m5") if isinstance(txns.get("m5"), dict) else {}
+    buys = finite(m5.get("buys"))
+    sells = finite(m5.get("sells"))
+    buys_pct = (buys / (buys + sells) * 100.0) if (buys + sells) > 0 else None
     return TokenView(
         mint=mint,
         symbol=str(base.get("symbol") or mint[:6]),
@@ -157,6 +166,9 @@ def parse_dex_pair(raw: dict, now: datetime | None = None) -> TokenView | None:
         age_minutes=_age_minutes(_parse_time(raw.get("pairCreatedAt")), moment),
         venue=_venue(str(raw.get("dexId") or ""), "", mint),
         change_5m_pct=finite(change.get("m5")) if change.get("m5") is not None else None,
+        spike=spike,
+        buys_pct=buys_pct,
+        volume_5m_usd=vol_m5 or None,
     )
 
 
@@ -225,6 +237,21 @@ def _holder_pcts(report: dict) -> tuple[float | None, float | None, float | None
     return top, top10, dev if dev_known or creator else None
 
 
+def lp_locked_pct(report: dict) -> float | None:
+    """Highest Rugcheck LP locked/burned percent across markets."""
+    found: list[float] = []
+    for market in report.get("markets") or []:
+        if not isinstance(market, dict):
+            continue
+        lp = market.get("lp") if isinstance(market.get("lp"), dict) else {}
+        if lp.get("lpLockedPct") is None:
+            continue
+        found.append(_pct(lp.get("lpLockedPct")))
+    if not found:
+        return None
+    return max(found)
+
+
 def apply_rugcheck(token: TokenView, report: dict) -> TokenView:
     if not isinstance(report, dict):
         return token
@@ -274,6 +301,11 @@ def apply_rugcheck(token: TokenView, report: dict) -> TokenView:
         change_5m_pct=token.change_5m_pct,
         rugged=rugged,
         risk_ready=True,
+        spike=token.spike,
+        buys_pct=token.buys_pct,
+        lp_locked_pct=lp_locked_pct(report) if lp_locked_pct(report) is not None else token.lp_locked_pct,
+        volume_5m_usd=token.volume_5m_usd,
+        creator=str(report.get("creator") or token.creator),
     )
 
 
@@ -301,6 +333,11 @@ def _merge(left: TokenView, right: TokenView) -> TokenView:
             change_5m_pct=base.change_5m_pct if base.change_5m_pct is not None else extra.change_5m_pct,
             rugged=extra.rugged,
             risk_ready=True,
+            spike=base.spike if base.spike is not None else extra.spike,
+            buys_pct=base.buys_pct if base.buys_pct is not None else extra.buys_pct,
+            lp_locked_pct=extra.lp_locked_pct if extra.lp_locked_pct is not None else base.lp_locked_pct,
+            volume_5m_usd=base.volume_5m_usd or extra.volume_5m_usd,
+            creator=extra.creator or base.creator,
         )
     if base.price_usd <= 0 and extra.price_usd > 0:
         return extra
@@ -559,3 +596,37 @@ def _cache_get(mint: str) -> dict | None | object:
 
 def _cache_put(mint: str, report: dict | None) -> None:
     _REPORT_CACHE[mint] = (time.monotonic(), report)
+
+
+async def fetch_prices(mints: list[str]) -> dict[str, dict]:
+    """DexScreener batch, then Jupiter Price API. Empty when both are down."""
+    wanted = [mint for mint in mints if mint][:30]
+    if not wanted:
+        return {}
+    found: dict[str, dict] = {}
+    joined = ",".join(wanted)
+    try:
+        async with httpx.AsyncClient(timeout=8.0, headers=_UA) as client:
+            response = await client.get(f"https://api.dexscreener.com/tokens/v1/solana/{joined}")
+            if response.status_code == 200:
+                payload = response.json()
+                rows = payload if isinstance(payload, list) else payload.get("pairs") or []
+                for raw in rows:
+                    parsed = parse_dex_pair(raw) if isinstance(raw, dict) else None
+                    if parsed and parsed.price_usd > 0 and parsed.mint not in found:
+                        found[parsed.mint] = {"price": parsed.price_usd, "liq": parsed.liquidity_usd}
+    except Exception:
+        found = {}
+    missing = [mint for mint in wanted if mint not in found]
+    if not missing:
+        return found
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            response = await client.get("https://lite-api.jup.ag/price/v3", params={"ids": ",".join(missing)})
+            if response.status_code == 200 and isinstance(response.json(), dict):
+                for mint, item in response.json().items():
+                    if isinstance(item, dict) and item.get("usdPrice"):
+                        found[mint] = {"price": finite(item.get("usdPrice")), "liq": None}
+    except Exception:
+        return found
+    return found

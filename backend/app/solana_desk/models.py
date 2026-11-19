@@ -38,6 +38,15 @@ class TokenView:
     change_5m_pct: float | None = None
     rugged: bool = False
     risk_ready: bool = False
+    spike: float | None = None
+    buys_pct: float | None = None
+    lp_locked_pct: float | None = None
+    volume_5m_usd: float | None = None
+    creator: str = ""
+    transfer_fee_bps: float | None = None
+    permanent_delegate: bool | None = None
+    non_transferable: bool | None = None
+    onchain_ready: bool = False
 
 
 @dataclass
@@ -67,7 +76,7 @@ class RiskVerdict:
     reasons: tuple[str, ...]
 
 
-DEFAULT_SETTINGS: dict[str, float | int] = {
+DEFAULT_SETTINGS: dict[str, float | int | str] = {
     "starting_sol": 1.0,
     "position_sol": 0.05,
     "max_per_trade_sol": 0.1,
@@ -92,6 +101,13 @@ DEFAULT_SETTINGS: dict[str, float | int] = {
     "max_slippage_bps": 100.0,
     "min_reserve_sol": 0.05,
     "rugcheck_top_n": 15,
+    # Equity sizing. position_sol is deprecated and is not used to size a trade.
+    "risk_per_trade_pct": 0.015,
+    "min_size_pct": 0.05,
+    "max_size_pct": 0.40,
+    "max_slippage_pct": 2.0,
+    "session_start": "23:00",
+    "session_end": "07:00",
 }
 
 
@@ -129,6 +145,7 @@ def fresh_book() -> dict:
         "worker_expires": 0.0,
         "closed_trades": 0,
         "wins": 0,
+        "losses": 0,
         "settings": dict(DEFAULT_SETTINGS),
         "agents": fresh_agents(),
     }

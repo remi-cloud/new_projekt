@@ -3,89 +3,48 @@ import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { LocaleProvider } from '../context/LocaleContext'
 import { LOCALE_STORAGE_KEY } from '../i18n'
+import fixture from '../test/fixtures/terminal.json'
 import { SolanaDeskPage } from './SolanaDeskPage'
 
-vi.mock('../lib/solanaDeskApi', () => ({
+const payload = fixture
+
+vi.mock('../lib/solanaDeskApi', async () => {
+  const loaded = (await import('../test/fixtures/terminal.json')).default
+  return {
   solanaCsvUrl: '/api/solana/trades.csv',
+  fetchSolanaTerminal: vi.fn(async () => structuredClone(loaded)),
   fetchSolanaStatus: vi.fn(async () => ({
-    mode: 'paper',
     running: true,
     kill_switch: false,
-    real_trading_flag: false,
-    wallet_configured: false,
-    real_trading_active: false,
-    rpc_configured: false,
     armed: false,
-    lock_reason: 'Handel realny jest wyłączony.',
-    cash_sol: 1,
-    equity_sol: 1,
-    equity_usd: 140,
-    sol_usd: 140,
-    net_pnl_sol: 0,
-    realized_pnl_sol: 0,
-    fees_sol: 0,
-    win_rate: 0.5,
-    closed_trades: 2,
-    wins: 1,
+    settings: { risk_per_trade_pct: 0.015, position_sol: 0.05 },
+    closed_trades: 1,
     open_positions: 0,
-    max_drawdown: 0.04,
-    last_tick_at: '2026-11-18T07:00:00Z',
-    last_error: '',
-    worker_online: true,
-    settings: { starting_sol: 1, position_sol: 0.05, max_per_trade_sol: 0.1, daily_loss_sol: 0.2, stop_pct: 0.06 },
-    agents: {
-      scout: { seen: 4, note: 'Kandydaci w tym obiegu: 4.' },
-      checker: { passed: 1, rejected: 3, note: 'Odrzucony: aktywne uprawnienie mint' },
-      sniper: { entries: 1, note: 'Papierowe wejście.' },
-      exit: { exits: 1, note: 'Stop po kolejnej cenie.' },
-    },
-    positions: [],
-    report: {
-      title: 'Raport dzienny 2026-11-18 UTC',
-      pnl_sol: -0.01,
-      fees_sol: 0.002,
-      closed_trades: 2,
-      win_rate: 0.5,
-      max_drawdown: 0.04,
-      note: 'Symulacja papierowa.',
-    },
   })),
-  fetchSolanaJournal: vi.fn(async () => ({
-    trades: [
-      {
-        id: 1,
-        opened_at: '2026-11-18T07:00:00Z',
-        closed_at: '2026-11-18T07:05:00Z',
-        mint: 'Mint111pump',
-        symbol: 'FLOW',
-        status: 'closed',
-        entry_price: 0.001,
-        exit_price: 0.0004,
-        entry_fee_sol: 0.001,
-        exit_fee_sol: 0.0004,
-        entry_slippage: 0.01,
-        exit_slippage: 0.02,
-        pnl_sol: -0.02,
-        entry_reason: 'Checker przepuścił',
-        exit_reason: 'stop -6% — wypełnienie po kolejnej cenie',
-        mode: 'paper',
-        solscan_url: null,
-      },
-    ],
-    events: [{ id: 7, ts: '2026-11-18T07:05:00Z', agent: 'exit', mint: 'Mint111pump', symbol: 'FLOW', message: 'Stop po luce.' }],
-  })),
+  fetchSolanaJournal: vi.fn(async () => ({ trades: [], events: [] })),
+  fetchSolanaDecisions: vi.fn(async () => ({ decisions: [] })),
+  fetchSolanaLessons: vi.fn(async () => ({ lessons: [] })),
+  fetchSolanaSelfTest: vi.fn(async () => ({ ok: null, agents: {} })),
   postSolanaArm: vi.fn(),
   postSolanaControl: vi.fn(),
   postSolanaSettings: vi.fn(),
-}))
+  postSolanaSelfTest: vi.fn(),
+  }
+})
 
-describe('Solana Desk', () => {
+describe('Grok Bot Terminal', () => {
   beforeEach(() => {
     sessionStorage.clear()
     localStorage.setItem(LOCALE_STORAGE_KEY, 'pl')
+    class FakeSource {
+      addEventListener() {}
+      close() {}
+      onerror: (() => void) | null = null
+    }
+    vi.stubGlobal('EventSource', FakeSource)
   })
 
-  it('pokazuje papierowe statystyki i blokuje sterowanie gościowi', async () => {
+  it('renders the real terminal payload and refuses illustrative copy', async () => {
     render(
       <LocaleProvider>
         <MemoryRouter>
@@ -93,27 +52,37 @@ describe('Solana Desk', () => {
         </MemoryRouter>
       </LocaleProvider>,
     )
-    expect(await screen.findByRole('heading', { name: 'Solana Desk' })).toBeTruthy()
-    expect(screen.getByText(/Tryb papierowy/)).toBeTruthy()
-    expect(screen.getAllByText(/FLOW/).length).toBeGreaterThan(0)
-    expect(screen.getByText(/Stop po luce/)).toBeTruthy()
-    expect((screen.getByRole('button', { name: 'Start' }) as HTMLButtonElement).disabled).toBe(true)
-    expect((screen.getByRole('button', { name: 'Zapisz' }) as HTMLButtonElement).disabled).toBe(true)
-    expect((screen.getByRole('button', { name: 'Uzbrój handel realny' }) as HTMLButtonElement).disabled).toBe(true)
-    expect(screen.getByRole('link', { name: 'Eksport CSV' })).toBeTruthy()
+    expect(await screen.findByText('Grok Bot')).toBeTruthy()
+    expect(screen.getByText('Terminal')).toBeTruthy()
+    expect(screen.getByText('AGENTS')).toBeTruthy()
+    expect(screen.getByText('paper · live')).toBeTruthy()
+    expect(screen.getByText('paper · real quotes')).toBeTruthy()
+    expect(screen.getByText(/every trade gets a reason/)).toBeTruthy()
+    for (const name of ['SCANNER', 'RUG CHECK', 'SIZER', 'EXECUTOR', 'LOGGER', 'EQUITY', 'YOU']) {
+      expect(screen.getAllByText(name).length).toBeGreaterThan(0)
+    }
+    expect(document.body.textContent || '').not.toMatch(/illustrative/i)
+    const clock = screen.getByTestId('gbt-clock').textContent || ''
+    const expected = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Oslo',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    }).format(new Date())
+    expect(clock.slice(0, 5)).toBe(expected.slice(0, 5))
   })
 
-  it('po tokenie biurka puszcza start', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (input: RequestInfo | URL) => {
-        const url = String(input)
-        if (url.includes('/desk/status')) {
-          return new Response(JSON.stringify({ configured: true, authenticated: true }), { status: 200 })
-        }
-        return new Response('{}', { status: 404 })
-      }),
-    )
+  it('applies an SSE snapshot to the action chip', async () => {
+    const box: { fn: ((event: MessageEvent) => void) | null } = { fn: null }
+    class FakeSource {
+      addEventListener(type: string, fn: (event: MessageEvent) => void) {
+        if (type === 'snapshot') box.fn = fn
+      }
+      close() {}
+      onerror: (() => void) | null = null
+    }
+    vi.stubGlobal('EventSource', FakeSource)
     render(
       <LocaleProvider>
         <MemoryRouter>
@@ -121,8 +90,26 @@ describe('Solana Desk', () => {
         </MemoryRouter>
       </LocaleProvider>,
     )
+    await screen.findByText('Grok Bot')
+    const next = structuredClone(payload)
+    next.header.current_action = 'EXECUTOR · ENTERED $TEST'
+    next.header.trades = payload.header.trades + 3
+    box.fn?.({ data: JSON.stringify(next) } as MessageEvent)
+    expect(await screen.findByText('EXECUTOR · ENTERED $TEST')).toBeTruthy()
+  })
+
+  it('keeps desk controls locked for a guest', async () => {
+    render(
+      <LocaleProvider>
+        <MemoryRouter>
+          <SolanaDeskPage />
+        </MemoryRouter>
+      </LocaleProvider>,
+    )
+    const open = await screen.findByRole('button', { name: 'Sterowanie' })
+    open.click()
     const start = await screen.findByRole('button', { name: 'Start' })
-    expect((start as HTMLButtonElement).disabled).toBe(false)
-    vi.unstubAllGlobals()
+    expect((start as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: 'Zapisz' }) as HTMLButtonElement).disabled).toBe(true)
   })
 })

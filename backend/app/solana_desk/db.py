@@ -16,6 +16,13 @@ _TABLES = (
     "solana_desk_trades",
     "solana_desk_events",
     "solana_desk_reports",
+    "solana_desk_decisions",
+    "solana_desk_equity",
+    "solana_desk_ticks",
+    "solana_desk_agent_health",
+    "solana_desk_selftest",
+    "solana_desk_lessons",
+    "solana_desk_lesson_hits",
 )
 
 
@@ -112,6 +119,9 @@ async def init_solana_desk_db() -> None:
             except Exception:
                 pass
         await db.commit()
+    from app.solana_desk.store import ensure_schema
+
+    await ensure_schema()
 
 
 def _merge(base: dict, override: dict) -> dict:
@@ -209,6 +219,7 @@ async def upsert_position(row: dict) -> None:
         "mint", "symbol", "venue", "status", "signal_price", "entry_price", "last_price",
         "peak_price", "tokens", "size_sol", "entry_fee_sol", "entry_slippage", "entry_reason",
         "signal_at", "opened_at", "liquidity_usd", "reserved_sol", "trade_id", "token_atoms",
+        "size_pct", "check_decision_id", "size_decision_id",
     ]
     values = [row.get(name) for name in columns]
     placeholders = ", ".join("?" for _ in columns)
@@ -236,7 +247,7 @@ async def insert_trade(row: dict) -> int:
         "opened_at", "closed_at", "mint", "symbol", "venue", "status", "entry_price",
         "exit_price", "tokens", "size_sol", "entry_fee_sol", "exit_fee_sol", "entry_slippage",
         "exit_slippage", "pnl_sol", "entry_reason", "exit_reason", "mode", "signature",
-        "solscan_url", "exit_signature",
+        "solscan_url", "exit_signature", "fill_source", "pnl_usd",
     ]
     row = dict(row)
     row["solscan_url"] = solscan_tx_url(row.get("signature"))
@@ -295,12 +306,6 @@ async def add_event(agent: str, message: str, mint: str = "", symbol: str = "") 
             VALUES (?, ?, ?, ?, ?)
             """,
             (ts, agent, mint, symbol, message[:400]),
-        )
-        await db.execute(
-            """
-            DELETE FROM solana_desk_events
-            WHERE id NOT IN (SELECT id FROM solana_desk_events ORDER BY id DESC LIMIT 200)
-            """
         )
         await db.commit()
 

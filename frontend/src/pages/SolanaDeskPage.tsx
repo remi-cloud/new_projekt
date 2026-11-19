@@ -1,57 +1,101 @@
-import { FormEvent, useEffect, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ErrorState, Loading } from '../components/Loading'
 import { deskSessionOpen } from '../lib/deskAuth'
 import {
-  fetchSolanaJournal,
+  fetchSolanaDecisions,
+  fetchSolanaLessons,
+  fetchSolanaSelfTest,
   fetchSolanaStatus,
+  fetchSolanaTerminal,
   postSolanaArm,
   postSolanaControl,
+  postSolanaSelfTest,
   postSolanaSettings,
   solanaCsvUrl,
-  type SolanaJournal,
   type SolanaStatus,
+  type TerminalPayload,
 } from '../lib/solanaDeskApi'
+import { API_BASE } from '../lib/sameOrigin'
 import '../styles/solana-desk.css'
 
-const AGENTS = [
-  ['scout', 'Scout', 'Szuka nowych mintów na pump.fun i wzrostów na krzywej oraz Raydium.'],
-  ['checker', 'Checker', 'Odrzuca mint z władzą mint/freeze, koncentracją, dev walletem albo luką w danych.'],
-  ['sniper', 'Sniper', 'Wchodzi papierowo dopiero na kolejnej cenie, rozmiarem z ustawień.'],
-  ['exit', 'Exit', 'Stop -6%, take-profit, trailing i time-stop. Luka zostaje luką.'],
-] as const
-
-function sol(value: number | null | undefined, digits = 4): string {
-  if (value == null || Number.isNaN(Number(value))) return '—'
-  return `${Number(value).toFixed(digits)} SOL`
+const ICONS: Record<string, string> = {
+  scanner: '▣',
+  rug_check: '⚠',
+  sizer: '◆',
+  executor: '▶',
+  logger: '✎',
+  equity: '◉',
+  you: '',
 }
 
-function usd(value: number | null | undefined): string {
-  if (value == null || Number.isNaN(Number(value))) return '—'
-  const abs = Math.abs(Number(value))
-  const digits = abs > 0 && abs < 0.01 ? 8 : 4
-  return `${Number(value).toFixed(digits)} USD`
+function osloClock(date: Date): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Oslo',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).format(date)
 }
 
-function pct(value: number | null | undefined): string {
-  if (value == null || Number.isNaN(Number(value))) return '—'
-  return `${(Number(value) * 100).toFixed(1)}%`
+function money(value: number): string {
+  return value.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
 }
 
-function tone(value: number): string {
-  if (value > 0) return 'solana-up'
-  if (value < 0) return 'solana-down'
-  return ''
+function signedMoney(value: number): string {
+  const body = money(Math.abs(value))
+  return value > 0 ? `+${body}` : value < 0 ? `-${body.replace('-', '')}` : body
+}
+
+function missingText(missing: Record<string, string>, key: string, fallback: string): string {
+  return `— ${missing[key] || fallback}`
+}
+
+function CountUp({ value, format }: { value: number | null; format: (n: number) => string }) {
+  const [shown, setShown] = useState(value ?? 0)
+  const from = useRef(value ?? 0)
+  useEffect(() => {
+    if (value == null) return
+    const start = from.current
+    const began = performance.now()
+    let frame = 0
+    const step = (now: number) => {
+      const t = Math.min(1, (now - began) / 420)
+      const next = start + (value - start) * t
+      setShown(next)
+      if (t < 1) frame = requestAnimationFrame(step)
+      else from.current = value
+    }
+    frame = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(frame)
+  }, [value])
+  if (value == null) return <>{'—'}</>
+  return <>{format(shown)}</>
 }
 
 export function SolanaDeskPage() {
-  const [status, setStatus] = useState<SolanaStatus | null>(null)
-  const [journal, setJournal] = useState<SolanaJournal>({ trades: [], events: [] })
+  const [terminal, setTerminal] = useState<TerminalPayload | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [notice, setNotice] = useState('')
+  const [clock, setClock] = useState(() => osloClock(new Date()))
+  const [offline, setOffline] = useState(false)
   const [desk, setDesk] = useState(false)
+  const [openControls, setOpenControls] = useState(false)
+  const [status, setStatus] = useState<SolanaStatus | null>(null)
   const [form, setForm] = useState<Record<string, string>>({})
-  const [ready, setReady] = useState(false)
+  const [notice, setNotice] = useState('')
+  const [debug, setDebug] = useState(false)
+  const [lessonAgent, setLessonAgent] = useState<string | null>(null)
+  const [lessons, setLessons] = useState<Array<Record<string, unknown>>>([])
+  const [selftest, setSelftest] = useState<Record<string, unknown> | null>(null)
+  const [extraLog, setExtraLog] = useState<TerminalPayload['log']>([])
+  const logRef = useRef<HTMLDivElement>(null)
+  const readKey = 'solana-desk-last-read'
+
+  useEffect(() => {
+    const id = window.setInterval(() => setClock(osloClock(new Date())), 1000)
+    return () => window.clearInterval(id)
+  }, [])
 
   useEffect(() => {
     let alive = true
@@ -70,37 +114,110 @@ export function SolanaDeskPage() {
 
   useEffect(() => {
     let alive = true
-    const load = async () => {
-      try {
-        const [nextStatus, nextJournal] = await Promise.all([fetchSolanaStatus(), fetchSolanaJournal()])
-        if (!alive) return
-        setStatus(nextStatus)
-        setJournal(nextJournal)
-        setError(null)
-        if (!ready) {
-          const settings = nextStatus.settings || {}
-          const initial: Record<string, string> = {}
-          for (const [key, value] of Object.entries(settings)) initial[key] = String(value)
-          setForm(initial)
-          setReady(true)
-        }
-      } catch (err) {
-        if (alive) setError(err instanceof Error ? err.message : 'Nie udało się wczytać biurka.')
-      }
+    let poll = 0
+    let source: EventSource | null = null
+    const apply = (payload: TerminalPayload) => {
+      if (alive) setTerminal(payload)
     }
-    void load()
-    const timer = window.setInterval(() => void load(), 8000)
+    const startPoll = () => {
+      if (poll) return
+      poll = window.setInterval(() => {
+        void fetchSolanaTerminal().then(apply).catch(() => undefined)
+      }, 3000)
+    }
+    void fetchSolanaTerminal()
+      .then((payload) => {
+        apply(payload)
+        setError(null)
+      })
+      .catch((err: unknown) => {
+        if (alive) setError(err instanceof Error ? err.message : 'Terminal unavailable')
+      })
+    if (typeof EventSource !== 'undefined') {
+      source = new EventSource(`${API_BASE}/solana/stream`)
+      source.addEventListener('snapshot', (event) => {
+        setOffline(false)
+        apply(JSON.parse((event as MessageEvent).data) as TerminalPayload)
+      })
+      source.onerror = () => {
+        setOffline(true)
+        startPoll()
+      }
+    } else {
+      setOffline(true)
+      startPoll()
+    }
     return () => {
       alive = false
-      window.clearInterval(timer)
+      source?.close()
+      if (poll) window.clearInterval(poll)
     }
-  }, [ready])
+  }, [])
+
+  useEffect(() => {
+    if (!logRef.current) return
+    logRef.current.scrollTop = logRef.current.scrollHeight
+  }, [terminal?.lines])
+
+  const unread = useMemo(() => {
+    const lines = terminal?.lines ?? 0
+    const seen = Number(localStorage.getItem(readKey) || 0)
+    return Math.max(0, lines - seen)
+  }, [terminal?.lines])
+
+  if (!terminal && !error) return <Loading message="Ładuję Solana Desk…" />
+  if (!terminal && error) return <ErrorState message={error} onRetry={() => window.location.reload()} />
+  if (!terminal) return null
+
+  const header = terminal.header
+  const dotClass = header.kill_switch || !header.worker_online ? 'bad' : header.running ? '' : 'stop'
+  const runningWord = header.kill_switch ? 'kill' : header.running ? 'running' : 'stopped'
+  const activeName = (header.current_action || '').split('·')[0]?.trim().toLowerCase()
+  const logRows = [...extraLog, ...terminal.log]
+  const newest = logRows[logRows.length - 1]?.id
+  const startUsd = terminal.result.start_equity_usd
+  const nowUsd = terminal.result.now_equity_usd
+  const delta = startUsd != null && nowUsd != null && startUsd !== 0 ? (nowUsd - startUsd) / Math.abs(startUsd) : 0
+
+  const loadOlder = () => {
+    const oldest = logRows[0]?.id
+    if (!oldest) return
+    void fetchSolanaDecisions(oldest).then((body) => {
+      const older = (body.decisions || []).map((row) => ({
+        id: Number(row.id),
+        time: String((row as { ts?: string }).ts || '').slice(11, 16),
+        kind: String(row.kind),
+        symbol: String(row.symbol || ''),
+        reason: String(row.reason || ''),
+        right: '',
+        pnl_usd: row.pnl_usd ?? null,
+        lesson: String(row.reason || '').includes('lesson #'),
+        fill_source: row.fill_source ?? null,
+      }))
+      setExtraLog((current) => [...older.reverse(), ...current])
+    })
+  }
+
+  const openLessons = (agent: string) => {
+    setLessonAgent(agent)
+    void fetchSolanaLessons(agent).then((body) => setLessons(body.lessons || []))
+  }
+
+  const loadControls = () => {
+    setOpenControls(true)
+    void fetchSolanaStatus().then((next) => {
+      setStatus(next)
+      const initial: Record<string, string> = {}
+      for (const [key, value] of Object.entries(next.settings || {})) initial[key] = String(value)
+      setForm(initial)
+    })
+    void fetchSolanaSelfTest().then(setSelftest).catch(() => undefined)
+  }
 
   const command = async (action: string) => {
     setNotice('')
     try {
-      const next = await postSolanaControl(action)
-      setStatus(next)
+      setStatus(await postSolanaControl(action))
       setNotice('Zapisane.')
     } catch (err) {
       setNotice(err instanceof Error ? err.message : 'Komenda odrzucona.')
@@ -109,221 +226,303 @@ export function SolanaDeskPage() {
 
   const onSave = async (event: FormEvent) => {
     event.preventDefault()
-    setNotice('')
-    const patch: Record<string, number> = {}
-    const lockedCapital = (status?.closed_trades ?? 0) > 0 || (status?.open_positions ?? 0) > 0
+    const patch: Record<string, number | string> = {}
     for (const [key, value] of Object.entries(form)) {
-      if (value === '' || key === 'starting_usd') continue
-      if (lockedCapital && key === 'starting_sol') continue
+      if (value === '') continue
+      if (key === 'session_start' || key === 'session_end') {
+        patch[key] = value
+        continue
+      }
       const number = Number(value)
       if (!Number.isNaN(number)) patch[key] = number
     }
-    const usdBudget = Number(form.starting_usd || '')
-    if (!lockedCapital && usdBudget >= 20 && usdBudget <= 50) patch.starting_usd = usdBudget
     try {
-      const next = await postSolanaSettings(patch)
-      setStatus(next)
+      setStatus(await postSolanaSettings(patch))
       setNotice('Ustawienia zapisane.')
     } catch (err) {
       setNotice(err instanceof Error ? err.message : 'Nie zapisano.')
     }
   }
 
-  if (!status && !error) return <Loading message="Ładuję Solana Desk…" />
-  if (!status && error) return <ErrorState message={error} onRetry={() => setReady(false)} />
-  if (!status) return null
-
-  const lockedCapital = status.closed_trades > 0 || status.open_positions > 0
+  const runSelfTest = async () => {
+    setNotice('')
+    try {
+      setSelftest(await postSolanaSelfTest())
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : 'Self-test odrzucony.')
+    }
+  }
 
   return (
     <div className="page solana-page">
-      <header className="page-intro">
-        <span className="page-eyebrow">Biurko · Solana</span>
-        <h2 className="page-headline">Solana Desk</h2>
-        <p className="page-lead">
-          Cztery agenty handlują memecoinami z pump.fun na papierze, na żywych cenach.
-          Żadne zlecenie nie idzie na łańcuch.
-        </p>
-      </header>
-
-      <p className="solana-banner" role="status">
-        Tryb papierowy. Handel realny jest wyłączony
-        {status.wallet_configured ? ' (klucz portfela jest ustawiony, ale nic nie podpisujemy)' : ''}.{' '}
-        {status.lock_reason}
-      </p>
-
-      <div className="solana-stats">
-        <div className="mini-stat"><span>Saldo</span><strong>{sol(status.cash_sol)}</strong></div>
-        <div className="mini-stat"><span>Kapitał</span><strong>{sol(status.equity_sol)}</strong></div>
-        <div className="mini-stat">
-          <span>PnL po opłatach</span>
-          <strong className={tone(status.net_pnl_sol)}>{sol(status.net_pnl_sol)}</strong>
+      <section className="gbt" data-testid="gbt-terminal">
+        <div className="gbt-caption">
+          <span className="gbt-dots" aria-hidden="true"><i /><i /><i /></span>
+          <p>{header.caption}</p>
+          <span className={header.mode === 'real' ? 'gbt-pill real' : 'gbt-pill'} data-testid="gbt-mode">{header.pill}</span>
         </div>
-        <div className="mini-stat"><span>Win rate</span><strong>{pct(status.win_rate)}</strong></div>
-        <div className="mini-stat"><span>Transakcje</span><strong>{status.closed_trades}</strong></div>
-        <div className="mini-stat"><span>Max drawdown</span><strong>{pct(status.max_drawdown)}</strong></div>
-      </div>
+        <header className="gbt-head">
+          <div className="gbt-avatar" aria-hidden="true"><b /></div>
+          <div>
+            <div className="gbt-title">
+              <strong>Grok Bot</strong>
+              <span>Terminal</span>
+              <em className="gbt-version">{header.version}</em>
+            </div>
+            <p className="gbt-status">
+              <span className={`dot ${dotClass}`}>●</span> {runningWord} · <time data-testid="gbt-clock">{clock}</time>
+              {offline ? <span className="gbt-offline"> · stream offline · retrying</span> : null}
+            </p>
+            {header.current_action ? <span className="gbt-action">{header.current_action}</span> : null}
+            <p className="gbt-tag">{header.tagline}</p>
+          </div>
+          <div className="gbt-stats" data-testid="gbt-balance">
+            <div>
+              <strong>{header.equity_usd == null ? missingText(terminal.missing, 'equity_usd', 'no data (sol price down)') : <CountUp value={header.equity_usd} format={money} />}</strong>
+              <small>balance</small>
+              <span className="gbt-sol">{header.equity_sol == null ? '' : `${header.equity_sol.toFixed(4)} SOL`}</span>
+            </div>
+            <div>
+              <strong><CountUp value={header.trades} format={(n) => String(Math.round(n))} /></strong>
+              <small>trades</small>
+            </div>
+            <div>
+              <strong className="pos"><CountUp value={header.wins} format={(n) => String(Math.round(n))} /></strong>
+              <small>wins</small>
+            </div>
+            <div>
+              <strong className={header.losses ? 'neg' : 'zero'}><CountUp value={header.losses} format={(n) => String(Math.round(n))} /></strong>
+              <small>losses</small>
+            </div>
+          </div>
+        </header>
 
-      <p className="solana-note">
-        {status.worker_online ? 'Worker tyka.' : 'Worker czeka na kolejny obieg.'}{' '}
-        Ostatni obieg: {status.last_tick_at || 'jeszcze nie było'}. Kurs SOL: {usd(status.sol_usd)}.
-        Opłaty łącznie: {sol(status.fees_sol, 6)}.
-        {status.last_error ? ` Źródło: ${status.last_error}.` : ''}
-      </p>
+        <div className="gbt-grid">
+          <aside>
+            <div className="gbt-col-head"><span>AGENTS</span><span>{terminal.online} online</span></div>
+            <div className="gbt-agents">
+              {terminal.agents.map((agent) => {
+                const hot = activeName.includes(agent.name.toLowerCase()) || (agent.id === 'you' && false)
+                return (
+                  <article key={agent.id} className={hot ? 'gbt-card active' : 'gbt-card'} style={{ ['--agent' as string]: agent.color }}>
+                    <div className="gbt-card-top">
+                      {agent.id === 'you' ? <span className="gbt-you-icon"><b /></span> : <span className="gbt-ico">{ICONS[agent.id]}</span>}
+                      <h3>{agent.name}</h3>
+                      <span className={`gbt-badge ${agent.badge === 'IDLE' ? '' : 'on'} ${agent.badge === 'DOWN' ? 'down' : ''}`} title={agent.health_detail}>
+                        <i className={`gbt-health ${agent.health}`} />
+                        {agent.badge}
+                      </span>
+                    </div>
+                    <p className="gbt-role">{agent.role}</p>
+                    <p className="gbt-rule">{agent.rule}</p>
+                    <p className="gbt-live">{agent.id === 'you' ? `${unread} lines to read` : agent.status_line}</p>
+                    {agent.id !== 'you' ? (
+                      <button type="button" className="gbt-lessons" onClick={() => openLessons(agent.id)}>{agent.lesson_line || `lessons ${agent.lessons}`}</button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="gbt-lessons"
+                        onClick={() => localStorage.setItem(readKey, String(terminal.lines))}
+                      >
+                        mark read
+                      </button>
+                    )}
+                  </article>
+                )
+              })}
+            </div>
+          </aside>
 
-      <div className="solana-agents">
-        {AGENTS.map(([id, label, blurb]) => {
-          const agent = status.agents?.[id] || {}
-          const figure =
-            id === 'scout' ? agent.seen ?? 0
-            : id === 'checker'
-              ? `${agent.passed ?? 0} / ${agent.rejected ?? 0}${agent.pending_risk ? ` · czeka ${agent.pending_risk}` : ''}`
-            : id === 'sniper' ? agent.entries ?? 0
-            : agent.exits ?? 0
-          return (
-            <article key={id} className="solana-agent">
-              <span>{label}</span>
-              <strong>{figure}</strong>
-              <p>{agent.note || blurb}</p>
+          <div>
+            <div className="gbt-flow-head">
+              <span>LIVE FLOW · SCAN → CHECK → SIZE → EXEC → LOG</span>
+              <span>checked {terminal.flow.checked_count}</span>
+            </div>
+            <div className="gbt-chips">
+              {terminal.flow.chips.length === 0 ? <p className="gbt-foot">— no data (scanner idle)</p> : null}
+              {terminal.flow.chips.map((chip) => (
+                <article key={chip.mint || chip.symbol} className={`gbt-chip ${chip.state || 'queued'}`}>
+                  <i className="gbt-dot" />
+                  <b>${chip.symbol}</b>
+                  <small>{chip.metric}</small>
+                </article>
+              ))}
+            </div>
+            <div className="gbt-graph" aria-hidden="true">
+              <svg viewBox="0 0 640 160">
+                <path d="M80 40 H200 M150 70 H250 M220 40 H300 M300 40 H430" fill="none" stroke="#55535c" strokeDasharray="4 4" />
+                <path d="M250 110 H470" fill="none" stroke="#55535c" strokeDasharray="4 4" />
+                <text x="300" y="102" fill="#9a98a3" fontSize="11">pass → size → enter</text>
+              </svg>
+              {header.current_action?.includes('FILTERED') ? <div className="gbt-stamp">FILTERED</div> : null}
+              <div className="gbt-spark">
+                <Spark ticks={terminal.flow.sparkline} symbol={terminal.trade?.symbol} live={terminal.trade?.live_pct ?? null} missing={terminal.missing.sparkline} />
+              </div>
+              <div className="gbt-node rug"><i>⚠</i>RUG CHECK<br />{terminal.agents.find((a) => a.id === 'rug_check')?.badge === 'FILTER' ? `FILTER $${terminal.trade?.symbol || ''}` : terminal.agents.find((a) => a.id === 'rug_check')?.status_line}</div>
+              <div className="gbt-node exec"><i>▶</i>EXECUTOR<br />{terminal.agents.find((a) => a.id === 'executor')?.status_line}</div>
+            </div>
+            <div className="gbt-tiles">
+              <article className="gbt-tile"><span>FILTERED</span><b>{terminal.tiles.filtered}</b><small>+ {terminal.tiles.skipped} skipped</small></article>
+              <article className="gbt-tile">
+                <span>SIZER</span>
+                <b>{terminal.tiles.last_size?.pct != null ? `${Math.round(terminal.tiles.last_size.pct * 100)}% eq` : '—'}</b>
+                <small>{terminal.tiles.last_size ? `${terminal.tiles.last_size.sol?.toFixed(4) ?? '—'} SOL` : 'no size yet'}</small>
+              </article>
+              <article className="gbt-tile"><span>LOGGER</span><b>{terminal.tiles.logger_line == null ? '—' : `line #${terminal.tiles.logger_line}`}</b><small>each with a reason</small></article>
+              <article className="gbt-tile">
+                <span>EQUITY</span>
+                <b className={(terminal.tiles.last_close_pnl_usd || 0) >= 0 ? 'pos' : 'neg'}>
+                  {terminal.tiles.last_close_pnl_usd == null ? '—' : signedMoney(terminal.tiles.last_close_pnl_usd)}
+                </b>
+                <small>{terminal.tiles.last_close_pnl_usd == null ? 'no close yet' : 'last close'}</small>
+              </article>
+            </div>
+
+            <div className="gbt-split">
+              <article className="gbt-trade">
+                <div className="gbt-card-head"><span>TRADE · ENTRY vs EXIT</span><span>{terminal.trade?.state || '—'}</span></div>
+                {terminal.trade ? (
+                  <>
+                    <div className="gbt-symbol">
+                      <strong>${terminal.trade.symbol}</strong>
+                      <em className="gbt-long">{terminal.trade.side}</em>
+                      <span className={terminal.trade.live_pct != null && terminal.trade.live_pct < 0 ? 'gbt-livepct neg' : 'gbt-livepct pos'}>
+                        {terminal.trade.live_pct == null ? '—' : `${terminal.trade.live_pct.toFixed(1)}% live`}
+                      </span>
+                    </div>
+                    <div className="gbt-kv">
+                      <span>entry</span><b>{terminal.trade.entry ?? '—'}</b>
+                      <span>exit</span><b>{terminal.trade.exit_label || 'open'}</b>
+                      <span>slip</span><b>{terminal.trade.slip == null ? '—' : `${(terminal.trade.slip * 100).toFixed(2)}%`}</b>
+                      <span>size</span><b>{terminal.trade.size_pct == null ? '—' : `${Math.round(terminal.trade.size_pct * 100)}% of equity`}</b>
+                      <span>reason</span><b>{terminal.trade.reason}</b>
+                      <span>exit</span><b>{terminal.trade.exit_reason || '—'}</b>
+                    </div>
+                  </>
+                ) : <p>{missingText(terminal.missing, 'trade', 'no close yet')}</p>}
+              </article>
+              <article className="gbt-tail">
+                <div className="gbt-card-head">
+                  <span>$ tail -f night.log</span>
+                  <span>{terminal.lines} lines <button type="button" onClick={() => setDebug((value) => !value)}>{debug ? 'debug on' : 'debug'}</button></span>
+                </div>
+                {(debug ? terminal.tail : terminal.tail.filter((line) => !['QUOTE', 'SEND', 'CONFIRM', 'RETRY'].includes(line.kind))).map((line) => (
+                  <p key={line.id} className={`gbt-tail-line ${line.kind} ${(line.pnl_usd || 0) < 0 ? 'neg' : 'pos'}`}>
+                    {line.time} {line.text}
+                    {line.fill_source === 'model' ? <em className="gbt-model"> MODEL</em> : null}
+                    {line.lesson ? <em> LESSON</em> : null}
+                    <small>reason: {line.reason}</small>
+                  </p>
+                ))}
+                <span className="gbt-cursor" />
+              </article>
+            </div>
+
+            <article className="gbt-result">
+              <div className="gbt-card-head"><span>RESULT · start vs now</span><span>{terminal.result.label}</span></div>
+              <p>START ● {startUsd == null ? missingText(terminal.missing, 'equity_usd', 'no data (sol price down)') : money(startUsd)}</p>
+              <div className={delta < 0 ? 'gbt-bar down' : 'gbt-bar'}><span style={{ ['--w' as string]: `${Math.min(100, Math.abs(delta) * 100)}%` }} /></div>
+              <p>NOW ● {nowUsd == null ? '—' : money(nowUsd)}</p>
+              <p><b className="pos">{terminal.result.w} W</b> / <b className="neg">{terminal.result.l} L</b></p>
+              <p className="gbt-foot" data-testid="gbt-footer">{terminal.result.footer}</p>
             </article>
-          )
-        })}
-      </div>
 
-      <h3 className="solana-section">Pozycje</h3>
-      {status.positions.length === 0 ? (
-        <p className="empty">Brak otwartych pozycji papierowych.</p>
-      ) : (
-        <div className="solana-journal">
-          {status.positions.map((row) => (
-            <article key={row.mint} className="solana-row">
-              <b>{row.symbol} · {row.status === 'pending' ? 'czeka na cenę' : 'otwarta'}</b>
-              <span className="solana-mint">{row.mint}</span>
-              <small>
-                Wejście {usd(row.entry_price)} · teraz {usd(row.last_price)} · {sol(row.size_sol)} ·{' '}
-                <em className={tone(row.unrealized_pnl_sol)}>{sol(row.unrealized_pnl_sol)}</em>
-              </small>
+            <article className="gbt-log" ref={logRef} onScroll={(event) => {
+              if (event.currentTarget.scrollTop < 8) loadOlder()
+            }}>
+              <div className="gbt-card-head">
+                <span>LOG</span>
+                <span><em className="gbt-struck">would you long this?</em> → reading the log</span>
+              </div>
+              <p className="gbt-foot">lessons {terminal.lessons.active} active · {terminal.lessons.shadow} shadow · {terminal.lessons.retired} retired{terminal.lessons.note ? ` · ${terminal.lessons.note}` : ''}</p>
+              {logRows.map((row) => (
+                <div key={`${row.id}-${row.time}`} className={row.id === newest ? 'gbt-log-row newest' : 'gbt-log-row'}>
+                  <span>{row.time}</span>
+                  <span className={`gbt-kind ${row.kind} ${(row.pnl_usd || 0) < 0 ? 'neg' : 'pos'}`}>{row.kind}{row.fill_source === 'model' ? ' MODEL' : ''}{row.lesson ? ' LESSON' : ''}</span>
+                  <p>${row.symbol}<br /><small>reason: {row.reason}</small></p>
+                  <b className={typeof row.right === 'number' && row.right < 0 ? 'neg' : 'pos'}>
+                    {typeof row.right === 'number' ? signedMoney(row.right) : row.right || '—'}
+                  </b>
+                </div>
+              ))}
             </article>
-          ))}
+          </div>
         </div>
-      )}
 
-      <h3 className="solana-section">Na żywo</h3>
-      {journal.events.length === 0 ? (
-        <p className="empty">Agenty jeszcze nic nie zapisały.</p>
-      ) : (
-        <div className="solana-live">
-          {journal.events.slice(0, 12).map((event) => (
-            <article key={event.id} className="solana-row">
-              <b>{event.agent} · {event.symbol || 'biurko'}</b>
-              <small>{event.ts} UTC</small>
-              <p>{event.message}</p>
-            </article>
-          ))}
+        {lessonAgent ? (
+          <aside className="gbt-lessons-drawer">
+            <div className="gbt-card-head"><span>lessons · {lessonAgent}</span><button type="button" onClick={() => setLessonAgent(null)}>close</button></div>
+            {lessons.length === 0 ? <p>no lessons yet</p> : lessons.map((row) => (
+              <p key={String(row.id)}>#{String(row.id)} {String(row.status)} · {String(row.lesson_text)} · applied {String(row.times_applied ?? 0)}</p>
+            ))}
+          </aside>
+        ) : null}
+
+        <div className="gbt-drawer">
+          <button type="button" onClick={loadControls}>Sterowanie</button>
+          {openControls ? (
+            <div>
+              {!desk ? <p className="gbt-foot">Gość tylko czyta. <Link to="/logowanie">Zaloguj biurko</Link>.</p> : null}
+              <div className="gbt-controls">
+                <button type="button" className="btn btn-primary" disabled={!desk} onClick={() => void command('start')}>Start</button>
+                <button type="button" className="btn btn-ghost" disabled={!desk} onClick={() => void command('stop')}>Stop</button>
+                <button type="button" className="btn btn-ghost" disabled={!desk} onClick={() => void command('kill')}>Wyłącznik awaryjny</button>
+                <button type="button" className="btn btn-ghost" disabled={!desk || !status?.kill_switch} onClick={() => void command('clear_kill')}>Zdejmij wyłącznik</button>
+                <button type="button" className="btn btn-ghost" disabled={!desk || !status} onClick={() => status && void postSolanaArm(!status.armed).then(setStatus)}>
+                  {status?.armed ? 'Rozbrój handel realny' : 'Uzbrój handel realny'}
+                </button>
+                <a href={solanaCsvUrl}>Eksport CSV</a>
+                <button type="button" disabled={!desk} onClick={() => void runSelfTest()}>Self-test</button>
+              </div>
+              <p className="gbt-foot">
+                {header.require_panel_arm
+                  ? 'Zamek panelu jest wymagany i schodzi po restarcie.'
+                  : 'Zamek panelu jest opcjonalny. Handel realny idzie po SOLANA_REAL_TRADING, kluczu i RPC.'}
+                {' '}{header.lock_reason}
+              </p>
+              <form className="gbt-form" onSubmit={(event) => void onSave(event)}>
+                {['risk_per_trade_pct', 'min_size_pct', 'max_size_pct', 'max_slippage_pct', 'max_per_trade_sol', 'daily_loss_sol', 'stop_pct', 'min_reserve_sol', 'position_sol', 'session_start', 'session_end'].map((key) => (
+                  <label key={key}>
+                    {key === 'position_sol' ? 'position_sol (przestarzałe)' : key}
+                    <input className="field-input" disabled={!desk} value={form[key] || ''} onChange={(event) => setForm({ ...form, [key]: event.target.value })} />
+                  </label>
+                ))}
+                <button className="btn btn-primary" type="submit" disabled={!desk}>Zapisz</button>
+              </form>
+              {notice ? <p className="gbt-foot">{notice}</p> : null}
+              {selftest ? (
+                <div className="gbt-selftest">
+                  <strong>Self-test {String(selftest.ok)}</strong>
+                  {Object.entries((selftest.agents as Record<string, { ok?: boolean; detail?: string }>) || {}).map(([name, row]) => (
+                    <p key={name}>{name}: {row?.ok ? 'ok' : 'fail'} {row?.detail || ''}</p>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </div>
-      )}
-
-      <h3 className="solana-section">Dziennik</h3>
-      <p>
-        <a href={solanaCsvUrl}>Eksport CSV</a>
-      </p>
-      {journal.trades.length === 0 ? (
-        <p className="empty">Dziennik jest pusty. Wejście zapisuje się po opóźnieniu jednego obiegu.</p>
-      ) : (
-        <div className="solana-journal">
-          {journal.trades.map((trade) => (
-            <article key={trade.id} className="solana-row">
-              <b>{trade.symbol} · {trade.status === 'closed' ? 'zamknięta' : 'otwarta'}</b>
-              <span className="solana-mint">{trade.mint}</span>
-              <small>
-                {trade.closed_at || trade.opened_at} UTC · wejście {usd(trade.entry_price)} · wyjście{' '}
-                {usd(trade.exit_price)} · opłaty {sol((trade.entry_fee_sol || 0) + (trade.exit_fee_sol || 0), 6)}
-                {' · '}poślizg {pct(trade.entry_slippage)} / {pct(trade.exit_slippage)}
-                {' · '}
-                <em className={tone(trade.pnl_sol || 0)}>{trade.pnl_sol == null ? 'otwarta' : sol(trade.pnl_sol)}</em>
-              </small>
-              <p>{trade.entry_reason}</p>
-              {trade.exit_reason ? <p>{trade.exit_reason}</p> : null}
-              {trade.solscan_url ? <a href={trade.solscan_url}>Solscan</a> : null}
-            </article>
-          ))}
-        </div>
-      )}
-
-      <h3 className="solana-section">Raport dzienny</h3>
-      {status.report ? (
-        <article className="solana-report">
-          <strong>{status.report.title}</strong>
-          <p>
-            PnL {sol(status.report.pnl_sol)} · opłaty {sol(status.report.fees_sol, 6)} · transakcje{' '}
-            {status.report.closed_trades ?? 0} · win rate {pct(status.report.win_rate)} · drawdown{' '}
-            {pct(status.report.max_drawdown)}
-          </p>
-          <p>{status.report.note}</p>
-        </article>
-      ) : (
-        <p className="empty">Raport pojawi się po pierwszym obiegu.</p>
-      )}
-
-      <h3 className="solana-section">Sterowanie</h3>
-      {!desk && (
-        <p className="solana-note">
-          Gość tylko czyta. <Link to="/logowanie">Zaloguj biurko</Link>, żeby uruchamiać, zatrzymywać i zmieniać limity.
-        </p>
-      )}
-      <div className="solana-controls">
-        <button type="button" className="btn btn-primary" disabled={!desk} onClick={() => void command('start')}>Start</button>
-        <button type="button" className="btn btn-ghost" disabled={!desk} onClick={() => void command('stop')}>Stop</button>
-        <button type="button" className="btn btn-ghost" disabled={!desk} onClick={() => void command('kill')}>Wyłącznik awaryjny</button>
-        <button type="button" className="btn btn-ghost" disabled={!desk || !status.kill_switch} onClick={() => void command('clear_kill')}>
-          Zdejmij wyłącznik
-        </button>
-        <button
-          type="button"
-          className="btn btn-ghost"
-          disabled={!desk}
-          onClick={() => void postSolanaArm(!status.armed).then(setStatus).catch((err: unknown) => setNotice(err instanceof Error ? err.message : 'Zamek odrzucony.'))}
-        >
-          {status.armed ? 'Rozbrój handel realny' : 'Uzbrój handel realny'}
-        </button>
-      </div>
-      <p className="solana-note">
-        Zamek realny: {status.armed ? 'uzbrojony' : 'rozbrojony'}. Po restarcie serwera sam schodzi.
-        Trasa: Jupiter Swap API. Bez flagi, klucza, RPC i zamka nic nie wychodzi na łańcuch.
-      </p>
-      <form className="solana-form" onSubmit={(event) => void onSave(event)}>
-        <label>
-          Start SOL
-          <input className="field-input" inputMode="decimal" disabled={!desk || lockedCapital} value={form.starting_sol || ''} onChange={(event) => setForm({ ...form, starting_sol: event.target.value })} />
-        </label>
-        <label>
-          Albo 20–50 USD
-          <input className="field-input" inputMode="decimal" disabled={!desk || lockedCapital} value={form.starting_usd || ''} onChange={(event) => setForm({ ...form, starting_usd: event.target.value })} />
-        </label>
-        <label>
-          Rozmiar pozycji
-          <input className="field-input" inputMode="decimal" disabled={!desk} value={form.position_sol || ''} onChange={(event) => setForm({ ...form, position_sol: event.target.value })} />
-        </label>
-        <label>
-          Maks. na transakcję
-          <input className="field-input" inputMode="decimal" disabled={!desk} value={form.max_per_trade_sol || ''} onChange={(event) => setForm({ ...form, max_per_trade_sol: event.target.value })} />
-        </label>
-        <label>
-          Dzienny limit straty
-          <input className="field-input" inputMode="decimal" disabled={!desk} value={form.daily_loss_sol || ''} onChange={(event) => setForm({ ...form, daily_loss_sol: event.target.value })} />
-        </label>
-        <label>
-          Stop (ułamek)
-          <input className="field-input" inputMode="decimal" disabled={!desk} value={form.stop_pct || ''} onChange={(event) => setForm({ ...form, stop_pct: event.target.value })} />
-        </label>
-        <button className="btn btn-primary" type="submit" disabled={!desk}>Zapisz</button>
-      </form>
-      {notice ? <p className="solana-note">{notice}</p> : null}
-      <p className="solana-note">
-        Stan: {status.running ? 'pracuje' : 'zatrzymane'}
-        {status.kill_switch ? ', wyłącznik awaryjny włączony' : ''}. Startowy kapitał to domyślnie 1 SOL.
-        Mały rachunek: 20–50 USD, zanim padnie pierwsza transakcja.
-      </p>
+      </section>
     </div>
+  )
+}
+
+function Spark({ ticks, symbol, live, missing }: { ticks: Array<{ price: number }>; symbol?: string; live: number | null; missing?: string }) {
+  if (!ticks.length) return <p className="gbt-foot">{symbol ? `$${symbol} live` : '—'} {missing ? `— ${missing}` : ''}</p>
+  const prices = ticks.map((tick) => tick.price)
+  const min = Math.min(...prices)
+  const max = Math.max(...prices)
+  const span = max - min || 1
+  const d = prices.map((price, index) => {
+    const x = (index / Math.max(1, prices.length - 1)) * 180
+    const y = 40 - ((price - min) / span) * 36
+    return `${index === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`
+  }).join(' ')
+  const tone = live != null && live < 0 ? '#ff5a6a' : '#3bfe49'
+  return (
+    <svg viewBox="0 0 180 48">
+      <text x="0" y="10" fill="#9a98a3" fontSize="10">${symbol} live</text>
+      <text x="120" y="10" fill={tone} fontSize="10">{live == null ? '' : `${live.toFixed(1)}%`}</text>
+      <path d={d} fill="none" stroke={tone} strokeWidth="1.6" />
+    </svg>
   )
 }

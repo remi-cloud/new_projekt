@@ -37,36 +37,47 @@ def _token(price: float) -> TokenView:
 def test_stop_uses_the_next_price_and_keeps_a_journal(monkeypatch):
     monkeypatch.setenv("SOLANA_REAL_TRADING", "false")
     monkeypatch.setenv(KEY, "flow-secret-value-0123456789")
+    from app.solana_desk.quotes import RouteQuote, install_router
+
+    class Router:
+        async def quote(self, *, input_mint, output_mint, amount, slippage_bps):
+            if output_mint == MINT or input_mint != MINT:
+                return RouteQuote(input_mint, output_mint, int(amount), int(amount), 0.4, 0, "jupiter", {"outAmount": str(amount)})
+            return RouteQuote(input_mint, output_mint, int(amount), 20_000_000, 0.5, 0, "jupiter", {"outAmount": "20000000"})
+
+        async def build_swap(self, quote, user_pubkey, priority_lamports):
+            return "tx"
+
+        async def rpc(self, method, params):
+            return {"result": {"value": {"err": None}}}
+
+        async def priority_fee_lamports(self, fallback, cap=10_000_000):
+            return min(fallback, cap)
+
+    install_router(Router())
 
     async def _run():
         await wipe_solana_desk()
         await apply_snapshot(MarketSnapshot(sol_usd=100, discovered=[_token(0.001)]))
-        pending = await list_positions()
-        assert len(pending) == 1
-        assert pending[0]["status"] == "pending"
-        assert pending[0]["entry_price"] is None
-
-        await apply_snapshot(MarketSnapshot(sol_usd=100, quotes={MINT: _token(0.0012)}))
         opened = await list_positions()
+        assert len(opened) == 1
         assert opened[0]["status"] == "open"
         entry = float(opened[0]["entry_price"])
-        assert entry > 0.0012
+        assert entry > 0
 
-        await apply_snapshot(MarketSnapshot(sol_usd=100, quotes={MINT: _token(0.0009)}))
+        await apply_snapshot(MarketSnapshot(sol_usd=100, quotes={MINT: _token(0.0004)}))
         assert await list_positions() == []
         trades = await list_trades(10)
         assert len(trades) == 1
         closed = trades[0]
-        exit_price = float(closed["exit_price"])
-        assert exit_price < 0.0009
-        assert exit_price < entry * 0.94
+        assert float(closed["exit_price"]) < entry * 0.94
         assert float(closed["pnl_sol"]) < 0
         assert float(closed["entry_fee_sol"]) > 0
         assert float(closed["exit_fee_sol"]) > 0
         assert "kolejnej cenie" in (closed["exit_reason"] or "")
         assert closed["mode"] == "paper"
         assert closed["signature"] is None
-        assert closed["solscan_url"] is None
+        assert closed["fill_source"] in {"quote", "quote+sim", "model"}
         csv_body = await journal_csv()
         assert "mint" in csv_body.splitlines()[0]
         assert MINT in csv_body
@@ -76,6 +87,7 @@ def test_stop_uses_the_next_price_and_keeps_a_journal(monkeypatch):
         assert view["real_trading_active"] is False
         assert view["net_pnl_sol"] < 0
         await wipe_solana_desk()
+        install_router(None)
 
     asyncio.run(_run())
 

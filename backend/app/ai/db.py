@@ -67,6 +67,15 @@ async def init_ai_db() -> None:
         await db.execute(
             "CREATE INDEX IF NOT EXISTS idx_ai_messages_session ON ai_messages(session_id, created_at)"
         )
+        for statement in (
+            "ALTER TABLE ai_learning_notes ADD COLUMN rule_json TEXT",
+            "ALTER TABLE ai_learning_notes ADD COLUMN status TEXT DEFAULT 'active'",
+            "ALTER TABLE ai_learning_notes ADD COLUMN agent TEXT DEFAULT 'llm'",
+        ):
+            try:
+                await db.execute(statement)
+            except Exception:
+                pass
         await db.commit()
     await _seed_knowledge_if_empty()
     await _ensure_seasonality_knowledge()

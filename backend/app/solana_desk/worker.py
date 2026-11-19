@@ -22,25 +22,43 @@ def autostart_enabled() -> bool:
 
 def interval_seconds() -> float:
     try:
-        value = float(os.environ.get("SOLANA_DESK_INTERVAL_SECONDS", "25"))
+        value = float(os.environ.get("SOLANA_DESK_INTERVAL_SECONDS", "10"))
     except ValueError:
-        value = 25.0
+        value = 10.0
     return max(10.0, min(value, 300.0))
+
+
+def price_interval_seconds() -> float:
+    try:
+        value = float(os.environ.get("SOLANA_DESK_PRICE_SECONDS", "2"))
+    except ValueError:
+        value = 2.0
+    return max(1.0, min(value, 30.0))
 
 
 async def run_forever() -> None:
     from app.solana_desk.db import disarm
+    from app.solana_desk.service import run_price_tick
 
     await disarm()
-    log.info("Solana Desk: pętla papierowa działa co %.0f s. Realny handel startuje rozbrojony.", interval_seconds())
+    log.info(
+        "Solana Desk: skan co %.0f s, ceny co %.0f s. Realny handel wymaga flagi, klucza i RPC.",
+        interval_seconds(),
+        price_interval_seconds(),
+    )
+    last_scan = 0.0
     while True:
         try:
-            await run_tick()
+            now = asyncio.get_running_loop().time()
+            if now - last_scan >= interval_seconds():
+                await run_tick()
+                last_scan = asyncio.get_running_loop().time()
+            await run_price_tick()
         except asyncio.CancelledError:
             raise
         except Exception:
             log.exception("Solana Desk: obieg przerwany.")
-        await asyncio.sleep(interval_seconds())
+        await asyncio.sleep(price_interval_seconds())
 
 
 async def start_embedded() -> None:

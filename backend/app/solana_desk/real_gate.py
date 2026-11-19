@@ -1,7 +1,8 @@
 """Real swaps stay unreachable until every gate is open.
 
-Gates: SOLANA_REAL_TRADING=true, SOLANA_BOT_PRIVATE_KEY, SOLANA_RPC_URL,
-and the in-panel arm switch. The arm switch is cleared on every process start.
+Gates: SOLANA_REAL_TRADING=true, SOLANA_BOT_PRIVATE_KEY, SOLANA_RPC_URL.
+The panel arm is required only when SOLANA_REQUIRE_PANEL_ARM=true (default
+false). When it is required, the switch is cleared on every process start.
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from app.log_redact import install_log_redact, scrub_record
 FLAG = "SOLANA_REAL_TRADING"
 KEY = "SOLANA_BOT_PRIVATE_KEY"
 RPC = "SOLANA_RPC_URL"
+ARM_FLAG = "SOLANA_REQUIRE_PANEL_ARM"
 JUPITER_QUOTE = "https://lite-api.jup.ag/swap/v1/quote"
 JUPITER_SWAP = "https://lite-api.jup.ag/swap/v1/swap"
 _TRUE = {"1", "true", "yes", "on"}
@@ -60,6 +62,11 @@ def rpc_configured() -> bool:
     return bool(os.environ.get(RPC, "").strip())
 
 
+def panel_arm_required() -> bool:
+    """Panel arm is opt-in. Default false: flag + key + RPC are enough."""
+    return os.environ.get(ARM_FLAG, "false").strip().lower() in _TRUE
+
+
 def redact(text: str) -> str:
     """Remove the wallet secret from a message. The value is never logged here."""
     secret = os.environ.get(KEY, "").strip()
@@ -76,7 +83,7 @@ def gate_reason(armed: bool) -> str:
         return "Brak SOLANA_BOT_PRIVATE_KEY. Zostaje sam papier."
     if not rpc_configured():
         return "Brak SOLANA_RPC_URL. Zostaje sam papier."
-    if not armed:
+    if panel_arm_required() and not armed:
         return "Handel realny jest rozbrojony. Uzbrój go w panelu. Po restarcie zamek sam schodzi."
     return ""
 
@@ -91,6 +98,7 @@ def real_mode_view(armed: bool = False) -> dict:
         "wallet_configured": wallet_configured(),
         "rpc_configured": rpc_configured(),
         "armed": bool(armed),
+        "require_panel_arm": panel_arm_required(),
         "real_trading_active": active,
         "lock_reason": reason,
         "route": "Jupiter Swap API v1 (lite-api.jup.ag)",
