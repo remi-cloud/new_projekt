@@ -35,6 +35,7 @@ from app.solana_desk.real_gate import RealTradingLocked, gate_reason, real_mode_
 from app.solana_desk.risk import assess_risk
 
 _INT_KEYS = {"time_stop_minutes", "max_open", "slippage_base_bps", "max_slippage_bps", "rugcheck_top_n"}
+_CLOCK_KEYS = {"session_start", "session_end"}
 _BOUNDS: dict[str, tuple[float, float]] = {
     "starting_sol": (0.05, 100),
     "position_sol": (0.01, 10),
@@ -60,6 +61,10 @@ _BOUNDS: dict[str, tuple[float, float]] = {
     "max_slippage_bps": (1, 300),
     "min_reserve_sol": (0, 5),
     "rugcheck_top_n": (1, 30),
+    "risk_per_trade_pct": (0.001, 0.1),
+    "min_size_pct": (0.01, 0.4),
+    "max_size_pct": (0.05, 0.4),
+    "max_slippage_pct": (0.1, 3),
 }
 
 
@@ -277,86 +282,21 @@ async def _fill_pending(
 
 
 async def _close_position(book: dict, row: dict, quote: TokenView, reason: str, now: datetime) -> None:
-    settings = _settings(book)
-    sol = finite(book.get("sol_usd"))
-    exit_signature = None
-    armed = await read_armed()
-    if gate_reason(armed) == "":
-        try:
-            live = await execute_swap(
-                armed=True,
-                side="sell",
-                mint=row["mint"],
-                amount_sol=0,
-                token_atoms=str(row.get("token_atoms") or ""),
-                sol_usd=sol,
-                price_usd=quote.price_usd,
-                tokens=finite(row.get("tokens")),
-                slippage_bps=finite(settings.get("slippage_base_bps"), 50),
-                priority_fee_sol=finite(settings.get("priority_fee_sol"), 0.00005),
-                reserve_sol=finite(settings.get("min_reserve_sol"), 0.05),
-                cash_sol=finite(book.get("cash_sol")),
-                reserved_sol=0,
-                day_pnl_sol=0,
-                open_count=0,
-                running=True,
-                kill_switch=False,
-                settings=settings,
-            )
-        except RealTradingLocked as exc:
-            await add_event("exit", redact(str(exc))[:240], row["mint"], row.get("symbol") or "")
-            return
-        proceeds = live.proceeds_sol
-        fee = live.fee_sol
-        price = live.price or quote.price_usd
-        slip = live.slippage
-        exit_signature = live.signature
-    else:
-        paper = simulate_sell(
-            next_price=quote.price_usd,
-            tokens=finite(row.get("tokens")),
-            sol_usd=sol,
-            liquidity_usd=quote.liquidity_usd or finite(row.get("liquidity_usd")),
-            priority_fee_sol=finite(settings.get("priority_fee_sol"), 0.00005),
-            pump_fee_rate=finite(settings.get("pump_fee_rate"), 0.01),
-            slippage_base_bps=finite(settings.get("slippage_base_bps"), 50),
-        )
-        proceeds = paper.proceeds_sol
-        fee = paper.fee_sol
-        price = paper.price
-        slip = paper.slippage
-    pnl = proceeds - finite(row.get("size_sol"))
-    book["cash_sol"] = finite(book.get("cash_sol")) + proceeds
-    book["fees_sol"] = finite(book.get("fees_sol")) + fee
-    book["realized_pnl_sol"] = finite(book.get("realized_pnl_sol")) + pnl
-    book["closed_trades"] = int(book.get("closed_trades") or 0) + 1
-    if pnl > 0:
-        book["wins"] = int(book.get("wins") or 0) + 1
-    text = EXIT_TEXT.get(reason, reason)
-    trade_id = row.get("trade_id")
-    if trade_id:
-        await update_trade(
-            int(trade_id),
-            {
-                "closed_at": _iso(now),
-                "status": "closed",
-                "exit_price": price,
-                "exit_fee_sol": fee,
-                "exit_slippage": slip,
-                "pnl_sol": pnl,
-                "exit_reason": text,
-                "exit_signature": exit_signature,
-            },
-        )
-    await delete_position(row["mint"])
-    _bump(book, "exit", "exits")
-    _note(book, "exit", f"{row.get('symbol')}: {text}.")
-    await add_event(
-        "exit",
-        f"{text}. Cena wyjścia {price:.8f}, PnL {pnl:.6f} SOL.",
-        row["mint"],
-        row.get("symbol") or "",
+    from app.solana_desk.agents.pipeline import close_row
+    from app.solana_desk.quotes import get_router
+
+    await close_row(
+        book,
+        row,
+        quote.price_usd,
+        quote.liquidity_usd,
+        reason,
+        now,
+        get_router(),
+        await read_armed(),
     )
+    _bump(book, "exit", "exits")
+    _note(book, "exit", f"{row.get('symbol')}: {reason}.")
 
 
 def _day_pnl(book: dict, rows: list[dict], prices: dict[str, float] | None = None) -> float:
@@ -408,6 +348,9 @@ async def apply_snapshot(snapshot: MarketSnapshot) -> dict:
     book["last_error"] = snapshot.error
     await _write_report(book, day, equity)
     await save_book(book)
+    from app.solana_desk.learning.postmortem import drain
+
+    await drain()
     return {"ok": True, "equity_sol": equity, "error": snapshot.error}
 
 
@@ -506,6 +449,14 @@ async def _stage_entries(book, rows, snapshot: MarketSnapshot, now: datetime) ->
                 "checker",
                 "Przepuszczony." if verdict.ok else "Odrzucony: " + ", ".join(verdict.reasons[:3]),
             )
+        scan = None
+        if fresh:
+            from app.solana_desk.agents.pipeline import log_scan
+
+            scan = await log_scan(token)
+            if scan.get("kind") == "SKIP":
+                memory.append(token.mint)
+                continue
         if not verdict.ok:
             if fresh and verdict.reasons != ("token za młody",):
                 await add_event(
@@ -514,54 +465,46 @@ async def _stage_entries(book, rows, snapshot: MarketSnapshot, now: datetime) ->
                     token.mint,
                     token.symbol,
                 )
+                from app.solana_desk.agents.logger import write as log_write
+                from app.solana_desk.agents.rug_check import _english
+
+                await log_write(
+                    kind="FILTER",
+                    agent="rug_check",
+                    reason=_english(verdict.reasons[0], token),
+                    mint=token.mint,
+                    symbol=token.symbol,
+                    parent_id=int(scan["id"]) if scan else None,
+                    detail={"reason_source": "rug_check"},
+                )
             continue
-        size = min(
-            finite(settings.get("position_sol"), 0.05),
-            finite(settings.get("max_per_trade_sol"), 0.1),
-        )
+        from app.solana_desk.agents.pipeline import consider
+        from app.solana_desk.db import read_armed
+        from app.solana_desk.quotes import get_router
+
         prices = {row["mint"]: finite(row.get("last_price")) for row in rows}
-        block = opening_block(
-            kill_switch=bool(book.get("kill_switch")),
-            running=True,
-            size_sol=size,
-            cash_sol=finite(book.get("cash_sol")),
-            reserved_sol=reserved,
-            day_pnl_sol=_day_pnl(book, rows, prices),
-            open_count=open_count,
+        opened_row = await consider(
+            book=book,
+            token=token,
+            rows=rows,
+            now=now,
             settings=settings,
+            router=get_router(),
+            armed=await read_armed(),
+            open_count=open_count,
+            reserved_sol=reserved,
+            day_pnl=_day_pnl(book, rows, prices),
+            scan=scan,
         )
-        if block:
+        memory.append(token.mint)
+        if not opened_row:
             _bump(book, "sniper", "skipped")
-            _note(book, "sniper", f"Pominięto {token.symbol}: {block}.")
-            break
-        reason = f"Checker przepuścił {token.venue}. Płynność {token.liquidity_usd:.0f} USD."
-        await upsert_position(
-            {
-                "mint": token.mint,
-                "symbol": token.symbol,
-                "venue": token.venue,
-                "status": "pending",
-                "signal_price": token.price_usd,
-                "entry_price": None,
-                "last_price": token.price_usd,
-                "peak_price": token.price_usd,
-                "tokens": 0,
-                "size_sol": size,
-                "entry_fee_sol": 0,
-                "entry_slippage": 0,
-                "entry_reason": reason,
-                "signal_at": _iso(now),
-                "opened_at": "",
-                "liquidity_usd": token.liquidity_usd,
-                "reserved_sol": size,
-                "trade_id": None,
-            }
-        )
-        reserved += size
+            continue
+        reserved += finite(opened_row.get("size_sol"))
         open_count += 1
         staged += 1
-        memory.append(token.mint)
-        await add_event("sniper", "Sygnał przyjęty. Wejście na następnym obiegu, po opóźnieniu.", token.mint, token.symbol)
+        _bump(book, "sniper", "entries")
+        rows.append(opened_row)
         if staged >= 2:
             break
     book["seen_mints"] = memory[-300:]
@@ -588,6 +531,53 @@ async def _write_report(book: dict, day: str, equity: float) -> None:
         ),
     }
     await save_report(day, payload)
+
+
+async def run_price_tick() -> dict:
+    """Every 2s: store prices for open positions and the four chips, then check exits."""
+    await init_solana_desk_db()
+    from app.solana_desk.runtime import process_owner
+    from app.solana_desk.store import insert_tick
+
+    if not await claim_worker(process_owner(), 30):
+        return {"ok": True, "skipped": "lock"}
+    book = await load_book()
+    rows = await list_positions()
+    mints = [row["mint"] for row in rows if row.get("status") == "open"]
+    for chip in book.get("chips") or []:
+        if chip.get("mint"):
+            mints.append(str(chip["mint"]))
+    unique = list(dict.fromkeys(mints))[:30]
+    if not unique:
+        return {"ok": True, "ticks": 0}
+    from app.solana_desk.market import fetch_prices
+
+    try:
+        prices = await fetch_prices(unique)
+    except Exception:
+        prices = {}
+    now = datetime.now(timezone.utc)
+    for mint, point in prices.items():
+        await insert_tick(mint, finite(point.get("price")), point.get("liq"))
+    if prices:
+        discovered = []
+        quotes = {}
+        for row in rows:
+            point = prices.get(row["mint"])
+            if not point:
+                continue
+            token = TokenView(
+                mint=row["mint"],
+                symbol=row.get("symbol") or "",
+                price_usd=finite(point.get("price")),
+                liquidity_usd=finite(point.get("liq") or row.get("liquidity_usd")),
+                venue=row.get("venue") or "solana",
+            )
+            quotes[row["mint"]] = token
+        if quotes:
+            await _manage_open(book, rows, MarketSnapshot(sol_usd=finite(book.get("sol_usd")), quotes=quotes), {m: t.price_usd for m, t in quotes.items()}, now)
+            await save_book(book)
+    return {"ok": True, "ticks": len(prices)}
 
 
 async def run_tick(snapshot: MarketSnapshot | None = None) -> dict:
@@ -664,6 +654,12 @@ async def update_settings(patch: dict) -> dict:
     for key, value in patch.items():
         if key in {"starting_sol", "starting_usd"} or value in (None, ""):
             continue
+        if key in _CLOCK_KEYS:
+            text = str(value)
+            if len(text) != 5 or text[2] != ":" or not text.replace(":", "").isdigit():
+                raise ValueError("Godzina sesji to HH:MM.")
+            settings[key] = text
+            continue
         settings[key] = _clamp_setting(key, value)
     if finite(settings.get("position_sol")) > finite(settings.get("max_per_trade_sol")):
         settings["position_sol"] = settings["max_per_trade_sol"]
@@ -716,6 +712,7 @@ async def status_view() -> dict:
             "win_rate": (wins / closed) if closed else 0,
             "closed_trades": closed,
             "wins": wins,
+            "losses": int(book.get("losses") or 0),
             "open_positions": sum(1 for row in rows if row.get("status") == "open"),
             "max_drawdown": finite(book.get("max_drawdown")),
             "last_tick_at": book.get("last_tick_at") or "",

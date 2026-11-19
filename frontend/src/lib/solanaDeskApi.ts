@@ -132,7 +132,108 @@ export function postSolanaControl(action: string): Promise<SolanaStatus> {
   }).then((res) => readJson<SolanaStatus>(res))
 }
 
-export function postSolanaSettings(patch: Record<string, number>): Promise<SolanaStatus> {
+export type TerminalPayload = {
+  header: {
+    title: string
+    caption: string
+    version: string
+    mode: string
+    pill: string
+    running: boolean
+    kill_switch: boolean
+    worker_online: boolean
+    equity_usd: number | null
+    equity_sol: number | null
+    sol_usd: number | null
+    trades: number
+    wins: number
+    losses: number
+    current_action: string | null
+    tagline: string
+    footer: string
+    require_panel_arm?: boolean
+    lock_reason?: string
+  }
+  agents: Array<{
+    id: string
+    name: string
+    role: string
+    rule: string
+    color: string
+    status_line: string
+    badge: string
+    health: string
+    health_detail: string
+    lessons: number
+    lesson_line: string
+    active: boolean
+  }>
+  online: number
+  flow: {
+    chips: Array<{ mint?: string; symbol?: string; metric?: string; state?: string }>
+    checked_count: number
+    sparkline: Array<{ ts: string; price: number }>
+  }
+  tiles: {
+    filtered: number
+    skipped: number
+    last_size: { pct: number | null; sol: number | null; usd: number | null } | null
+    logger_line: number | null
+    last_close_pnl_usd: number | null
+  }
+  trade: {
+    state: string
+    symbol: string
+    side: string
+    live_pct: number | null
+    entry: number | null
+    exit_label: string | null
+    slip: number | null
+    size_pct: number | null
+    reason: string
+    exit_reason: string | null
+  } | null
+  tail: Array<{ id: number; time: string; kind: string; symbol: string; text: string; reason: string; pnl_usd: number | null; fill_source: string | null; lesson: boolean }>
+  result: {
+    label: string
+    start_equity_usd: number | null
+    now_equity_usd: number | null
+    start_equity_sol: number
+    now_equity_sol: number
+    w: number
+    l: number
+    footer: string
+  }
+  log: Array<{ id: number; time: string; kind: string; symbol: string; reason: string; right: string | number | null; pnl_usd: number | null; lesson: boolean; fill_source: string | null }>
+  lessons: { active: number; shadow: number; retired: number; llm: boolean; note: string | null }
+  missing: Record<string, string>
+  lines: number
+  settings: Record<string, number | string>
+  desk: { armed: boolean; running: boolean; kill_switch: boolean }
+}
+
+export function fetchSolanaTerminal(): Promise<TerminalPayload> {
+  return apiFetch(`${API_BASE}/solana/terminal`).then((res) => readJson<TerminalPayload>(res))
+}
+
+export function fetchSolanaDecisions(beforeId: number): Promise<{ decisions: TerminalPayload['log'] }> {
+  return apiFetch(`${API_BASE}/solana/decisions?before_id=${beforeId}&limit=50`).then((res) => readJson(res))
+}
+
+export function fetchSolanaLessons(agent = ''): Promise<{ lessons: Array<Record<string, unknown>> }> {
+  const query = agent ? `?agent=${encodeURIComponent(agent)}` : ''
+  return apiFetch(`${API_BASE}/solana/lessons${query}`).then((res) => readJson(res))
+}
+
+export function postSolanaSelfTest(): Promise<Record<string, unknown>> {
+  return apiFetch(`${API_BASE}/solana/selftest`, { method: 'POST' }).then((res) => readJson(res))
+}
+
+export function fetchSolanaSelfTest(): Promise<Record<string, unknown>> {
+  return apiFetch(`${API_BASE}/solana/selftest/last`).then((res) => readJson(res))
+}
+
+export function postSolanaSettings(patch: Record<string, number | string>): Promise<SolanaStatus> {
   return apiFetch(`${API_BASE}/solana/settings`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

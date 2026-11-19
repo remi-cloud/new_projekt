@@ -266,6 +266,13 @@ async def chat(
         except Exception as exc:
             logger.debug("Paper portfolio inject skipped: %s", exc)
 
+    try:
+        from app.solana_desk.learning.llm_bridge import inject_finance_lessons
+
+        ctx = await inject_finance_lessons(ctx)
+    except Exception as exc:
+        logger.debug("Desk lesson prompt skipped: %s", exc)
+
     inject_n = max(3, min(12, int(getattr(settings, "ai_learning_inject_limit", 8) or 8)))
     lessons = await ai_db.get_learning_notes(limit=inject_n)
     if lessons:

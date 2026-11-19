@@ -32,12 +32,19 @@ async def process_feedback(rating: int, question: str, answer: str, correction: 
                 logger.debug("Positive feedback learn failed: %s", exc)
         return
     if correction and len(correction.strip()) > 10:
+        lesson = f"Przy pytaniu: {question[:200]} → poprawka użytkownika: {correction[:500]}"
         await ai_db.add_learning_note(
             topic="user_correction",
-            lesson=f"Przy pytaniu: {question[:200]} → poprawka użytkownika: {correction[:500]}",
+            lesson=lesson,
             source="user_feedback",
             confidence=0.85,
         )
+        try:
+            from app.solana_desk.learning.llm_bridge import note_correction
+
+            await note_correction(question, correction)
+        except Exception as exc:
+            logger.debug("Desk lesson from correction skipped: %s", exc)
         return
 
     if llm_configured() and rating <= 2:
