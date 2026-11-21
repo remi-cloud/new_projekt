@@ -38,6 +38,7 @@ def test_render_abstract_hero_no_crash(sample_item: MacroNewsItem):
 
 @pytest.mark.asyncio
 async def test_generate_for_item_abstract(sample_item: MacroNewsItem, monkeypatch):
+    monkeypatch.setattr(image_agent.settings, "news_images_enabled", True)
     monkeypatch.setattr(image_agent.settings, "news_images_use_dalle", False)
 
     async def _no_photo(item):
