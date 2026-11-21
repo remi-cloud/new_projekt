@@ -319,3 +319,39 @@ async def test_seasonality_refresh_failure_keeps_last_real_timestamp(monkeypatch
     st = live.seasonality_state()
     assert st["updated_at"] == before
     assert st["last_error"]
+
+
+# --- seasonality / cycle-book tables are recomputed live, not frozen snapshots -------
+
+
+def test_apply_generated_updates_tables_in_place_and_consumers():
+    import types
+
+    from app.cycles.snapshot_refresh import apply_generated
+
+    data = types.ModuleType("fake_data")
+    data.TABLE = {"a": 1}
+    data.ROWS = [1]
+    data.GENERATED_AT = "2026-08-05T00:00:00Z"
+    ref, rows = data.TABLE, data.ROWS
+    apply_generated(data, {"TABLE": {"b": 2}, "ROWS": [2, 3], "GENERATED_AT": "2026-11-21T06:00:00Z", "x": 1})
+    assert data.TABLE is ref and ref == {"b": 2}
+    assert data.ROWS is rows and rows == [2, 3]
+    assert data.GENERATED_AT == "2026-11-21T06:00:00Z"
+
+
+@pytest.mark.asyncio
+async def test_snapshot_refresh_failure_keeps_previous_tables(monkeypatch):
+    from app.cycles import calendar_seasonality_data as data
+    from app.cycles import snapshot_refresh
+
+    before = data.GENERATED_AT
+
+    def boom(*_a, **_k):
+        raise RuntimeError("yahoo down")
+
+    monkeypatch.setattr(snapshot_refresh, "_run_generator", boom)
+    assert await snapshot_refresh.refresh_snapshot("calendar") is False
+    assert data.GENERATED_AT == before
+    st = snapshot_refresh.snapshot_state()["calendar"]
+    assert st["last_error"] and st["updated_at"] == before

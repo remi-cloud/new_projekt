@@ -348,6 +348,16 @@ async def scheduled_btc_seasonality_refresh() -> None:
         logger.warning("BTC seasonality refresh failed: %s", exc)
 
 
+async def scheduled_snapshot_refresh() -> None:
+    """Daily recompute of calendar / intramonth / global-book tables from real history."""
+    try:
+        from app.cycles.snapshot_refresh import refresh_all_snapshots
+
+        await refresh_all_snapshots()
+    except Exception as exc:
+        logger.warning("Snapshot refresh failed: %s", exc)
+
+
 def start_scheduler() -> None:
     global _running, _initialised
     if _running:
@@ -376,6 +386,14 @@ def start_scheduler() -> None:
         id="btc_seasonality_refresh",
         replace_existing=True,
         next_run_time=datetime.now(timezone.utc) + timedelta(seconds=20),
+    )
+    scheduler.add_job(
+        scheduled_snapshot_refresh,
+        "interval",
+        hours=24,
+        id="seasonality_snapshot_refresh",
+        replace_existing=True,
+        next_run_time=datetime.now(timezone.utc) + timedelta(minutes=3),
     )
     scheduler.add_job(
         scheduled_news_refresh,
