@@ -419,6 +419,25 @@ export const en: Translations = {
     topOpportunities: 'Top opportunities',
     seeAll: 'See all →',
   },
+  marketHeat: {
+    title: 'What is driving the market now',
+    subtitle: 'The events that actually matter for the market',
+    whatHappened: 'What happened',
+    whyMatters: 'Why it matters for the market',
+    source: 'Source',
+    readMore: 'Read more',
+    collapse: 'Collapse',
+    empty: 'No verified high-impact market topics right now. Check back later.',
+    why: {
+      fed: 'Fed policy sets the cost of money and the mood across equities, bonds and crypto.',
+      usa: 'US data and decisions feed through to global risk pricing.',
+      macro: 'Macro readings shift expectations for rates and growth.',
+      global: 'Global events move capital between markets and asset classes.',
+      musk: 'Moves around Musk-linked companies can sharply swing related assets.',
+      crypto: 'Shifts in crypto regulation and flows drive volatility across the sector.',
+      default: 'An event with heightened impact on market sentiment.',
+    },
+  },
   investmentShowcase: {
     eyebrow: 'Invest with us · backtest',
     headline: 'If you had invested with our cycle strategy',
@@ -437,7 +456,6 @@ export const en: Translations = {
     disclaimer: 'Educational simulation on historical data — not investment advice or a guarantee of future results.',
   },
   dashboard: {
-    marketCycles: 'Market cycles',
     tradingOpportunities: 'Trading opportunities',
     seeAll: 'See all →',
     emptySignals: 'No active signals.',
@@ -641,6 +659,7 @@ export const en: Translations = {
     buySide: 'BUY', sellSide: 'SELL',
   },
   alerts: {
+    guestReadOnly: 'Log in to the desk to change settings. This view is read-only.',
     empty: 'Alert settings are empty. Try again.',
     loadError: 'Could not load settings',
     saved: 'Settings saved ✓',

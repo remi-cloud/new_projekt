@@ -3,6 +3,7 @@ import { CycleCardBitcoin } from '../components/CycleCardBitcoin'
 import { ErrorState, Loading } from '../components/Loading'
 import { OpportunityCard } from '../components/OpportunityCard'
 import { InvestmentShowcase } from '../components/InvestmentShowcase'
+import { MarketHeatSection } from '../components/MarketHeatSection'
 import { TradingPlatformBanner } from '../components/TradingPlatformBanner'
 import { useDashboardContext } from '../context/DashboardContext'
 import { useLocale } from '../context/LocaleContext'
@@ -46,6 +47,8 @@ export function HomePage() {
 
       <div className="home-page-body">
         <InvestmentShowcase />
+
+        <MarketHeatSection />
 
         <section className="home-cycles">
           <CycleCardBitcoin cycle={data.bitcoin_cycle} />

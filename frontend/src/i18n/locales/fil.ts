@@ -375,6 +375,25 @@ export const fil: Translations = {
     },
   },
   home: { topOpportunities: 'Nangungunang pagkakataon', seeAll: 'Lahat →' },
+  marketHeat: {
+    title: 'Ano ang nagpapagalaw sa merkado ngayon',
+    subtitle: 'Ang mga pangyayaring talagang mahalaga para sa merkado',
+    whatHappened: 'Ano ang nangyari',
+    whyMatters: 'Bakit mahalaga ito para sa merkado',
+    source: 'Pinagmulan',
+    readMore: 'Magbasa pa',
+    collapse: 'Isara',
+    empty: 'Walang na-verify na mga paksang may malaking epekto sa merkado sa ngayon. Bumalik mamaya.',
+    why: {
+      fed: 'Itinatakda ng patakaran ng Fed ang halaga ng pera at ang damdamin sa stocks, bonds at crypto.',
+      usa: 'Ang datos at desisyon ng US ay umaapekto sa pandaigdigang pagpepresyo ng panganib.',
+      macro: 'Binabago ng macro data ang inaasahan sa interes at paglago.',
+      global: 'Inililipat ng mga pandaigdigang pangyayari ang kapital sa pagitan ng mga merkado at asset class.',
+      musk: 'Ang mga galaw sa mga kumpanya ni Musk ay maaaring magpagalaw nang malaki sa kaugnay na mga asset.',
+      crypto: 'Ang mga pagbabago sa regulasyon at daloy ng crypto ay nagdudulot ng volatility sa buong sektor.',
+      default: 'Isang pangyayaring may mataas na epekto sa damdamin ng merkado.',
+    },
+  },
   investmentShowcase: {
     eyebrow: 'Invest with us · backtest',
     headline: 'If you had invested with our cycle strategy',
@@ -393,7 +412,7 @@ export const fil: Translations = {
     disclaimer: 'Educational simulation — not investment advice.',
   },
   dashboard: {
-    marketCycles: 'Mga siklo ng merkado', tradingOpportunities: 'Mga trading opportunity', seeAll: 'Lahat →',
+    tradingOpportunities: 'Mga trading opportunity', seeAll: 'Lahat →',
     emptySignals: 'Walang aktibong signal.', momentumTitle: 'Momentum + siklo',
     momentumDesc: 'Mga signal kung saan nagtugma ang momentum at siklo', momentumShort: 'Mom.',
     confidencePct: '{{n}}% kumpiyansa', topMarkets: 'Nangungunang merkado ayon sa rating', momentum: 'Momentum: {{n}}',
@@ -552,6 +571,7 @@ export const fil: Translations = {
     buySide: 'BILI', sellSide: 'BENTA',
   },
   alerts: {
+    guestReadOnly: 'Mag-log in sa desk para baguhin ang mga setting. Read-only ang view na ito.',
     empty: 'Walang alert settings. Subukan muli.',
     loadError: 'Hindi ma-load ang settings', saved: 'Na-save ang settings ✓', saveError: 'Error sa pag-save',
     pushUnavailable: 'Hindi available ang push — walang VAPID key sa server',

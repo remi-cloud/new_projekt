@@ -375,6 +375,25 @@ export const fr: Translations = {
     },
   },
   home: { topOpportunities: 'Meilleures opportunités', seeAll: 'Tout voir →' },
+  marketHeat: {
+    title: 'Ce qui fait bouger le marché maintenant',
+    subtitle: 'Les événements qui comptent vraiment pour le marché',
+    whatHappened: 'Ce qui s\'est passé',
+    whyMatters: 'Pourquoi c\'est important pour le marché',
+    source: 'Source',
+    readMore: 'Lire la suite',
+    collapse: 'Réduire',
+    empty: 'Aucun sujet vérifié à fort impact sur le marché pour le moment. Revenez plus tard.',
+    why: {
+      fed: 'La politique de la Fed fixe le coût de l\'argent et l\'humeur des marchés actions, obligations et crypto.',
+      usa: 'Les données et décisions américaines se répercutent sur la valorisation mondiale du risque.',
+      macro: 'Les indicateurs macro modifient les attentes sur les taux et la croissance.',
+      global: 'Les événements mondiaux déplacent les capitaux entre marchés et classes d\'actifs.',
+      musk: 'Les mouvements autour des sociétés de Musk peuvent faire fortement varier les actifs liés.',
+      crypto: 'Les changements de régulation et de flux dans la crypto alimentent la volatilité du secteur.',
+      default: 'Un événement à impact accru sur le climat de marché.',
+    },
+  },
   investmentShowcase: {
     eyebrow: 'Invest with us · backtest',
     headline: 'If you had invested with our cycle strategy',
@@ -393,7 +412,7 @@ export const fr: Translations = {
     disclaimer: 'Educational simulation — not investment advice.',
   },
   dashboard: {
-    marketCycles: 'Cycles de marché', tradingOpportunities: 'Opportunités de trading', seeAll: 'Tout voir →',
+    tradingOpportunities: 'Opportunités de trading', seeAll: 'Tout voir →',
     emptySignals: 'Aucun signal actif.', momentumTitle: 'Momentum + cycle',
     momentumDesc: 'Signaux où momentum et cycles s\'alignent', momentumShort: 'Mom.',
     confidencePct: '{{n}}% de confiance', topMarkets: 'Meilleurs marchés par notation', momentum: 'Momentum : {{n}}',
@@ -552,6 +571,7 @@ export const fr: Translations = {
     buySide: 'ACHAT', sellSide: 'VENTE',
   },
   alerts: {
+    guestReadOnly: 'Connecte-toi au bureau pour modifier les réglages. Cette vue est en lecture seule.',
     empty: 'Aucun réglage d’alerte. Réessayez.',
     loadError: 'Impossible de charger les paramètres', saved: 'Paramètres enregistrés ✓', saveError: 'Erreur d\'enregistrement',
     pushUnavailable: 'Push indisponible — pas de clé VAPID sur le serveur',

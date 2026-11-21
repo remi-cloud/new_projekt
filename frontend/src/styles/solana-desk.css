@@ -119,3 +119,97 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ===== "Co grzeje rynek teraz" — guest market-heat section ===== */
+.market-heat {
+  margin: 1.5rem 0;
+}
+.market-heat .market-heat-subtitle {
+  font-size: 0.85rem;
+  color: var(--muted, #8a94a6);
+}
+.market-heat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+.market-heat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1rem;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  border-radius: 14px;
+  background: var(--panel, rgba(255, 255, 255, 0.03));
+}
+.market-heat-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.market-heat-date {
+  font-size: 0.78rem;
+  color: var(--muted, #8a94a6);
+}
+.market-heat-badge {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(255, 92, 92, 0.16);
+  color: #ff8a8a;
+  white-space: nowrap;
+}
+.market-heat-headline {
+  font-size: 1.02rem;
+  line-height: 1.3;
+  margin: 0;
+}
+.market-heat-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.market-heat-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent, #6ea8fe);
+}
+.market-heat-text {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--text, #e6e9ef);
+}
+.market-heat-clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.market-heat-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: auto;
+  padding-top: 0.4rem;
+}
+.market-heat-source {
+  font-size: 0.82rem;
+  color: var(--accent, #6ea8fe);
+  text-decoration: none;
+}
+.market-heat-source:hover {
+  text-decoration: underline;
+}
+.market-heat-empty {
+  padding: 1rem;
+  border: 1px dashed var(--border, rgba(255, 255, 255, 0.12));
+  border-radius: 12px;
+  color: var(--muted, #8a94a6);
+  font-size: 0.9rem;
+}

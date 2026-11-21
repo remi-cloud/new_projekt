@@ -419,6 +419,25 @@ export const pl: Translations = {
     topOpportunities: 'Top okazje',
     seeAll: 'Wszystkie →',
   },
+  marketHeat: {
+    title: 'Co grzeje rynek teraz',
+    subtitle: 'Najważniejsze wydarzenia o realnym znaczeniu dla rynku',
+    whatHappened: 'Co się stało',
+    whyMatters: 'Dlaczego ważne dla rynku',
+    source: 'Źródło',
+    readMore: 'Czytaj dalej',
+    collapse: 'Zwiń',
+    empty: 'W tej chwili brak zweryfikowanych tematów o dużym znaczeniu dla rynku. Zajrzyj później.',
+    why: {
+      fed: 'Polityka Fed wyznacza koszt pieniądza i nastroje na rynkach akcji, obligacji oraz krypto.',
+      usa: 'Dane i decyzje z USA przekładają się na globalne wyceny ryzyka.',
+      macro: 'Odczyty makro zmieniają oczekiwania co do stóp procentowych i tempa wzrostu.',
+      global: 'Wydarzenia globalne przesuwają kapitał między rynkami i klasami aktywów.',
+      musk: 'Ruchy wokół spółek Muska potrafią gwałtownie poruszyć powiązane aktywa.',
+      crypto: 'Zmiany regulacji i przepływów w krypto wpływają na zmienność całego sektora.',
+      default: 'Wydarzenie o podwyższonym wpływie na nastroje rynkowe.',
+    },
+  },
   investmentShowcase: {
     eyebrow: 'Inwestycja z nami · backtest',
     headline: 'Gdybyś zainwestował z naszą strategią cyklu',
@@ -437,7 +456,6 @@ export const pl: Translations = {
     disclaimer: 'Symulacja edukacyjna na danych historycznych — nie stanowi porady inwestycyjnej ani gwarancji wyników.',
   },
   dashboard: {
-    marketCycles: 'Cykle rynkowe',
     tradingOpportunities: 'Okazje tradingowe',
     seeAll: 'Wszystkie →',
     emptySignals: 'Brak aktywnych sygnałów.',
@@ -640,6 +658,7 @@ export const pl: Translations = {
     buySide: 'KUP', sellSide: 'SPRZEDAJ',
   },
   alerts: {
+    guestReadOnly: 'Zaloguj biurko, aby zmienić ustawienia. Podgląd jest tylko do odczytu.',
     empty: 'Brak ustawień alertów. Spróbuj ponownie.',
     loadError: 'Nie udało się załadować ustawień',
     saved: 'Ustawienia zapisane ✓',

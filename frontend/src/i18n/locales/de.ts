@@ -375,6 +375,25 @@ export const de: Translations = {
     },
   },
   home: { topOpportunities: 'Top-Chancen', seeAll: 'Alle →' },
+  marketHeat: {
+    title: 'Was den Markt gerade bewegt',
+    subtitle: 'Die Ereignisse, die wirklich für den Markt zählen',
+    whatHappened: 'Was ist passiert',
+    whyMatters: 'Warum es für den Markt wichtig ist',
+    source: 'Quelle',
+    readMore: 'Mehr lesen',
+    collapse: 'Einklappen',
+    empty: 'Derzeit keine verifizierten Themen mit großer Marktbedeutung. Schauen Sie später wieder vorbei.',
+    why: {
+      fed: 'Die Fed-Politik bestimmt die Geldkosten und die Stimmung an Aktien-, Anleihen- und Kryptomärkten.',
+      usa: 'US-Daten und -Entscheidungen wirken sich auf die globale Risikobewertung aus.',
+      macro: 'Makrodaten verändern die Erwartungen an Zinsen und Wachstum.',
+      global: 'Globale Ereignisse verschieben Kapital zwischen Märkten und Anlageklassen.',
+      musk: 'Bewegungen rund um Musk-Unternehmen können verbundene Werte stark bewegen.',
+      crypto: 'Änderungen bei Regulierung und Kapitalflüssen im Kryptobereich treiben die Volatilität des Sektors.',
+      default: 'Ein Ereignis mit erhöhtem Einfluss auf die Marktstimmung.',
+    },
+  },
   investmentShowcase: {
     eyebrow: 'Invest with us · backtest',
     headline: 'If you had invested with our cycle strategy',
@@ -393,7 +412,7 @@ export const de: Translations = {
     disclaimer: 'Educational simulation — not investment advice.',
   },
   dashboard: {
-    marketCycles: 'Marktzyklen', tradingOpportunities: 'Trading-Chancen', seeAll: 'Alle →',
+    tradingOpportunities: 'Trading-Chancen', seeAll: 'Alle →',
     emptySignals: 'Keine aktiven Signale.', momentumTitle: 'Momentum + Zyklus',
     momentumDesc: 'Signale, bei denen Momentum und Zyklen übereinstimmen', momentumShort: 'Mom.',
     confidencePct: '{{n}}% Konfidenz', topMarkets: 'Top-Märkte nach Bewertung', momentum: 'Momentum: {{n}}',
@@ -559,6 +578,7 @@ export const de: Translations = {
     buySide: 'KAUF', sellSide: 'VERKAUF',
   },
   alerts: {
+    guestReadOnly: 'Melde dich am Desk an, um Einstellungen zu ändern. Diese Ansicht ist schreibgeschützt.',
     empty: 'Keine Alert-Einstellungen. Bitte erneut versuchen.',
     loadError: 'Einstellungen konnten nicht geladen werden', saved: 'Einstellungen gespeichert ✓',
     saveError: 'Fehler beim Speichern', pushUnavailable: 'Push nicht verfügbar — kein VAPID-Schlüssel auf dem Server',

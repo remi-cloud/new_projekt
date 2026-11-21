@@ -375,6 +375,25 @@ export const es: Translations = {
     },
   },
   home: { topOpportunities: 'Mejores oportunidades', seeAll: 'Ver todos →' },
+  marketHeat: {
+    title: 'Qué mueve el mercado ahora',
+    subtitle: 'Los acontecimientos que de verdad importan para el mercado',
+    whatHappened: 'Qué pasó',
+    whyMatters: 'Por qué importa para el mercado',
+    source: 'Fuente',
+    readMore: 'Leer más',
+    collapse: 'Contraer',
+    empty: 'Por ahora no hay temas verificados de gran impacto en el mercado. Vuelve más tarde.',
+    why: {
+      fed: 'La política de la Fed fija el coste del dinero y el ánimo en acciones, bonos y cripto.',
+      usa: 'Los datos y decisiones de EE. UU. se trasladan a la valoración global del riesgo.',
+      macro: 'Los datos macro cambian las expectativas sobre tipos y crecimiento.',
+      global: 'Los eventos globales mueven capital entre mercados y clases de activos.',
+      musk: 'Los movimientos en torno a las empresas de Musk pueden mover con fuerza activos relacionados.',
+      crypto: 'Los cambios en la regulación y los flujos cripto impulsan la volatilidad del sector.',
+      default: 'Un acontecimiento con mayor impacto en el ánimo del mercado.',
+    },
+  },
   investmentShowcase: {
     eyebrow: 'Invest with us · backtest',
     headline: 'If you had invested with our cycle strategy',
@@ -393,7 +412,7 @@ export const es: Translations = {
     disclaimer: 'Educational simulation — not investment advice.',
   },
   dashboard: {
-    marketCycles: 'Ciclos de mercado', tradingOpportunities: 'Oportunidades de trading', seeAll: 'Ver todos →',
+    tradingOpportunities: 'Oportunidades de trading', seeAll: 'Ver todos →',
     emptySignals: 'No hay señales activas.', momentumTitle: 'Momentum + ciclo',
     momentumDesc: 'Señales donde momentum y ciclos coinciden', momentumShort: 'Mom.',
     confidencePct: '{{n}}% confianza', topMarkets: 'Mejores mercados por valoración', momentum: 'Momentum: {{n}}',
@@ -552,6 +571,7 @@ export const es: Translations = {
     buySide: 'COMPRA', sellSide: 'VENTA',
   },
   alerts: {
+    guestReadOnly: 'Inicia sesión en el panel para cambiar los ajustes. Esta vista es de solo lectura.',
     empty: 'No hay ajustes de alertas. Inténtalo de nuevo.',
     loadError: 'No se pudieron cargar los ajustes', saved: 'Ajustes guardados ✓', saveError: 'Error al guardar',
     pushUnavailable: 'Push no disponible — sin clave VAPID en el servidor',
