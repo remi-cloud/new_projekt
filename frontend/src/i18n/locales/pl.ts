@@ -1024,7 +1024,7 @@ export const pl: Translations = {
   superDesk: {
     title: 'Superokazje',
     bookAria: 'Księga bid i ask',
-    lead: 'Heatmapa likwidacji jest na każdej pozycji (IN / SL / TP + liq).',
+    lead: 'Heatmapa likwidacji to estymacja modelowa: klastry liczone z realnych świec i wolumenu (Yahoo/Binance) dla typowych dźwigni 5–100x — nie są to dane o likwidacjach z giełdy. Bid/Ask tylko z realnej księgi (Binance/Coinbase/Yahoo), inaczej brak danych.',
     hydrating: 'Dociąganie pełnej mapy 3D…',
     singularity: 'Singularity',
     onlySuper: 'Tylko SUPER (≥72)',

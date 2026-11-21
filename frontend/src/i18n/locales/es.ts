@@ -778,7 +778,7 @@ export const es: Translations = {
   superDesk: {
     title: 'Super setups',
     bookAria: 'Libro de bid y ask',
-    lead: 'A liquidation heatmap sits on every position (entry / stop / target + liq).',
+    lead: 'The liquidation heatmap is a model estimate: clusters computed from real candles and volume (Yahoo/Binance) for typical 5–100x leverage — not exchange liquidation data. Bid/ask only from a real book (Binance/Coinbase/Yahoo), otherwise no data.',
     hydrating: 'Loading the full 3D map…',
     singularity: 'Singularity',
     onlySuper: 'SUPER only (≥72)',
