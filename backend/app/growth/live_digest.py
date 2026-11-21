@@ -22,6 +22,13 @@ async def build_live_digest(locale: str = "pl") -> dict:
     news_feed = await get_macro_news(category="all", limit=16, locale=locale)
     digest_news = sort_by_alignment(list(news_feed.items))[:6]
     watch = await top_watchlist(10)
+    # Votable candidates = real voted tickers + the scanner's current top picks
+    # (with their real vote count, 0 if nobody voted yet). Nothing seeded.
+    seen = {w["symbol"] for w in watch}
+    for o in opps:
+        if o.symbol not in seen and len(watch) < 10:
+            watch.append({"symbol": o.symbol, "name": o.name, "votes": 0, "updated_at": None})
+            seen.add(o.symbol)
     from app.data.community_links import resolve_community_links
 
     watch = [
@@ -35,6 +42,10 @@ async def build_live_digest(locale: str = "pl") -> dict:
     return {
         "fetched_at": now.isoformat(),
         "status": "live" if scanner.live_mode else "online",
+        "last_scan_at": scanner.last_scan_at.isoformat() if scanner.last_scan_at else None,
+        "last_price_tick_at": (
+            scanner.last_price_tick_at.isoformat() if scanner.last_price_tick_at else None
+        ),
         "bitcoin_cycle": btc.model_dump() if btc else None,
         "top_opportunities": [
             {
@@ -65,7 +76,6 @@ async def build_live_digest(locale: str = "pl") -> dict:
         "cta": {
             "calculator": "/kalkulator",
             "business": "/biznes",
-            "newsletter": True,
         },
         "disclaimer": (
             "Sekcja informacyjna — nie stanowi rekomendacji inwestycyjnej. "

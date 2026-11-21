@@ -145,82 +145,43 @@ async def top_watchlist(limit: int = 12) -> list[dict]:
             (limit,),
         )
         rows = await cur.fetchall()
-    if rows:
-        return [
-            {"symbol": r[0], "name": r[1] or r[0], "votes": r[2], "updated_at": r[3]}
-            for r in rows
-        ]
-    # Seed defaults so UI is not empty on fresh installs
-    defaults = [
-        ("BTC-USD", "Bitcoin", 0),
-        ("ETH-USD", "Ethereum", 0),
-        ("^GSPC", "S&P 500", 0),
-        ("AAPL", "Apple", 0),
-        ("NVDA", "NVIDIA", 0),
-        ("TSLA", "Tesla", 0),
-        ("GOLD", "Gold", 0),
-        ("PKO.WA", "PKO BP", 0),
-    ]
-    now = datetime.now(timezone.utc).isoformat()
-    async with db_session() as db:
-        for sym, name, votes in defaults:
-            await db.execute(
-                """
-                INSERT OR IGNORE INTO watchlist_votes (symbol, name, votes, updated_at)
-                VALUES (?, ?, ?, ?)
-                """,
-                (sym, name, votes, now),
-            )
-        await db.commit()
+    # No seeded "suggested" rows: the ranking shows only real votes (empty → UI empty state).
     return [
-        {"symbol": s, "name": n, "votes": v, "updated_at": now, "suggested": True}
-        for s, n, v in defaults[:limit]
+        {"symbol": r[0], "name": r[1] or r[0], "votes": r[2], "updated_at": r[3]}
+        for r in rows
+        if int(r[2] or 0) > 0
     ]
-
-
-
 
 
 def list_packages() -> list[dict]:
+    """Only features that exist in the app today. No invented prices or SLAs:
+    pricing is agreed individually after a brief."""
     return [
         {
             "id": "api",
             "name": "API Feed",
-            "price": "od 490 USD/mc",
+            "price": "wycena indywidualna",
             "bullets": [
-                "Cykle BTC + regionalne (JSON)",
-                "News makro + kalendarz",
-                "Sandbox key 14 dni",
+                "Cykl BTC JSON: /api/embed/cycle",
+                "News makro: /api/news/macro",
             ],
         },
         {
             "id": "white-label",
-            "name": "White-label",
-            "price": "od 2 900 USD setup",
+            "name": "Embed",
+            "price": "wycena indywidualna",
             "bullets": [
-                "Embed widgetów cyklu / ROI",
-                "Twój branding w karcie live",
-                "SLA + onboarding",
+                "Widget cyklu BTC (iframe, /embed)",
+                "Publiczny Live digest (/live)",
             ],
         },
         {
             "id": "alerts",
-            "name": "Alerty B2B",
-            "price": "od 190 USD/mc",
+            "name": "Alerty",
+            "price": "wycena indywidualna",
             "bullets": [
-                "Webhook / Telegram / SMS",
-                "Filtry: Fed, geopolitical, Musk",
-                "Dedykowany kanał partnera",
-            ],
-        },
-        {
-            "id": "research",
-            "name": "Research desk",
-            "price": "custom",
-            "bullets": [
-                "Cotygodniowy signal digest",
-                "Case review cyklu",
-                "Warsztat dla zespołu",
+                "Push w przeglądarce, SMS (Twilio), ntfy",
+                "Alerty sygnałów skanera i newsów makro",
             ],
         },
     ]

@@ -11,7 +11,7 @@ from typing import Any
 from app.config import settings
 from app.fomo import db as fomo_db
 from app.fomo.client import CopeClient, normalize_activity, normalize_trader, resolve_cope_api_key
-from app.fomo.offline import humanize_cope_error, is_cope_unreachable, seed_bag_events, seed_traders
+from app.fomo.offline import humanize_cope_error, is_cope_unreachable
 from app.realtime.broadcaster import broadcaster
 
 logger = logging.getLogger(__name__)
@@ -107,7 +107,7 @@ async def get_fomo_status() -> dict[str, Any]:
             usage = {}
     enabled = bool(_fomo_enabled() and (mode in ("live", "degraded") or (key and not needs_key)))
     source = (
-        "offline buffer (Cope unreachable)"
+        "Cope offline — brak danych na żywo (ostatnie realne dane)"
         if mode == "degraded"
         else "cope.capital / fomo.family"
     )
@@ -183,47 +183,26 @@ def filter_activity_to_top(
 
 
 async def run_degraded_tick(*, reason: str = "") -> dict[str, Any]:
-    """Local ghost buffer so /fomo stays usable while Cope tunnel is down."""
-    await fomo_db.init_fomo_db()
-    now_ts = int(time.time())
-    now_iso = datetime.now(timezone.utc).isoformat()
-    traders = seed_traders(_top_n())
-    await fomo_db.replace_top_traders(traders)
-    handles = [t["handle"] for t in traders]
-    bag = seed_bag_events(handles, now_ts=now_ts, n=4)
-    new_buys: list[dict] = []
-    inserted = 0
-    for ev in bag:
-        is_new = await fomo_db.insert_event(ev)
-        if not is_new:
-            continue
-        inserted += 1
-        new_buys.append(
-            {
-                "handle": ev["handle"],
-                "action": ev["action"],
-                "symbol": ev["symbol"],
-                "mint": ev["mint"],
-                "chain": ev["chain"],
-                "usd_amount": ev.get("usd_amount"),
-                "ts_unix": ev.get("ts_unix"),
-            }
-        )
+    """Upstream (Cope) is down: record the outage, invent nothing.
 
+    The last real traders/events stay in the DB with their own timestamps; any rows
+    left by the old fake offline buffer are purged.
+    """
+    await fomo_db.init_fomo_db()
+    await fomo_db.purge_offline_seed()
+    now_iso = datetime.now(timezone.utc).isoformat()
     hint = humanize_cope_error(reason) if reason else (
-        "Cope Capital API offline — degraded ghost buffer active."
+        "Cope Capital API offline — brak danych na żywo."
     )
     await fomo_db.set_state("mode", "degraded")
     await fomo_db.set_state("last_degraded_reason", hint)
-    await fomo_db.set_state("last_error", "")
-    await fomo_db.set_state("last_tick_at", now_iso)
-
+    await fomo_db.set_state("last_error", hint)
+    real_traders = len(await fomo_db.list_top_traders(_top_n()))
     payload = {
-        "traders": len(traders),
-        "new_buys": new_buys[:20],
+        "traders": real_traders,
+        "new_buys": [],
         "new_sells": [],
-        "inserted": inserted,
-        "top_handles": handles[:30],
+        "inserted": 0,
         "at": now_iso,
         "mode": "degraded",
     }
@@ -231,17 +210,16 @@ async def run_degraded_tick(*, reason: str = "") -> dict[str, Any]:
         await broadcaster.publish("fomo_tick", payload)
     except Exception as exc:
         logger.debug("fomo_tick publish failed: %s", exc)
-
-    logger.warning("FOMO Ghost degraded tick: top=%d inserted=%d (%s)", len(traders), inserted, hint[:120])
+    logger.warning("FOMO Ghost upstream down — no data invented (%s)", hint[:120])
     return {
-        "ok": True,
+        "ok": False,
         "mode": "degraded",
-        "traders": len(traders),
+        "traders": real_traders,
         "poll_count": 0,
         "activity_fetched": False,
-        "new_buys": new_buys,
+        "new_buys": [],
         "new_sells": [],
-        "inserted": inserted,
+        "inserted": 0,
         "upstream_error": hint,
     }
 

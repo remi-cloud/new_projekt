@@ -55,6 +55,18 @@ async def init_fomo_db() -> None:
             "CREATE INDEX IF NOT EXISTS idx_fomo_events_action ON fomo_events(action, ts_unix DESC)"
         )
         await db.commit()
+    await purge_offline_seed()
+
+
+async def purge_offline_seed() -> int:
+    """Delete rows produced by the old invented 'offline buffer' (fake traders/buys)."""
+    async with db_session() as db:
+        c1 = await db.execute("DELETE FROM fomo_traders WHERE raw_json LIKE '%offline_seed%'")
+        c2 = await db.execute(
+            "DELETE FROM fomo_events WHERE event_id LIKE 'offline:%' OR raw_json LIKE '%offline_seed%'"
+        )
+        await db.commit()
+        return int((c1.rowcount or 0) + (c2.rowcount or 0))
 
 
 async def get_state(key: str, default: str | None = None) -> str | None:
