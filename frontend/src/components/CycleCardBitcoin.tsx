@@ -4,6 +4,7 @@ import { MonthPumpSnippet } from './MonthPumpSnippet'
 import { useLocale } from '../context/LocaleContext'
 import { useDomainLabels } from '../i18n/useDomainLabels'
 import { BitcoinCycleStatus, BitcoinMonthReturn } from '../types'
+import { DataStamp, formatStamp } from './DataStamp'
 
 const MONTH_KEYS = [
   'monthJan',
@@ -52,7 +53,7 @@ function MonthCell({
 }
 
 export function CycleCardBitcoin({ cycle }: { cycle: BitcoinCycleStatus }) {
-  const { t } = useLocale()
+  const { t, dateLocale } = useLocale()
   const { signal, phase } = useDomainLabels()
   const [openMonth, setOpenMonth] = useState<number | null>(null)
   const progressClass = cycle.phase === 'bear' ? 'bear' : cycle.phase === 'bull' ? 'bull' : 'neutral'
@@ -76,10 +77,16 @@ export function CycleCardBitcoin({ cycle }: { cycle: BitcoinCycleStatus }) {
         <div className="stat">
           <div className="stat-label">{t('cyclesCard.lastAth')}</div>
           <div className="stat-value">${cycle.last_ath_price.toLocaleString()}</div>
+          <div className="stat-sub">{cycle.last_ath_date}</div>
         </div>
         <div className="stat">
           <div className="stat-label">{t('cyclesCard.currentPrice')}</div>
           <div className="stat-value">${cycle.current_price.toLocaleString()}</div>
+          {cycle.drawdown_from_ath_pct != null && (
+            <div className="stat-sub">
+              {t('liveData.fromAth')}: −{cycle.drawdown_from_ath_pct.toFixed(1)}%
+            </div>
+          )}
         </div>
         <div className="stat">
           <div className="stat-label">{t('cyclesCard.daysSinceAth')}</div>
@@ -88,8 +95,33 @@ export function CycleCardBitcoin({ cycle }: { cycle: BitcoinCycleStatus }) {
         <div className="stat">
           <div className="stat-label">{t('cyclesCard.phase')}</div>
           <div className="stat-value">{phase(cycle.phase)}</div>
+          {cycle.model_phase && cycle.model_phase !== cycle.phase && (
+            <div className="stat-sub">
+              {t('liveData.modelPhase')}: {phase(cycle.model_phase)}
+            </div>
+          )}
         </div>
+        {cycle.cycle_low_price != null && (
+          <div className="stat">
+            <div className="stat-label">{t('liveData.cycleLow')}</div>
+            <div className="stat-value">${Math.round(cycle.cycle_low_price).toLocaleString()}</div>
+            <div className="stat-sub">
+              {cycle.cycle_low_date}
+              {cycle.rebound_from_low_pct != null &&
+                ` · ${t('liveData.rebound')} +${cycle.rebound_from_low_pct.toFixed(1)}%`}
+            </div>
+          </div>
+        )}
       </div>
+      <DataStamp
+        source={
+          cycle.price_source
+            ? `${cycle.price_source}${cycle.ath_source && cycle.ath_source !== cycle.price_source ? ` (ATH: ${cycle.ath_source})` : ''}`
+            : null
+        }
+        updatedAt={cycle.price_updated_at}
+        stale={cycle.stale}
+      />
       <div className="timeline-visual">
         <div className="timeline-segment bear" style={{ flex: cycle.bear_phase_end_day }}>
           <span>
@@ -102,7 +134,7 @@ export function CycleCardBitcoin({ cycle }: { cycle: BitcoinCycleStatus }) {
           <span>
             {t('cyclesCard.growth')}
             <br />
-            1064d
+            {cycle.bull_phase_end_day - cycle.bear_phase_end_day}d
           </span>
         </div>
         <div
@@ -131,6 +163,12 @@ export function CycleCardBitcoin({ cycle }: { cycle: BitcoinCycleStatus }) {
             </span>
           </div>
           <p className="pres-next-term-note">{t('cyclesCard.intramonthHint')}</p>
+          {cycle.seasonality_source && (
+            <p className="data-stamp">
+              {t('liveData.seasonality')} — {t('liveData.source')}: {cycle.seasonality_source} ·{' '}
+              {t('liveData.updated')}: {formatStamp(cycle.seasonality_updated_at, dateLocale) || t('liveData.noData')}
+            </p>
+          )}
           <div className="pres-month-grid">
             {monthReturns.map((m) => (
               <MonthCell
@@ -173,17 +211,22 @@ export function CycleCardBitcoin({ cycle }: { cycle: BitcoinCycleStatus }) {
       )}
 
       <p className="cycle-rationale">
-        {t(
-          cycle.phase === 'bear'
-            ? 'cyclesCard.btcRationaleBear'
-            : cycle.phase === 'bull'
-              ? 'cyclesCard.btcRationaleBull'
-              : 'cyclesCard.btcRationaleDistribution',
-          {
-            days: cycle.days_since_ath,
-            end: cycle.phase === 'bear' ? cycle.bear_phase_end_day : cycle.bull_phase_end_day,
-          },
-        )}
+        {cycle.phase === 'accumulation'
+          ? t('liveData.rationaleAccumulation', {
+              days: cycle.days_since_ath,
+              rebound: (cycle.rebound_from_low_pct ?? 0).toFixed(1),
+            })
+          : t(
+              cycle.phase === 'bear'
+                ? 'cyclesCard.btcRationaleBear'
+                : cycle.phase === 'bull'
+                  ? 'cyclesCard.btcRationaleBull'
+                  : 'cyclesCard.btcRationaleDistribution',
+              {
+                days: cycle.days_since_ath,
+                end: cycle.phase === 'bear' ? cycle.bear_phase_end_day : cycle.bull_phase_end_day,
+              },
+            )}
       </p>
     </div>
   )
