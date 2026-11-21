@@ -203,11 +203,11 @@ async def project_forward(
             days_since_ath = status.days_since_ath
             cycle_phase = status.phase.value
             cycle_rationale = status.rationale
-        except Exception:
+        except Exception as exc:  # pylint: disable=broad-exception-caught
             # No invented mid-cycle value: derive the ATH from the real Yahoo history
             # already downloaded above; if even that is missing, report no data.
             if not candles:
-                raise ValueError("brak danych: nie udało się pobrać ATH ani historii BTC")
+                raise ValueError("brak danych: nie udało się pobrać ATH ani historii BTC") from exc
             peak = max(candles, key=lambda c: c.high)
             ath_price = peak.high
             ath_date = datetime.fromtimestamp(peak.time, tz=timezone.utc).date()
