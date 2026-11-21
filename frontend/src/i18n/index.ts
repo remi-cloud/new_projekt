@@ -48,6 +48,8 @@ export type TranslationPath =
   | `instrument.${keyof Translations['instrument']}`
   | `portfolio.${keyof Translations['portfolio']}`
   | `alerts.${keyof Translations['alerts']}`
+  | `marketHeat.${keyof Omit<Translations['marketHeat'], 'why'>}`
+  | `marketHeat.why.${string}`
   | `predator.${string}`
   | `community.${string}`
   | `about.${keyof Omit<Translations['about'], 'methodSteps' | 'chips' | 'pillars' | 'notUs'>}`

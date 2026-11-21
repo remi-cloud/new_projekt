@@ -375,6 +375,25 @@ export const it: Translations = {
     },
   },
   home: { topOpportunities: 'Migliori opportunità', seeAll: 'Vedi tutti →' },
+  marketHeat: {
+    title: 'Cosa muove il mercato ora',
+    subtitle: 'Gli eventi che contano davvero per il mercato',
+    whatHappened: 'Cosa è successo',
+    whyMatters: 'Perché è importante per il mercato',
+    source: 'Fonte',
+    readMore: 'Leggi di più',
+    collapse: 'Comprimi',
+    empty: 'Al momento non ci sono temi verificati ad alto impatto sul mercato. Torna più tardi.',
+    why: {
+      fed: 'La politica della Fed determina il costo del denaro e l\'umore di azioni, obbligazioni e cripto.',
+      usa: 'I dati e le decisioni USA si riflettono sulla valutazione globale del rischio.',
+      macro: 'I dati macro cambiano le aspettative su tassi e crescita.',
+      global: 'Gli eventi globali spostano capitali tra mercati e classi di attività.',
+      musk: 'I movimenti attorno alle aziende di Musk possono muovere bruscamente gli asset collegati.',
+      crypto: 'I cambiamenti di regolamentazione e flussi nelle cripto alimentano la volatilità del settore.',
+      default: 'Un evento con impatto elevato sul sentiment di mercato.',
+    },
+  },
   investmentShowcase: {
     eyebrow: 'Invest with us · backtest',
     headline: 'If you had invested with our cycle strategy',
@@ -393,7 +412,7 @@ export const it: Translations = {
     disclaimer: 'Educational simulation — not investment advice.',
   },
   dashboard: {
-    marketCycles: 'Cicli di mercato', tradingOpportunities: 'Opportunità di trading', seeAll: 'Vedi tutti →',
+    tradingOpportunities: 'Opportunità di trading', seeAll: 'Vedi tutti →',
     emptySignals: 'Nessun segnale attivo.', momentumTitle: 'Momentum + ciclo',
     momentumDesc: 'Segnali dove momentum e cicli coincidono', momentumShort: 'Mom.',
     confidencePct: '{{n}}% confidenza', topMarkets: 'Migliori mercati per valutazione', momentum: 'Momentum: {{n}}',
@@ -552,6 +571,7 @@ export const it: Translations = {
     buySide: 'COMPRA', sellSide: 'VENDITA',
   },
   alerts: {
+    guestReadOnly: 'Accedi al desk per modificare le impostazioni. Questa vista è di sola lettura.',
     empty: 'Nessuna impostazione avvisi. Riprova.',
     loadError: 'Impossibile caricare le impostazioni', saved: 'Impostazioni salvate ✓', saveError: 'Errore nel salvataggio',
     pushUnavailable: 'Push non disponibile — nessuna chiave VAPID sul server',

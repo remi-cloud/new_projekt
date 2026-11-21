@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { fetchSuperOpportunities, fetchSuperOpportunity, triggerScan } from '../api'
+import { fetchSuperOpportunities, fetchSuperOpportunity, triggerScan, triggerScanPublic } from '../api'
+import { deskSessionOpen } from '../lib/deskAuth'
 import { AskAgentButton } from '../components/AskAgentButton'
 import { CommunityActions } from '../components/CommunityActions'
 import LiquidationHeatmapBar from '../components/LiquidationHeatmap'
@@ -150,7 +151,8 @@ export default function SuperOpportunitiesPage() {
             onClick={async () => {
               setBusy(true)
               try {
-                await triggerScan()
+                const authed = await deskSessionOpen()
+                await (authed ? triggerScan() : triggerScanPublic())
                 await load()
               } catch (e) {
                 setError(formatThrownError(e, t('superDesk.fetchError')))

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { fetchAgentsReport, triggerScan } from '../api'
+import { useDeskSession } from '../hooks/useDeskSession'
 import { ErrorState, Loading } from '../components/Loading'
 import { positionPath } from '../lib/routes'
 import type { AgentScoutInfo, AgentsReport, AgentVerdictInfo } from '../types'
@@ -133,6 +134,7 @@ export default function AgentsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const authed = useDeskSession()
 
   const load = useCallback(async () => {
     try {
@@ -184,10 +186,12 @@ export default function AgentsPage() {
             Globalny radar scoutów, filtr specjalistów i finalny merge do Superokazji.
           </p>
         </div>
-        <button className={`sing-run-btn tap-target${busy ? ' is-busy' : ''}`} type="button" disabled={busy} onClick={run}>
-          <span className="sing-run-pulse" aria-hidden />
-          {busy ? 'Liczy…' : 'Odpal Singularity'}
-        </button>
+        {authed && (
+          <button className={`sing-run-btn tap-target${busy ? ' is-busy' : ''}`} type="button" disabled={busy} onClick={run}>
+            <span className="sing-run-pulse" aria-hidden />
+            {busy ? 'Liczy…' : 'Odpal Singularity'}
+          </button>
+        )}
       </header>
 
       <ol className="sing-pipeline" aria-label="Pipeline Singularity">

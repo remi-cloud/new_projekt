@@ -9,6 +9,7 @@ import {
 } from '../api'
 import { ErrorState, Loading } from '../components/Loading'
 import { useLocale } from '../context/LocaleContext'
+import { useDeskSession } from '../hooks/useDeskSession'
 import { formatThrownError } from '../i18n/utils'
 import type { ExecutionProposal, ExecutionStatus } from '../types'
 
@@ -36,6 +37,7 @@ const STATUS_CLASS: Record<string, string> = {
 
 export function ExecutionAgentPage() {
   const { t, dateLocale } = useLocale()
+  const authed = useDeskSession()
   const [status, setStatus] = useState<ExecutionStatus | null>(null)
   const [proposals, setProposals] = useState<ExecutionProposal[]>([])
   const [loading, setLoading] = useState(true)
@@ -140,27 +142,29 @@ export function ExecutionAgentPage() {
           </span>
         </div>
 
-        <div className="execution-actions">
-          <button
-            type="button"
-            className={`btn ${status.enabled ? 'btn-secondary' : 'btn-primary'} tap-target`}
-            disabled={saving}
-            onClick={() => void onToggleEnabled()}
-          >
-            {status.enabled ? t('execution.killSwitchOff') : t('execution.killSwitchOn')}
-          </button>
-          <button type="button" className="btn btn-secondary tap-target" disabled={running} onClick={() => void onRun()}>
-            {running ? t('execution.running') : t('execution.runNow')}
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary tap-target"
-            disabled={purging}
-            onClick={() => void onPurgeAgentPositions()}
-          >
-            {purging ? t('execution.purgingAgent') : t('execution.purgeAgent')}
-          </button>
-        </div>
+        {authed && (
+          <div className="execution-actions">
+            <button
+              type="button"
+              className={`btn ${status.enabled ? 'btn-secondary' : 'btn-primary'} tap-target`}
+              disabled={saving}
+              onClick={() => void onToggleEnabled()}
+            >
+              {status.enabled ? t('execution.killSwitchOff') : t('execution.killSwitchOn')}
+            </button>
+            <button type="button" className="btn btn-secondary tap-target" disabled={running} onClick={() => void onRun()}>
+              {running ? t('execution.running') : t('execution.runNow')}
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary tap-target"
+              disabled={purging}
+              onClick={() => void onPurgeAgentPositions()}
+            >
+              {purging ? t('execution.purgingAgent') : t('execution.purgeAgent')}
+            </button>
+          </div>
+        )}
       </header>
 
       {purgeMsg && <p className="execution-inline-success">{purgeMsg}</p>}
@@ -202,7 +206,7 @@ export function ExecutionAgentPage() {
                   <span className={`execution-status-tag ${STATUS_CLASS[p.status] ?? ''}`}>
                     {t(`execution.${STATUS_I18N[p.status] ?? 'statusPending'}` as 'execution.statusPending')}
                   </span>
-                  {p.status === 'pending' && (
+                  {authed && p.status === 'pending' && (
                     <button type="button" className="btn btn-secondary tap-target" onClick={() => void onApprove(p.id!)}>
                       {t('execution.approve')}
                     </button>

@@ -201,6 +201,17 @@ export interface Translations {
   instrument: Record<string, string>
   portfolio: Record<string, string>
   alerts: Record<string, string>
+  marketHeat: {
+    title: string
+    subtitle: string
+    whatHappened: string
+    whyMatters: string
+    source: string
+    readMore: string
+    collapse: string
+    empty: string
+    why: Record<string, string>
+  }
   about: {
     eyebrow: string
     title: string
