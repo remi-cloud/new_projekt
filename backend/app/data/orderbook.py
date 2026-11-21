@@ -73,8 +73,40 @@ async def fetch_binance_book(symbol: str) -> Optional[dict]:
     return None
 
 
+async def fetch_coinbase_book(symbol: str) -> Optional[dict]:
+    """Real best bid/ask from Coinbase Exchange (works where Binance is geo-blocked)."""
+    if not symbol.endswith("-USD"):
+        return None
+    product = symbol  # Yahoo crypto symbols (BTC-USD) match Coinbase product ids
+    url = f"https://api.exchange.coinbase.com/products/{product}/ticker"
+    try:
+        async with httpx.AsyncClient(timeout=10, headers={"User-Agent": "cyclical-desk/1.0"}) as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+            data = resp.json()
+        bid = float(data["bid"])
+        ask = float(data["ask"])
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        logger.warning("Coinbase book failed for %s: %s", symbol, exc)
+        return None
+    if bid <= 0 or ask <= 0 or ask < bid:
+        return None
+    mid = (bid + ask) / 2
+    return {
+        "bid": round(bid, 6),
+        "ask": round(ask, 6),
+        "mid": round(mid, 6),
+        "spread_pct": round(((ask - bid) / mid) * 100, 4),
+        "source": "coinbase",
+    }
+
+
 async def fetch_yahoo_bid_ask(symbol: str) -> Optional[dict]:
-    """Pull bid/ask from Yahoo chart meta when available."""
+    """Pull a real published bid/ask from Yahoo chart meta.
+
+    Returns None (= brak danych) when Yahoo does not publish both sides — we never
+    invent a spread around the last price.
+    """
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
     params = {"range": "1d", "interval": "1m"}
     try:
@@ -87,20 +119,9 @@ async def fetch_yahoo_bid_ask(symbol: str) -> Optional[dict]:
             meta = result[0].get("meta") or {}
         bid = meta.get("bid")
         ask = meta.get("ask")
-        price = meta.get("regularMarketPrice") or meta.get("previousClose")
-        if bid is None and ask is None:
-            # Approximate thin spread around last when exchange doesn't publish BBO
-            if not price:
-                return None
-            price = float(price)
-            # Wider estimate for less liquid classes
-            half = price * 0.0004
-            bid, ask = price - half, price + half
-            source = "yahoo_estimated"
-        else:
-            bid = float(bid) if bid is not None else float(price)
-            ask = float(ask) if ask is not None else float(price)
-            source = "yahoo"
+        if not bid or not ask:
+            return None
+        bid, ask = float(bid), float(ask)
         if bid <= 0 or ask <= 0:
             return None
         if ask < bid:
@@ -112,16 +133,20 @@ async def fetch_yahoo_bid_ask(symbol: str) -> Optional[dict]:
             "ask": round(ask, 6),
             "mid": round(mid, 6),
             "spread_pct": round(spread_pct, 4),
-            "source": source,
+            "source": "yahoo",
         }
-    except Exception as exc:
+    except Exception as exc:  # pylint: disable=broad-exception-caught
         logger.warning("Yahoo bid/ask failed for %s: %s", symbol, exc)
         return None
 
 
 async def fetch_bid_ask(symbol: str, asset_class: str) -> Optional[dict]:
+    """Real bid/ask only: Binance → Coinbase → Yahoo; None means brak danych."""
     if asset_class == "crypto" or symbol in BINANCE_SYMBOLS:
         book = await fetch_binance_book(symbol)
+        if book:
+            return book
+        book = await fetch_coinbase_book(symbol)
         if book:
             return book
     return await fetch_yahoo_bid_ask(symbol)

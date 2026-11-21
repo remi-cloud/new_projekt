@@ -1,3 +1,4 @@
+import pytest
 """FOMO Ghost — filter + normalize (no network)."""
 
 from app.fomo.client import normalize_activity, normalize_trader
@@ -54,20 +55,29 @@ def test_resolve_key_empty(monkeypatch):
     assert fomo_service.effective_api_key() == ""
 
 
-def test_offline_seed_traders_and_bag():
-    from app.fomo.offline import humanize_cope_error, is_cope_unreachable, seed_bag_events, seed_traders
+def test_offline_helpers_invent_no_traders():
+    import app.fomo.offline as offline
+    from app.fomo.offline import humanize_cope_error, is_cope_unreachable
 
-    traders = seed_traders(30)
-    assert len(traders) == 30
-    assert traders[0]["handle"]
-    handles = [t["handle"] for t in traders]
-    bag = seed_bag_events(handles, now_ts=1_700_000_000, n=3)
-    assert len(bag) == 3
-    assert all(e["action"] == "buy" for e in bag)
+    assert not hasattr(offline, "seed_traders")
+    assert not hasattr(offline, "seed_bag_events")
     assert is_cope_unreachable('Cope POST /register HTTP 530: {"title":"Error 1033: Cloudflare Tunnel error"}')
-    assert "offline" in humanize_cope_error("error code: 1033").lower() or "degraded" in humanize_cope_error(
-        "error code: 1033"
-    ).lower() or "tunnel" in humanize_cope_error("error code: 1033").lower()
+    assert "brak danych" in humanize_cope_error("error code: 1033").lower()
+
+
+@pytest.mark.asyncio
+async def test_degraded_tick_inserts_nothing_and_purges_old_fakes(tmp_path, monkeypatch):
+    from app.fomo import db as fomo_db
+    from app.fomo import service as fomo_service
+
+    await fomo_db.init_fomo_db()
+    await fomo_db.replace_top_traders(
+        [{"rank": 1, "handle": "fake_seed", "pnl": 1.0, "win_rate": 50.0, "trades": 1, "raw": {"source": "offline_seed"}}]
+    )
+    out = await fomo_service.run_degraded_tick(reason="error code: 1033")
+    assert out["inserted"] == 0 and out["new_buys"] == []
+    handles = [t["handle"] for t in await fomo_db.list_top_traders(50)]
+    assert "fake_seed" not in handles
 
 
 def test_normalize_fomo_handle_field():

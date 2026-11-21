@@ -58,6 +58,53 @@ async def fetch_bitcoin_ath() -> tuple:
     return ath_date, ath_price, current_price
 
 
+async def fetch_btc_daily_since(since) -> list[tuple]:
+    """Real BTC-USD daily bars (date, high, low, close) from Yahoo Finance since ``since``."""
+    from datetime import date as date_cls, timedelta
+
+    start = since - timedelta(days=2) if isinstance(since, date_cls) else since
+    p1 = int(datetime(start.year, start.month, start.day, tzinfo=timezone.utc).timestamp())
+    p2 = int(datetime.now(timezone.utc).timestamp()) + 86400
+    url = "https://query1.finance.yahoo.com/v8/finance/chart/BTC-USD"
+    async with httpx.AsyncClient(timeout=20, headers=YAHOO_HEADERS) as client:
+        resp = await client.get(
+            url, params={"period1": p1, "period2": p2, "interval": "1d"}, follow_redirects=True
+        )
+        resp.raise_for_status()
+        result = (resp.json().get("chart") or {}).get("result") or []
+    if not result:
+        return []
+    r0 = result[0]
+    q = r0["indicators"]["quote"][0]
+    rows = []
+    for i, ts in enumerate(r0.get("timestamp") or []):
+        h, lo, c = q["high"][i], q["low"][i], q["close"][i]
+        if h is None or lo is None or c is None:
+            continue
+        rows.append((datetime.fromtimestamp(ts, tz=timezone.utc).date(), float(h), float(lo), float(c)))
+    return rows
+
+
+async def fetch_btc_cycle_low(ath_date) -> tuple:
+    """Lowest real daily low strictly after the ATH day → (price, date) or (None, None)."""
+    rows = [r for r in await fetch_btc_daily_since(ath_date) if r[0] > ath_date]
+    if not rows:
+        return None, None
+    low = min(rows, key=lambda r: r[2])
+    return low[2], low[0]
+
+
+async def fetch_bitcoin_ath_yahoo() -> tuple:
+    """Second real source for (ath_date, ath_price, current_price): Yahoo BTC-USD daily max."""
+    from datetime import date as date_cls
+
+    rows = await fetch_btc_daily_since(date_cls(2014, 9, 1))
+    if not rows:
+        raise RuntimeError("Yahoo BTC-USD history empty")
+    ath = max(rows, key=lambda r: r[1])
+    return ath[0], ath[1], rows[-1][3]
+
+
 async def fetch_quotes_with_stats() -> tuple[list[AssetQuote], dict[str, dict]]:
     """Fetch quotes and 52-week price stats for all monitored assets."""
     now = datetime.now(timezone.utc)

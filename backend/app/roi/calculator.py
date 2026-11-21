@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Literal
 
-from app.cycles.bitcoin_cycle import analyze_bitcoin_cycle
-from app.cycles.price_cycle import analyze_price_cycle
+from app.config import settings
 from app.data.assets import MONITORED_ASSETS
 from app.models.schemas import ChartCandle, CyclePhase, SignalAction
 from app.roi.history import DEFAULT_FROM, fetch_long_history
@@ -16,15 +15,6 @@ from app.roi.history import DEFAULT_FROM, fetch_long_history
 ASSET_MAP = {a["symbol"]: a for a in MONITORED_ASSETS}
 
 Strategy = Literal["buy_hold", "cycle", "dca", "cycle_dca"]
-
-# Documented BTC cycle peak ATHs used for UI timeline (informational)
-BTC_CYCLE_ATHS: list[dict] = [
-    {"date": "2011-06-08", "price": 32.0, "label": "Cycle 2011"},
-    {"date": "2013-12-04", "price": 1156.0, "label": "Cycle 2013"},
-    {"date": "2017-12-17", "price": 19783.0, "label": "Cycle 2017"},
-    {"date": "2021-11-10", "price": 69000.0, "label": "Cycle 2021"},
-]
-
 
 @dataclass
 class EquityPoint:
@@ -50,20 +40,83 @@ def _candle_date(ts: int) -> date:
     return datetime.fromtimestamp(ts, tz=timezone.utc).date()
 
 
-def _rolling_ath(candles: list[ChartCandle], idx: int) -> tuple[date, float]:
-    best_price = 0.0
-    best_date = _candle_date(candles[0].time)
-    for j in range(idx + 1):
-        if candles[j].high > best_price:
-            best_price = candles[j].high
-            best_date = _candle_date(candles[j].time)
-    return best_date, best_price
+# Strategy parameters (documented in the UI disclaimer and docs/LIVE-DATA.md).
+BTC_TOP_CONFIRM_DRAWDOWN = 0.20  # −20% from the rolling ATH = classic bear-market threshold
+PRICE_TREND_BAND = 0.02  # ±2% hysteresis around the long moving average
+PRICE_TREND_DAYS = 200  # 200-session moving average (≈40 weeks / 10 months)
 
 
-def _rolling_52w(candles: list[ChartCandle], idx: int, lookback: int = 52) -> tuple[float, float]:
-    start = max(0, idx - lookback + 1)
-    window = candles[start : idx + 1]
-    return max(c.high for c in window), min(c.low for c in window)
+@dataclass
+class BarContext:
+    """Point-in-time indicators for one bar (computed only from bars ≤ idx)."""
+
+    ath_price: float
+    ath_date: date
+    days_since_ath: int
+    drawdown_pct: float
+    top_confirmed: bool
+    sma: float | None
+    in_trend: bool
+
+
+def _bars_per_year(candles: list[ChartCandle]) -> float:
+    if len(candles) < 2:
+        return 252.0
+    span_days = max(1.0, (candles[-1].time - candles[0].time) / 86400)
+    return max(1.0, (len(candles) - 1) / (span_days / 365.25))
+
+
+def _sma_window(candles: list[ChartCandle]) -> int:
+    """200 trading sessions expressed in this series' bar size (daily/weekly/monthly)."""
+    bpy = _bars_per_year(candles)
+    # Crypto trades 365 days a year; equities ~252. 200 sessions ≈ 0.79 / 0.55 years.
+    years = PRICE_TREND_DAYS / (365.0 if bpy > 300 else 252.0)
+    return max(5, int(round(bpy * years)))
+
+
+def build_bar_contexts(candles: list[ChartCandle]) -> list[BarContext]:
+    """Incremental (O(n)) point-in-time ATH / drawdown / trend state for every bar."""
+    out: list[BarContext] = []
+    if not candles:
+        return out
+    n_sma = _sma_window(candles)
+    ath_price = 0.0
+    ath_date = _candle_date(candles[0].time)
+    top_confirmed = False
+    window_sum = 0.0
+    in_trend: bool | None = None
+    for i, c in enumerate(candles):
+        d = _candle_date(c.time)
+        if c.high > ath_price:
+            ath_price = c.high
+            ath_date = d
+            top_confirmed = False  # new ATH → the previous top was not the cycle top
+        dd = ((ath_price - c.close) / ath_price) if ath_price > 0 else 0.0
+        if dd >= BTC_TOP_CONFIRM_DRAWDOWN:
+            top_confirmed = True
+        window_sum += c.close
+        if i >= n_sma:
+            window_sum -= candles[i - n_sma].close
+        sma = window_sum / n_sma if i >= n_sma - 1 else None
+        if sma is not None:
+            if in_trend is None:
+                in_trend = c.close > sma
+            elif in_trend and c.close < sma * (1 - PRICE_TREND_BAND):
+                in_trend = False
+            elif not in_trend and c.close > sma * (1 + PRICE_TREND_BAND):
+                in_trend = True
+        out.append(
+            BarContext(
+                ath_price=ath_price,
+                ath_date=ath_date,
+                days_since_ath=max(0, (d - ath_date).days),
+                drawdown_pct=dd * 100,
+                top_confirmed=top_confirmed,
+                sma=sma,
+                in_trend=bool(in_trend),
+            )
+        )
+    return out
 
 
 def _phase_for_bar(
@@ -71,52 +124,67 @@ def _phase_for_bar(
     idx: int,
     asset_class: str,
     region: str,
+    ctx: list[BarContext] | None = None,
 ) -> tuple[CyclePhase, SignalAction, str]:
-    """Point-in-time cycle signal for one bar."""
-    c = candles[idx]
-    as_of = _candle_date(c.time)
+    """Point-in-time cycle signal for one bar (no look-ahead).
+
+    Crypto — the site's 364/1064 Bitcoin model:
+      * a top is *confirmed* once price falls ≥20% below the rolling ATH;
+      * after a confirmed top we hold cash for the 364-day decline phase;
+      * we re-enter when day 364 after the ATH arrives (model growth wave) or
+        immediately on a new ATH (the old top was not the cycle top);
+      * after day 1428 without a new ATH (beyond the growth wave) → distribution, exit.
+
+    Other assets — price cycle around the 200-session moving average with a ±2%
+    hysteresis band: growth phase above it (invested), decline phase below (cash).
+    """
+    del region  # same rules for every region (US term-year model is off)
+    ctx = ctx or build_bar_contexts(candles[: idx + 1])
+    b = ctx[idx]
+    bear_end = settings.btc_bear_phase_days
+    bull_end = bear_end + settings.btc_bull_phase_days
 
     if asset_class == "crypto":
-        ath_date, ath_price = _rolling_ath(candles, idx)
-        status = analyze_bitcoin_cycle(ath_date, ath_price, c.close, as_of=as_of)
-        dd = ((ath_price - c.close) / ath_price * 100) if ath_price > 0 else 0.0
-        # Deep crash from ATH → sell (cycle peak has broken)
-        if dd >= 40:
-            return CyclePhase.DISTRIBUTION, SignalAction.SELL, f"Drawdown {dd:.0f}% from ATH"
-        # Accumulation only after a real post-ATH washout (not day-0 of a fresh ATH)
-        if dd >= 25 and status.days_since_ath >= 90:
-            return CyclePhase.BEAR, SignalAction.BUY, f"Accumulation −{dd:.0f}% · day {status.days_since_ath}"
-        if status.days_since_ath < 60 and dd < 15:
-            # Fresh ATH / euphoria — avoid new buys
-            return CyclePhase.DISTRIBUTION, SignalAction.HOLD, f"Near ATH ({dd:.0f}%) · hold"
-        return status.phase, status.signal, f"BTC cycle · {status.phase.value} · day {status.days_since_ath}"
-
-    high_52, low_52 = _rolling_52w(candles, idx)
-    phase, signal, _conf, _rationale = analyze_price_cycle(c.close, high_52, low_52)
-
-    if region == "us" and asset_class in ("stock", "etf", "index", "tokenized"):
-        dd_pct = ((high_52 - c.close) / high_52 * 100) if high_52 > 0 else 0.0
-        # Price-only US book: stay long near highs, buy dips. No term-year bias.
-        if dd_pct >= 10 or phase in (CyclePhase.BEAR, CyclePhase.ACCUMULATION):
+        days = b.days_since_ath
+        if days >= bull_end:
             return (
-                CyclePhase.ACCUMULATION if dd_pct >= 10 else phase,
-                SignalAction.BUY,
-                f"Dip buy −{dd_pct:.0f}%",
+                CyclePhase.DISTRIBUTION,
+                SignalAction.SELL,
+                f"Po fali wzrostowej (dzień {days} > {bull_end}) bez nowego ATH — dystrybucja",
             )
-        if phase in (CyclePhase.BULL, CyclePhase.DISTRIBUTION) or dd_pct <= 3:
-            return CyclePhase.BULL, SignalAction.BUY, "Stay invested"
-        return CyclePhase.BULL, SignalAction.HOLD, "Hold invested"
+        if days < bear_end and b.top_confirmed:
+            return (
+                CyclePhase.BEAR,
+                SignalAction.SELL,
+                f"Szczyt potwierdzony (−{b.drawdown_pct:.0f}% od ATH) · dzień {days}/{bear_end} fazy spadkowej",
+            )
+        if days >= bear_end:
+            return (
+                CyclePhase.BULL,
+                SignalAction.BUY,
+                f"Koniec fazy spadkowej · dzień {days} od ATH (fala wzrostowa)",
+            )
+        return (
+            CyclePhase.BULL,
+            SignalAction.BUY,
+            f"Trend przy ATH (−{b.drawdown_pct:.0f}%) · dzień {days}",
+        )
 
-    return phase, signal, f"Price cycle · {phase.value}"
+    if b.sma is None:
+        return CyclePhase.NEUTRAL, SignalAction.WATCH, "Za mało historii na średnią 200 sesji"
+    gap = candles[idx].close / b.sma * 100 - 100
+    if b.in_trend:
+        return CyclePhase.BULL, SignalAction.BUY, f"Faza wzrostu: cena {gap:+.1f}% vs SMA200"
+    return CyclePhase.BEAR, SignalAction.SELL, f"Faza spadku: cena {gap:+.1f}% vs SMA200"
 
 
 def _should_buy(signal: SignalAction, phase: CyclePhase) -> bool:
-    if signal == SignalAction.BUY:
-        return True
-    return phase in (CyclePhase.BEAR, CyclePhase.ACCUMULATION) and signal == SignalAction.WATCH
+    del phase
+    return signal == SignalAction.BUY
 
 
 def _should_sell(signal: SignalAction, phase: CyclePhase) -> bool:
+    del phase
     return signal == SignalAction.SELL
 
 
@@ -147,6 +215,49 @@ def _downsample(curve: list[EquityPoint], max_points: int = 400) -> list[EquityP
     return out
 
 
+STRATEGY_RULES = {
+    "crypto": (
+        "Strategia cyklu BTC (364/1064): po potwierdzeniu szczytu (−20% od ATH) gotówka przez "
+        "364 dni fazy spadkowej; powrót w dniu 364 od ATH lub przy nowym ATH."
+    ),
+    "price": (
+        "Strategia cyklu cenowego: zainwestowany, gdy cena jest nad 200-sesyjną średnią "
+        "(pasmo ±2%), gotówka, gdy pod nią."
+    ),
+}
+
+
+def confirmed_cycle_tops(candles: list[ChartCandle], ctx: list[BarContext]) -> list[dict]:
+    """Cycle ATHs derived from real bars: an ATH that stood ≥364 days (the model's decline
+    phase) before being exceeded, plus the current ATH. No hand-typed history."""
+    if not candles or not ctx:
+        return []
+    bear_end = settings.btc_bear_phase_days
+    distinct: list[tuple[date, float]] = []
+    for b in ctx:
+        if not distinct or distinct[-1][0] != b.ath_date:
+            distinct.append((b.ath_date, b.ath_price))
+        else:
+            distinct[-1] = (b.ath_date, b.ath_price)
+    last_day = _candle_date(candles[-1].time)
+    first_day = _candle_date(candles[0].time)
+    tops: list[dict] = []
+    for i, (d, price) in enumerate(distinct):
+        if d == first_day:
+            continue  # first bar of the dataset is not a real ATH
+        next_d = distinct[i + 1][0] if i + 1 < len(distinct) else None
+        held = ((next_d or last_day) - d).days
+        if next_d is None or held >= bear_end:
+            tops.append(
+                {
+                    "date": d.isoformat(),
+                    "price": round(price, 2),
+                    "label": f"ATH {d.isoformat()}" + (" (aktualne)" if next_d is None else ""),
+                }
+            )
+    return tops
+
+
 def _run_strategy(
     candles: list[ChartCandle],
     amount: float,
@@ -154,29 +265,36 @@ def _run_strategy(
     asset_class: str,
     region: str,
     dca_interval_bars: int,
+    sim_start_idx: int = 0,
 ) -> tuple[list[EquityPoint], list[TradeEvent], float]:
     """
     Returns equity curve, trades, total invested.
-    Cycle strategies: cash → buy on accumulation/bear, sell on distribution → cash again.
+
+    Bars before ``sim_start_idx`` are warm-up only (ATH / moving average history);
+    money is deployed from ``sim_start_idx`` onwards.
+    Cycle (lump sum): invested while the point-in-time signal is BUY, cash on SELL.
     """
+    ctx = build_bar_contexts(candles)
+    sim_start_idx = max(0, min(sim_start_idx, len(candles) - 1))
     cash = amount if strategy in ("buy_hold", "cycle") else 0.0
     units = 0.0
     invested = 0.0
     dca_cash_reserve = amount if strategy in ("dca", "cycle_dca") else 0.0
-    installment = amount / max(1, (len(candles) // max(1, dca_interval_bars)))
+    sim_bars = max(1, len(candles) - sim_start_idx)
+    installment = amount / max(1, (sim_bars // max(1, dca_interval_bars)))
 
     curve: list[EquityPoint] = []
     trades: list[TradeEvent] = []
-    last_buy_bar = -999
-    last_sell_bar = -999
-    prev_phase: CyclePhase | None = None
+    prev_signal: SignalAction | None = None
 
-    for i, c in enumerate(candles):
-        phase, signal, rationale = _phase_for_bar(candles, i, asset_class, region)
+    for i in range(sim_start_idx, len(candles)):
+        c = candles[i]
+        phase, signal, rationale = _phase_for_bar(candles, i, asset_class, region, ctx)
         price = c.close
+        k = i - sim_start_idx
 
         if strategy == "buy_hold":
-            if i == 0 and cash > 0 and price > 0:
+            if k == 0 and cash > 0 and price > 0:
                 units = cash / price
                 invested = cash
                 trades.append(
@@ -185,7 +303,7 @@ def _run_strategy(
                 cash = 0.0
 
         elif strategy == "dca":
-            if i % dca_interval_bars == 0 and dca_cash_reserve > 0 and price > 0:
+            if k % dca_interval_bars == 0 and dca_cash_reserve > 0 and price > 0:
                 put = min(installment, dca_cash_reserve)
                 if put > 0:
                     bought = put / price
@@ -197,43 +315,20 @@ def _run_strategy(
                     )
 
         elif strategy == "cycle":
-            # Lump sum: deploy when buy zone, exit when distribution
-            if cash > 0 and units == 0 and _should_buy(signal, phase) and price > 0 and i - last_sell_bar > 2:
+            invested = amount
+            if units == 0 and cash > 0 and price > 0 and _should_buy(signal, phase):
                 units = cash / price
-                invested = amount
-                trades.append(
-                    TradeEvent(c.time, "buy", price, cash, units, rationale, phase.value)
-                )
+                trades.append(TradeEvent(c.time, "buy", price, cash, units, rationale, phase.value))
                 cash = 0.0
-                last_buy_bar = i
-            elif units > 0 and _should_sell(signal, phase) and i - last_buy_bar > 3:
+            elif units > 0 and _should_sell(signal, phase):
                 proceeds = units * price
-                trades.append(
-                    TradeEvent(c.time, "sell", price, proceeds, units, rationale, phase.value)
-                )
+                trades.append(TradeEvent(c.time, "sell", price, proceeds, units, rationale, phase.value))
                 cash = proceeds
                 units = 0.0
-                last_sell_bar = i
-            # Warm-up buy only in clear buy zones (not euphoria / fresh ATH)
-            if (
-                i == 4
-                and cash > 0
-                and units == 0
-                and signal == SignalAction.BUY
-                and phase in (CyclePhase.BEAR, CyclePhase.ACCUMULATION)
-                and price > 0
-            ):
-                units = cash / price
-                invested = amount
-                trades.append(
-                    TradeEvent(c.time, "buy", price, cash, units, "Cycle entry (warmup)", phase.value)
-                )
-                cash = 0.0
-                last_buy_bar = i
 
         elif strategy == "cycle_dca":
             if (
-                i % dca_interval_bars == 0
+                k % dca_interval_bars == 0
                 and dca_cash_reserve > 0
                 and price > 0
                 and _should_buy(signal, phase)
@@ -247,8 +342,8 @@ def _run_strategy(
                     trades.append(
                         TradeEvent(c.time, "buy", price, put, bought, rationale, phase.value)
                     )
-            # Optionally trim in distribution
-            if units > 0 and _should_sell(signal, phase) and prev_phase != phase and i - last_buy_bar > 5:
+            # Trim half on the transition into a SELL regime
+            if units > 0 and _should_sell(signal, phase) and prev_signal != SignalAction.SELL:
                 sell_units = units * 0.5
                 proceeds = sell_units * price
                 units -= sell_units
@@ -256,18 +351,9 @@ def _run_strategy(
                 trades.append(
                     TradeEvent(c.time, "sell", price, proceeds, sell_units, rationale, phase.value)
                 )
-                last_sell_bar = i
 
         equity = cash + units * price + (dca_cash_reserve if strategy in ("dca", "cycle_dca") else 0.0)
-        # For cycle lump-sum not yet invested, equity stays as cash
-        if strategy == "cycle" and units == 0 and cash == 0:
-            equity = 0.0
-
-        # Track invested properly for cycle (initial capital always "at risk" as cash)
         display_invested = amount if strategy in ("buy_hold", "cycle") else invested
-        if strategy == "cycle":
-            display_invested = amount
-
         curve.append(
             EquityPoint(
                 time=c.time,
@@ -277,13 +363,20 @@ def _run_strategy(
                 phase=phase.value,
             )
         )
-        prev_phase = phase
+        prev_signal = signal
 
-    # Remaining DCA cash is part of equity already
     total_invested = amount if strategy in ("buy_hold", "cycle") else invested
     if strategy in ("dca", "cycle_dca") and total_invested <= 0:
         total_invested = amount - dca_cash_reserve
     return curve, trades, total_invested
+
+
+def _warmup_start(asset_class: str, start: date) -> date:
+    """History needed before ``start`` for point-in-time indicators."""
+    if asset_class == "crypto":
+        # Rolling ATH needs the whole available history.
+        return min(start, DEFAULT_FROM["crypto"])
+    return start - timedelta(days=430)  # ≥200 sessions for SMA200 + holidays
 
 
 async def calculate_roi(
@@ -307,23 +400,32 @@ async def calculate_roi(
     default_start = DEFAULT_FROM.get(asset_class, date(2000, 1, 1))
     start = start or default_start
 
-    candles, data_start, data_end = await fetch_long_history(symbol, start, end)
-    if len(candles) < 10:
+    fetch_from = _warmup_start(asset_class, start)
+    all_candles, _hist_start, data_end = await fetch_long_history(symbol, fetch_from, end)
+    if not all_candles:
+        raise ValueError(f"No market data for {symbol} (Yahoo Finance unavailable)")
+    start_ts = int(datetime(start.year, start.month, start.day, tzinfo=timezone.utc).timestamp())
+    sim_start_idx = next((i for i, c in enumerate(all_candles) if c.time >= start_ts), len(all_candles))
+    sim_candles = all_candles[sim_start_idx:]
+    if len(sim_candles) < 10:
         raise ValueError(f"Not enough history for {symbol}")
+    data_start = _candle_date(sim_candles[0].time)
 
-    # DCA interval: ~monthly on weekly bars (~4), ~monthly on daily (~21)
     span_days = (data_end - data_start).days if data_start and data_end else 365
-    bars_per_year = max(12, len(candles) / max(1, span_days / 365))
+    bars_per_year = max(12, len(sim_candles) / max(1, span_days / 365))
     dca_interval = max(1, int(round(bars_per_year / 12)))
 
     curve, trades, invested = _run_strategy(
-        candles, amount, strategy, asset_class, region, dca_interval
+        all_candles, amount, strategy, asset_class, region, dca_interval, sim_start_idx
     )
+    candles = sim_candles
     final = curve[-1].equity if curve else 0.0
     years = max(span_days / 365.25, 0.01)
     roi_pct = ((final - invested) / invested * 100) if invested > 0 else 0.0
     cagr = _cagr(invested, final, years) if invested > 0 else 0.0
     mdd = _max_drawdown(curve)
+    last = all_candles[-1]
+    bar_ctx = build_bar_contexts(all_candles) if symbol == "BTC-USD" else []
 
     result: dict = {
         "mode": "backtest",
@@ -368,16 +470,23 @@ async def calculate_roi(
             {"time": c.time, "value": c.close}
             for c in candles[:: max(1, len(candles) // 400)]
         ],
-        "btc_cycle_aths": BTC_CYCLE_ATHS if symbol == "BTC-USD" else [],
+        "btc_cycle_aths": confirmed_cycle_tops(all_candles, bar_ctx) if bar_ctx else [],
+        "start_price": round(candles[0].close, 6),
+        "end_price": round(last.close, 6),
+        "last_bar_time": datetime.fromtimestamp(last.time, tz=timezone.utc).isoformat(),
+        "computed_at": datetime.now(timezone.utc).isoformat(),
+        "source": "Yahoo Finance (chart API, ceny zamknięcia)",
+        "strategy_rules": STRATEGY_RULES["crypto" if asset_class == "crypto" else "price"],
         "disclaimer": (
-            "Symulacja historyczna na cenach Yahoo Finance. Cykle BTC: 364 dni spadek + 1064 wzrost od ATH. "
-            "Przeszłość ≠ przyszłość. To nie rekomendacja inwestycyjna."
+            "Symulacja historyczna na cenach Yahoo Finance (bez kosztów transakcyjnych i dywidend). "
+            + STRATEGY_RULES["crypto" if asset_class == "crypto" else "price"]
+            + " Przeszłość ≠ przyszłość. To nie rekomendacja inwestycyjna."
         ),
     }
 
     if compare_buy_hold and strategy != "buy_hold":
         bh_curve, _, bh_invested = _run_strategy(
-            candles, amount, "buy_hold", asset_class, region, dca_interval
+            all_candles, amount, "buy_hold", asset_class, region, dca_interval, sim_start_idx
         )
         bh_final = bh_curve[-1].equity if bh_curve else 0.0
         bh_roi = ((bh_final - bh_invested) / bh_invested * 100) if bh_invested else 0.0
@@ -412,7 +521,7 @@ def list_roi_assets() -> list[dict]:
 
 
 _PROGRAM_CACHE: dict[str, tuple[float, dict]] = {}
-_PROGRAM_CACHE_TTL = 3600 * 24
+_PROGRAM_CACHE_TTL = 900  # 15 min — last bar is the live price
 
 
 async def calculate_program_us_backtest(
@@ -425,8 +534,8 @@ async def calculate_program_us_backtest(
     from pathlib import Path
 
     start = start or date(1995, 1, 1)
-    # v4: US invested-first (no cash-park near highs) — real Yahoo price-return
-    cache_key = f"v4:{symbol}:{amount}:{start.isoformat()}"
+    # v5: price cycle = SMA200 trend regime (daily bars ≤20y, weekly beyond)
+    cache_key = f"v5:{symbol}:{amount}:{start.isoformat()}"
     hit = _PROGRAM_CACHE.get(cache_key)
     if hit and time.time() - hit[0] < _PROGRAM_CACHE_TTL:
         return hit[1]
@@ -467,7 +576,8 @@ async def calculate_program_us_backtest(
         "trades_count": len(result.get("trades") or []),
         "disclaimer": (
             "Price-return Yahoo (no dividends/total-return), no transaction costs. "
-            "US invested-first cycle: stays long near highs; buys dips ≥10% off 52w high. "
+            + STRATEGY_RULES["price"]
+            + " "
             "Educational simulation — not investment advice."
         ),
     }

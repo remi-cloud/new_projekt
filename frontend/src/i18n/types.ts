@@ -177,6 +177,7 @@ export interface Translations {
     }
   }
   home: Record<string, string>
+  liveData: Record<'source' | 'updated' | 'noData' | 'stale' | 'lastReal' | 'fromAth' | 'cycleLow' | 'rebound' | 'modelPhase' | 'rationaleAccumulation' | 'period' | 'priceStartEnd' | 'trades' | 'rules' | 'seasonality' | 'refreshing', string>
   investmentShowcase: {
     eyebrow: string
     headline: string

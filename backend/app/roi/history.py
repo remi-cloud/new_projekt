@@ -32,7 +32,7 @@ DEFAULT_FROM: dict[str, date] = {
 }
 
 _cache: dict[str, tuple[float, list[ChartCandle]]] = {}
-_CACHE_TTL = 3600 * 6  # 6h
+_CACHE_TTL = 600  # 10 min — the last bar carries the live price
 
 
 def _to_unix(d: date) -> int:
@@ -40,12 +40,11 @@ def _to_unix(d: date) -> int:
 
 
 def _pick_interval(start: date, end: date) -> str:
+    """Daily closes up to ~20 years so backtests start on the exact requested day."""
     days = (end - start).days
-    if days <= 730:
+    if days <= 7400:
         return "1d"
-    if days <= 3650:
-        return "1wk"
-    return "1mo"
+    return "1wk"
 
 
 def _parse_candles(result: dict) -> list[ChartCandle]:
@@ -75,6 +74,7 @@ async def fetch_long_history(
     symbol: str,
     start: date | None = None,
     end: date | None = None,
+    interval: str | None = None,
 ) -> tuple[list[ChartCandle], date | None, date | None]:
     """
     Fetch weekly/daily history from Yahoo from ~2000 (or crypto ~2014).
@@ -91,7 +91,8 @@ async def fetch_long_history(
     if start > end:
         start, end = end, start
 
-    cache_key = f"{symbol}:{start.isoformat()}:{end.isoformat()}"
+    interval = interval or _pick_interval(start, end)
+    cache_key = f"{symbol}:{start.isoformat()}:{end.isoformat()}:{interval}"
     cached = _cache.get(cache_key)
     if cached and time.time() - cached[0] < _CACHE_TTL:
         candles = cached[1]
@@ -103,7 +104,6 @@ async def fetch_long_history(
             )
         return candles, None, None
 
-    interval = _pick_interval(start, end)
     encoded = url_quote(symbol, safe="")
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{encoded}"
     params = {

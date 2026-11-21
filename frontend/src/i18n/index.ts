@@ -40,6 +40,7 @@ export type TranslationPath =
   | `macro.errors.${keyof Translations['macro']['errors']}`
   | `macro.social.${keyof Translations['macro']['social']}`
   | `home.${keyof Translations['home']}`
+  | `liveData.${keyof Translations['liveData']}`
   | `investmentShowcase.${keyof Translations['investmentShowcase']}`
   | `dashboard.${keyof Translations['dashboard']}`
   | `cycles.${keyof Translations['cycles']}`

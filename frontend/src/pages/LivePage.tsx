@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { fetchPublicLive, voteWatchlist, type PublicLiveDigest } from '../api'
 import { newsAssetUrl, newsOutboundUrl } from '../lib/newsUrl'
-import { NewsletterSignup } from '../components/NewsletterSignup'
 import { CommunityActions } from '../components/CommunityActions'
 import { ErrorState } from '../components/Loading'
 import { useLocale } from '../context/LocaleContext'
@@ -152,8 +151,6 @@ export function LivePage() {
           ))}
         </ul>
       </section>
-
-      <NewsletterSignup source="live" />
       <p className="growth-disclaimer">{data.disclaimer}</p>
     </div>
   )

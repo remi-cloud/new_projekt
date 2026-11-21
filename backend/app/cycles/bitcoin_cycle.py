@@ -10,6 +10,7 @@ from app.cycles.bitcoin_seasonality import (
     resolve_month_avg,
 )
 from app.cycles.bitcoin_seasonality_data import SPX_COMPARISON
+from app.cycles.btc_seasonality_live import seasonality_state
 from app.models.schemas import (
     BitcoinCycleStatus,
     BitcoinMonthReturn,
@@ -17,6 +18,10 @@ from app.models.schemas import (
     CyclePhase,
     SignalAction,
 )
+
+
+# Rebound from the post-ATH low needed to call the growth wave confirmed.
+BULL_CONFIRM_REBOUND_PCT = 20.0
 
 
 def _days_between(start: date, end: date) -> int:
@@ -28,6 +33,9 @@ def analyze_bitcoin_cycle(
     last_ath_price: float,
     current_price: float,
     as_of: date | None = None,
+    *,
+    cycle_low_price: float | None = None,
+    cycle_low_date: date | None = None,
 ) -> BitcoinCycleStatus:
     """
     Bitcoin cycle based on ATH:
@@ -89,6 +97,31 @@ def analyze_bitcoin_cycle(
             "Faza dystrybucji — ostrożność, czekaj na nowe ATH."
         )
 
+    model_phase = phase
+    drawdown = (
+        round((last_ath_price - current_price) / last_ath_price * 100, 2)
+        if last_ath_price > 0 and current_price > 0
+        else None
+    )
+    rebound = None
+    price_confirmed: bool | None = None
+    if cycle_low_price and cycle_low_price > 0 and current_price > 0:
+        rebound = round((current_price / cycle_low_price - 1) * 100, 2)
+    # The day count alone says "growth wave" from day 364. Reality must confirm it:
+    # price has to be ≥ BULL_CONFIRM_REBOUND_PCT above the post-ATH low. Otherwise the
+    # market is still bottoming → accumulation (signal unchanged: model buy zone).
+    if phase == CyclePhase.BULL and rebound is not None:
+        price_confirmed = rebound >= BULL_CONFIRM_REBOUND_PCT
+        if not price_confirmed:
+            phase = CyclePhase.ACCUMULATION
+            low_txt = cycle_low_date.isoformat() if cycle_low_date else "?"
+            rationale = (
+                f"Akumulacja: model 364/1064 otwiera falę wzrostową (dzień {days_since}), "
+                f"ale cena nie potwierdza — {drawdown:.0f}% poniżej ATH, "
+                f"+{rebound:.1f}% od dołka cyklu ({cycle_low_price:,.0f} USD, {low_txt}); "
+                f"potwierdzenie przy +{BULL_CONFIRM_REBOUND_PCT:.0f}%."
+            )
+
     if phase == CyclePhase.DISTRIBUTION and days_since >= bull_end:
         phase_progress = min(100.0, ((days_since - bull_end) / 365) * 100)
         days_remaining = max(0, 365 - (days_since - bull_end))
@@ -148,6 +181,15 @@ def analyze_bitcoin_cycle(
         phase_month_bias=month_bias(month_avg),
         seasonality_sample_count=sample_n,
         calendar_season=calendar_season(as_of.month),
+        model_phase=model_phase,
+        drawdown_from_ath_pct=drawdown,
+        cycle_low_price=round(cycle_low_price, 2) if cycle_low_price else None,
+        cycle_low_date=cycle_low_date,
+        rebound_from_low_pct=rebound,
+        price_confirmed=price_confirmed,
+        as_of=as_of,
+        seasonality_source=seasonality_state().get("source"),
+        seasonality_updated_at=seasonality_state().get("updated_at"),
         spx_comparison=BtcSpxComparison(
             corr_full=cmp.get("corr_full"),
             corr_rolling_24m_latest=cmp.get("corr_rolling_24m_latest"),

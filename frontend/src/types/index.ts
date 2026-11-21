@@ -39,6 +39,20 @@ export interface BitcoinCycleStatus {
   seasonality_sample_count?: number
   calendar_season?: 'best_six' | 'worst_six' | string
   spx_comparison?: BtcSpxComparison | null
+  model_phase?: CyclePhase | null
+  drawdown_from_ath_pct?: number | null
+  cycle_low_price?: number | null
+  cycle_low_date?: string | null
+  rebound_from_low_pct?: number | null
+  price_confirmed?: boolean | null
+  price_source?: string | null
+  price_updated_at?: string | null
+  ath_source?: string | null
+  ath_updated_at?: string | null
+  as_of?: string | null
+  seasonality_source?: string | null
+  seasonality_updated_at?: string | null
+  stale?: boolean
 }
 
 export interface AssetQuote {
@@ -533,20 +547,31 @@ export interface RoiShowcaseCard {
   symbol: string
   name: string
   strategy: RoiStrategy
-  amount: number
-  invested: number
-  final_value: number
-  profit: number
-  roi_pct: number
-  cagr_pct: number
-  years: number
-  data_start: string | null
-  data_end: string | null
+  /** false → provider failed and no real result exists yet: render "brak danych". */
+  available?: boolean
+  stale?: boolean
+  error?: string
+  amount?: number
+  invested?: number
+  final_value?: number
+  profit?: number
+  roi_pct?: number
+  cagr_pct?: number
+  years?: number
+  data_start?: string | null
+  data_end?: string | null
+  start_price?: number | null
+  end_price?: number | null
+  last_bar_time?: string | null
+  trades_count?: number
+  strategy_rules?: string | null
+  source?: string
+  updated_at?: string | null
   buy_hold?: {
     final_value: number
     roi_pct: number
     cagr_pct: number
-  }
+  } | null
 }
 
 export interface RoiShowcaseResult {
@@ -557,6 +582,9 @@ export interface RoiShowcaseResult {
   strategy: RoiStrategy
   cards: RoiShowcaseCard[]
   disclaimer: string
+  source?: string
+  updated_at?: string
+  refresh_seconds?: number
 }
 
 // ── Scanner desk (heatmap / Superokazje / Singularity) ──
