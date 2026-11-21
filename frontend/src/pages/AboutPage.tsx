@@ -14,7 +14,6 @@ export function AboutPage() {
   const pillars = translations[locale].about.pillars
   const methodSteps = tArray('about.methodSteps')
   const notUs = tArray('about.notUs')
-  const chips = tArray('about.chips')
   const learnMore = translations[locale].aboutDetail.learnMore
 
   return (
@@ -90,21 +89,6 @@ export function AboutPage() {
             )
           })}
         </ol>
-      </section>
-
-      <section className="about-contact-teaser">
-        <div className="about-contact-inner">
-          <span className="page-eyebrow">{t('about.contactEyebrow')}</span>
-          <h3 className="about-contact-title">{t('about.contactTitle')}</h3>
-          <p>{t('about.contactBody')}</p>
-          <div className="about-contact-chips">
-            {chips.map((chip) => (
-              <span key={chip} className="about-chip about-chip-soon">
-                {chip}
-              </span>
-            ))}
-          </div>
-        </div>
       </section>
 
       <footer className="about-disclaimer">

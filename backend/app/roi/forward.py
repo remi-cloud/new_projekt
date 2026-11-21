@@ -161,7 +161,9 @@ async def project_forward(
 
     # History for CAGR + momentum sentiment
     hist_start = DEFAULT_FROM.get(asset_class, date(2000, 1, 1))
-    candles, data_start, data_end = await fetch_long_history(symbol, hist_start, today)
+    candles, data_start, data_end = await fetch_long_history(
+        symbol, hist_start, today, interval="1wk"  # 52-bar windows below assume weekly bars
+    )
     if len(candles) < 10:
         raise ValueError(f"Not enough history for {symbol}")
 
@@ -202,9 +204,17 @@ async def project_forward(
             cycle_phase = status.phase.value
             cycle_rationale = status.rationale
         except Exception:
-            days_since_ath = 400  # mid-cycle fallback
-            cycle_phase = "bull"
-            cycle_rationale = "Fallback mid-cycle (ATH fetch failed)"
+            # No invented mid-cycle value: derive the ATH from the real Yahoo history
+            # already downloaded above; if even that is missing, report no data.
+            if not candles:
+                raise ValueError("brak danych: nie udało się pobrać ATH ani historii BTC")
+            peak = max(candles, key=lambda c: c.high)
+            ath_price = peak.high
+            ath_date = datetime.fromtimestamp(peak.time, tz=timezone.utc).date()
+            status = analyze_bitcoin_cycle(ath_date, ath_price, current_price, as_of=today)
+            days_since_ath = status.days_since_ath
+            cycle_phase = status.phase.value
+            cycle_rationale = status.rationale + " (ATH z historii Yahoo Finance — CoinGecko niedostępne)"
     # Portfolio state
     months = years * 12
     crypto_scale = _scale_crypto_returns(hist_cagr) if asset_class == "crypto" else 1.0

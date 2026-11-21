@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom'
-import { NewsletterSignup } from '../components/NewsletterSignup'
 import { useLocale } from '../context/LocaleContext'
 
 export function PartnersPage() {
@@ -19,26 +18,17 @@ export function PartnersPage() {
           <p>{t('growth.wlBody')}</p>
           <ul>
             <li>{t('growth.wl1')}</li>
-            <li>{t('growth.wl2')}</li>
-            <li>{t('growth.wl3')}</li>
           </ul>
         </section>
         <section className="growth-card">
           <h3>{t('growth.mediaTitle')}</h3>
           <p>{t('growth.mediaBody')}</p>
-          <ul>
-            <li>{t('growth.media1')}</li>
-            <li>{t('growth.media2')}</li>
-            <li>{t('growth.media3')}</li>
-          </ul>
         </section>
         <section className="growth-card">
           <h3>{t('growth.eduTitle')}</h3>
           <p>{t('growth.eduBody')}</p>
           <ul>
-            <li>{t('growth.edu1')}</li>
             <li>{t('growth.edu2')}</li>
-            <li>{t('growth.edu3')}</li>
           </ul>
         </section>
       </div>
@@ -55,7 +45,6 @@ export function PartnersPage() {
         </a>
       </div>
 
-      <NewsletterSignup source="partners" />
       <p className="growth-disclaimer">{t('growth.compliance')}</p>
     </div>
   )

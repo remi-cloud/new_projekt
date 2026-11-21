@@ -18,7 +18,9 @@ _initialised = False
 
 async def scheduled_full_scan() -> None:
     try:
-        opportunities = await scanner.scan()
+        # force=True: without it scan() returns the boot-time snapshot forever
+        # (BTC cycle, ATH and 52-week stats froze at the first scan).
+        opportunities = await scanner.scan(force=True)
         await save_opportunities(opportunities)
         await _maybe_notify()
         await _broadcast_state("full_scan")
@@ -335,6 +337,17 @@ async def scheduled_seasonality_monitor() -> None:
         logger.warning("Seasonality monitor failed: %s", exc)
 
 
+async def scheduled_btc_seasonality_refresh() -> None:
+    """Recompute BTC month-seasonality from real Yahoo history (replaces the offline snapshot)."""
+    try:
+        from app.cycles.btc_seasonality_live import refresh_btc_seasonality
+
+        if await refresh_btc_seasonality():
+            scanner._rebuild_bitcoin_cycle()  # month strip on the card picks it up now
+    except Exception as exc:
+        logger.warning("BTC seasonality refresh failed: %s", exc)
+
+
 def start_scheduler() -> None:
     global _running, _initialised
     if _running:
@@ -353,6 +366,16 @@ def start_scheduler() -> None:
         seconds=settings.price_poll_interval_seconds,
         id="price_ticker",
         replace_existing=True,
+    )
+    from datetime import datetime, timedelta, timezone
+
+    scheduler.add_job(
+        scheduled_btc_seasonality_refresh,
+        "interval",
+        hours=6,
+        id="btc_seasonality_refresh",
+        replace_existing=True,
+        next_run_time=datetime.now(timezone.utc) + timedelta(seconds=20),
     )
     scheduler.add_job(
         scheduled_news_refresh,

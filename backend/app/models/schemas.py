@@ -69,6 +69,22 @@ class BitcoinCycleStatus(BaseModel):
     seasonality_sample_count: int = 0
     calendar_season: str = "best_six"  # comparison label only (US Almanac)
     spx_comparison: BtcSpxComparison | None = None
+    # Real-market confirmation of the 364/1064 model phase
+    model_phase: CyclePhase | None = None  # raw phase from the day count alone
+    drawdown_from_ath_pct: float | None = None
+    cycle_low_price: float | None = None  # lowest daily low since the ATH (real data)
+    cycle_low_date: date | None = None
+    rebound_from_low_pct: float | None = None
+    price_confirmed: bool | None = None
+    # Provenance — shown on the card as "źródło · aktualizacja"
+    price_source: str | None = None
+    price_updated_at: datetime | None = None
+    ath_source: str | None = None
+    ath_updated_at: datetime | None = None
+    as_of: date | None = None
+    seasonality_source: str | None = None
+    seasonality_updated_at: datetime | None = None
+    stale: bool = False
 
 
 class AssetQuote(BaseModel):

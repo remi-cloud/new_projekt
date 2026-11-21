@@ -4338,3 +4338,33 @@ body {
 .exec-status-pending{color:#93c5fd;border-color:rgba(147,197,253,.35)}
 .exec-status-skip{color:var(--text-muted)}
 .exec-status-fail{color:#fca5a5;border-color:rgba(252,165,165,.35)}
+
+/* Live-data provenance (source · aktualizacja) — every market number names its origin */
+.data-stamp {
+  margin: 0.35rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--text-muted, #8a93a6);
+}
+.data-stamp-stale {
+  color: var(--warning, #e0a43a);
+}
+.stat-sub {
+  margin-top: 0.15rem;
+  font-size: 0.72rem;
+  color: var(--text-muted, #8a93a6);
+}
+.investment-showcase-nodata {
+  margin: 0.75rem 0;
+  font-weight: 600;
+  color: var(--warning, #e0a43a);
+}
+.investment-showcase-meta-line,
+.investment-showcase-rules {
+  margin: 0.35rem 0 0;
+  font-size: 0.74rem;
+  color: var(--text-muted, #8a93a6);
+}
+.investment-showcase-card.stale {
+  opacity: 0.85;
+}

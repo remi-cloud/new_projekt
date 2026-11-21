@@ -1,13 +1,12 @@
 import { Link } from 'react-router-dom'
-import { NewsletterSignup } from './NewsletterSignup'
 import { useLocale } from '../context/LocaleContext'
 
 type Props = {
   source: string
 }
 
-/** Shared growth funnel — newsletter + Live/Biznes CTAs on info pages. */
-export function GrowthFunnelStrip({ source }: Props) {
+/** Shared growth funnel — Live/Biznes CTAs on info pages. */
+export function GrowthFunnelStrip(_props: Props) {
   const { t } = useLocale()
 
   return (
@@ -27,7 +26,6 @@ export function GrowthFunnelStrip({ source }: Props) {
           {t('nav.partners')}
         </Link>
       </div>
-      <NewsletterSignup source={source} compact />
     </section>
   )
 }

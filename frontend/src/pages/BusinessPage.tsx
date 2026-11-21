@@ -5,7 +5,6 @@ import {
   submitBusinessLead,
   type GrowthPackage,
 } from '../api'
-import { NewsletterSignup } from '../components/NewsletterSignup'
 import { ErrorState } from '../components/Loading'
 import { useLocale } from '../context/LocaleContext'
 
@@ -140,8 +139,6 @@ export function BusinessPage() {
           {status === 'err' && <p className="growth-err full">{t('growth.contactErr')}</p>}
         </form>
       </section>
-
-      <NewsletterSignup source="biznes" />
       <p className="growth-disclaimer">{t('growth.compliance')}</p>
     </div>
   )

@@ -43,7 +43,7 @@ async def test_project_forward_btc_smoke(monkeypatch):
             )
         )
 
-    async def fake_hist(symbol, start=None, end=None):
+    async def fake_hist(symbol, start=None, end=None, **_kw):
         return candles, datetime(2018, 1, 1, tzinfo=timezone.utc).date(), datetime(2023, 1, 1, tzinfo=timezone.utc).date()
 
     async def fake_ath():
