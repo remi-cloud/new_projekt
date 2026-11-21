@@ -7,5 +7,6 @@ PUBLIC_WRITE_PATHS = frozenset(
         "/api/growth/contact",
         "/api/growth/watchlist/vote",
         "/api/ai/chat",
+        "/api/scan/public",
     }
 )

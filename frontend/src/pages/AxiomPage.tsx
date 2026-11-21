@@ -12,6 +12,7 @@ import {
 import { CoinAvatar } from '../components/CoinAvatar'
 import { ErrorState, Loading } from '../components/Loading'
 import { useLocale } from '../context/LocaleContext'
+import { useDeskSession } from '../hooks/useDeskSession'
 import { useLiveFeed } from '../hooks/useLiveFeed'
 import { formatThrownError } from '../i18n/utils'
 import { memeDexScreenerUrl, memeTerminalUrl } from '../lib/memeTerminalUrl'
@@ -36,6 +37,7 @@ function formatPct(n: number | null | undefined): string {
 
 export function AxiomPage() {
   const { t, dateLocale } = useLocale()
+  const authed = useDeskSession()
   const [status, setStatus] = useState<AxiomStatus | null>(null)
   const [pulse, setPulse] = useState<AxiomPulseMarket[]>([])
   const [positions, setPositions] = useState<AxiomPosition[]>([])
@@ -109,14 +111,16 @@ export function AxiomPage() {
                 })}`
               : ''}
           </span>
-          <button
-            type="button"
-            className="btn btn-primary tap-target"
-            onClick={() => void onRun()}
-            disabled={running}
-          >
-            {running ? t('axiom.running') : t('axiom.runNow')}
-          </button>
+          {authed && (
+            <button
+              type="button"
+              className="btn btn-primary tap-target"
+              onClick={() => void onRun()}
+              disabled={running}
+            >
+              {running ? t('axiom.running') : t('axiom.runNow')}
+            </button>
+          )}
         </div>
         {(status?.last_error || status?.enabled === false) && (
           <p className="desk-source-down" role="status">{t('axiom.deskDown')}</p>

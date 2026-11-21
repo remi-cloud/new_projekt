@@ -6,6 +6,11 @@ import { LocaleProvider } from '../context/LocaleContext'
 import type { PaperPortfolio } from '../types'
 import { PortfolioPage } from './PortfolioPage'
 
+// Reset/trade controls are desk-only. A mutable flag lets tests switch between
+// a logged-in desk and a guest.
+const { deskState } = vi.hoisted(() => ({ deskState: { authed: true } }))
+vi.mock('../hooks/useDeskSession', () => ({ useDeskSession: () => deskState.authed }))
+
 const reload = vi.fn(async () => undefined)
 
 const emptyPortfolio: PaperPortfolio = {
@@ -65,6 +70,7 @@ function renderPage() {
 
 describe('PortfolioPage', () => {
   beforeEach(() => {
+    deskState.authed = true
     reload.mockClear()
     vi.mocked(api.resetPaperPortfolio).mockReset()
     vi.mocked(api.resetPaperPortfolio).mockResolvedValue(emptyPortfolio)
@@ -100,5 +106,13 @@ describe('PortfolioPage', () => {
     await waitFor(() => {
       expect(screen.getByText(/Portfolio reset|Portfel zresetowany/i)).toBeTruthy()
     })
+  })
+
+  it('hides desk reset control from guests', () => {
+    deskState.authed = false
+    renderPage()
+    expect(
+      screen.queryByRole('button', { name: /Reset to 1,000,000 PLN|Reset do 1 000 000 PLN/i }),
+    ).toBeNull()
   })
 })

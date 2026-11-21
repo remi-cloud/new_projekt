@@ -16,6 +16,7 @@ import {
 import { formatPln } from '../utils/format'
 import { formatThrownError } from '../i18n/utils'
 import { useLocale } from '../context/LocaleContext'
+import { useDeskSession } from '../hooks/useDeskSession'
 
 const QUICK_TRADE = [
   { symbol: 'BTC-USD', label: 'Bitcoin' },
@@ -27,6 +28,7 @@ const QUICK_TRADE = [
 export function PortfolioPage() {
   const location = useLocation()
   const { t } = useLocale()
+  const authed = useDeskSession()
   const { portfolio, loading, error, reload } = usePaperPortfolio()
   const [positionsTab, setPositionsTab] = useState<PositionsTab>('open')
 
@@ -45,6 +47,12 @@ export function PortfolioPage() {
   const [binanceNeedsLogin, setBinanceNeedsLogin] = useState(false)
 
   useEffect(() => {
+    if (!authed) {
+      // Guests cannot read the desk Binance sync; show the login hint, no 401.
+      setBinanceSync(null)
+      setBinanceNeedsLogin(true)
+      return
+    }
     void fetchBinancePortfolioSync()
       .then((data) => {
         setBinanceNeedsLogin(false)
@@ -55,7 +63,7 @@ export function PortfolioPage() {
         const text = err instanceof Error ? err.message : ''
         setBinanceNeedsLogin(/zaloguj|biurko/i.test(text))
       })
-  }, [portfolio])
+  }, [portfolio, authed])
 
   const handleTradeComplete = async (symbol: string) => {
     setTradingSymbol(symbol)
@@ -220,7 +228,9 @@ export function PortfolioPage() {
                 {item.label}
                 <em>{item.symbol}</em>
               </Link>
-              <QuickTradeButtons symbol={item.symbol} compact onTrade={() => void reload()} />
+              {authed && (
+                <QuickTradeButtons symbol={item.symbol} compact onTrade={() => void reload()} />
+              )}
             </div>
           ))}
           <Link to="/rynki" className="btn btn-ghost tap-target portfolio-quick-btn">
@@ -229,24 +239,26 @@ export function PortfolioPage() {
         </div>
       </section>
 
-      <section className="portfolio-section portfolio-actions-bar">
-        <button
-          type="button"
-          className="btn-link tap-target"
-          onClick={() => void handlePurgeAgent()}
-          disabled={purging || resetting}
-        >
-          {purging ? t('execution.purgingAgent') : t('execution.purgeAgent')}
-        </button>
-        <button
-          type="button"
-          className="btn tap-target"
-          onClick={() => void handleReset()}
-          disabled={resetting || purging}
-        >
-          {resetting ? t('portfolio.resetting') : t('portfolio.resetAccount')}
-        </button>
-      </section>
+      {authed && (
+        <section className="portfolio-section portfolio-actions-bar">
+          <button
+            type="button"
+            className="btn-link tap-target"
+            onClick={() => void handlePurgeAgent()}
+            disabled={purging || resetting}
+          >
+            {purging ? t('execution.purgingAgent') : t('execution.purgeAgent')}
+          </button>
+          <button
+            type="button"
+            className="btn tap-target"
+            onClick={() => void handleReset()}
+            disabled={resetting || purging}
+          >
+            {resetting ? t('portfolio.resetting') : t('portfolio.resetAccount')}
+          </button>
+        </section>
+      )}
       {statusMsg && <p className="portfolio-purge-msg">{statusMsg}</p>}
       {statusErr && <p className="portfolio-error-msg">{statusErr}</p>}
 

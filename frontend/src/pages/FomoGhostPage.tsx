@@ -15,6 +15,7 @@ import {
 import { FomoGhostStrip } from '../components/FomoGhostStrip'
 import { ErrorState, Loading } from '../components/Loading'
 import { useLocale } from '../context/LocaleContext'
+import { useDeskSession } from '../hooks/useDeskSession'
 import { useLiveFeed } from '../hooks/useLiveFeed'
 import { formatThrownError } from '../i18n/utils'
 
@@ -30,6 +31,7 @@ function formatUsd(n: number | null | undefined): string {
 
 export function FomoGhostPage() {
   const { t, dateLocale } = useLocale()
+  const authed = useDeskSession()
   const [status, setStatus] = useState<FomoStatus | null>(null)
   const [traders, setTraders] = useState<FomoTrader[]>([])
   const [events, setEvents] = useState<FomoEvent[]>([])
@@ -127,7 +129,7 @@ export function FomoGhostPage() {
                 })}`
               : ''}
           </span>
-          {(status?.needs_api_key || status?.mode === 'degraded') && (
+          {authed && (status?.needs_api_key || status?.mode === 'degraded') && (
             <button
               type="button"
               className="btn tap-target"
@@ -137,14 +139,16 @@ export function FomoGhostPage() {
               {registering ? t('fomo.registering') : t('fomo.register')}
             </button>
           )}
-          <button
-            type="button"
-            className="btn btn-primary tap-target"
-            onClick={() => void onRun()}
-            disabled={running}
-          >
-            {running ? t('fomo.running') : t('fomo.runNow')}
-          </button>
+          {authed && (
+            <button
+              type="button"
+              className="btn btn-primary tap-target"
+              onClick={() => void onRun()}
+              disabled={running}
+            >
+              {running ? t('fomo.running') : t('fomo.runNow')}
+            </button>
+          )}
         </div>
         {status?.last_error && <p className="pearl-agent-error">{status.last_error}</p>}
         {status?.mode === 'degraded' && (

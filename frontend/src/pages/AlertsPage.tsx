@@ -9,11 +9,13 @@ import { subscribeToPush } from '../hooks/useLiveFeed'
 import { ErrorState } from '../components/Loading'
 import { PredatorDeskPanel } from '../components/PredatorDeskPanel'
 import { useLocale } from '../context/LocaleContext'
+import { useDeskSession } from '../hooks/useDeskSession'
 import { formatThrownError } from '../i18n/utils'
 import { AlertSettings, NotificationStatus, TwilioConfig } from '../types'
 
 export function AlertsPage() {
   const { t } = useLocale()
+  const authed = useDeskSession()
   const [status, setStatus] = useState<NotificationStatus | null>(null)
   const [settings, setSettings] = useState<AlertSettings | null>(null)
   const [twilio, setTwilio] = useState<TwilioConfig>({ account_sid: '', auth_token: '', from_number: '' })
@@ -124,6 +126,7 @@ export function AlertsPage() {
       <div className="info-banner">
         <h2>{t('alerts.title')}</h2>
         <p>{t('alerts.banner', { phone: settings.phone })}</p>
+        {!authed && <p className="settings-hint">{t('alerts.guestReadOnly')}</p>}
       </div>
 
       <section className="settings-card highlight-card">
@@ -201,7 +204,7 @@ export function AlertsPage() {
           />
           {t('alerts.smsToggle')}
         </label>
-        <button type="button" className="btn-secondary tap-target" onClick={handleSaveTwilio} disabled={saving}>
+        <button type="button" className="btn-secondary tap-target" onClick={handleSaveTwilio} disabled={saving || !authed}>
           {t('alerts.saveTwilio')}
         </button>
       </section>
@@ -217,7 +220,7 @@ export function AlertsPage() {
           />
           {t('alerts.pushToggle')}
         </label>
-        <button type="button" className="btn-secondary tap-target" onClick={handleEnablePush}>
+        <button type="button" className="btn-secondary tap-target" onClick={handleEnablePush} disabled={!authed}>
           {t('alerts.enablePush')}
         </button>
       </section>
@@ -238,10 +241,10 @@ export function AlertsPage() {
         </label>
       </section>
 
-      <button type="button" className="btn-primary tap-target" onClick={handleSave} disabled={saving}>
+      <button type="button" className="btn-primary tap-target" onClick={handleSave} disabled={saving || !authed}>
         {saving ? t('alerts.saving') : t('alerts.save')}
       </button>
-      <button type="button" className="btn-secondary tap-target" onClick={handleTest}>
+      <button type="button" className="btn-secondary tap-target" onClick={handleTest} disabled={!authed}>
         {t('alerts.sendTest')}
       </button>
 

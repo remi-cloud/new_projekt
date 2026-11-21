@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { SocialDeskPanel } from '../components/SocialDeskPanel'
 import { fetchMacroNews, refreshMacroNews } from '../api'
+import { useDeskSession } from '../hooks/useDeskSession'
 import { GrowthFunnelStrip } from '../components/GrowthFunnelStrip'
 import { ErrorState } from '../components/Loading'
 import { AskAgentButton } from '../components/AskAgentButton'
@@ -102,6 +103,7 @@ function NewsCard({
 
 export function MacroNewsPage() {
   const { t, dateLocale, locale } = useLocale()
+  const authed = useDeskSession()
   const [tab, setTab] = useState<TabId>('all')
   const [feed, setFeed] = useState<MacroNewsFeed | null>(null)
   const [loading, setLoading] = useState(true)
@@ -244,14 +246,16 @@ export function MacroNewsPage() {
                   </button>
                 ))}
               </div>
-              <button
-                type="button"
-                className="btn btn-ghost tap-target macro-news-refresh"
-                disabled={refreshing}
-                onClick={handleRefresh}
-              >
-                {refreshing ? '…' : t('macro.refresh')}
-              </button>
+              {authed && (
+                <button
+                  type="button"
+                  className="btn btn-ghost tap-target macro-news-refresh"
+                  disabled={refreshing}
+                  onClick={handleRefresh}
+                >
+                  {refreshing ? '…' : t('macro.refresh')}
+                </button>
+              )}
             </div>
 
             <p className="macro-news-tab-desc">{t(`macro.tabDesc.${tab}`)}</p>

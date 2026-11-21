@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { fetchDashboard, triggerScan } from '../api'
+import { fetchDashboard, triggerScan, triggerScanPublic } from '../api'
+import { deskSessionOpen } from '../lib/deskAuth'
 import { ApiError } from '../i18n/apiErrors'
 import { resolveApiMessage } from '../i18n/utils'
 import { useLiveFeed } from './useLiveFeed'
@@ -102,7 +103,10 @@ export function useDashboard(options: UseDashboardOptions = {}) {
     if (!enabled) return
     setScanning(true)
     try {
-      const result = await triggerScan()
+      // Guests have no desk token: a read-only public refresh of the market
+      // snapshot (no desk/paper state changes), so the button never 401s.
+      const authed = await deskSessionOpen()
+      const result = authed ? await triggerScan() : await triggerScanPublic()
       await load()
       if (result.already_running) return
       const watch = alive.current

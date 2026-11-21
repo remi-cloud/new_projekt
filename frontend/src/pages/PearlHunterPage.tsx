@@ -8,6 +8,7 @@ import { InstrumentShareMenu } from '../components/InstrumentShareMenu'
 import { QuickTradeButtons } from '../components/QuickTradeButtons'
 import { ErrorState, Loading } from '../components/Loading'
 import { useLocale } from '../context/LocaleContext'
+import { useDeskSession } from '../hooks/useDeskSession'
 import { useDomainLabels } from '../i18n/useDomainLabels'
 import { formatThrownError } from '../i18n/utils'
 import type { PearlFind, PearlHunterStatus } from '../types'
@@ -16,6 +17,7 @@ import { formatPrice } from '../utils/format'
 export function PearlHunterPage() {
   const navigate = useNavigate()
   const { t, dateLocale } = useLocale()
+  const authed = useDeskSession()
   const { signal } = useDomainLabels()
   const [status, setStatus] = useState<PearlHunterStatus | null>(null)
   const [finds, setFinds] = useState<PearlFind[]>([])
@@ -81,9 +83,11 @@ export function PearlHunterPage() {
               ? ` · ${t('pearl.lastRun', { date: new Date(status.last_run_at).toLocaleString(dateLocale) })}`
               : ''}
           </span>
-          <button type="button" className="btn btn-primary tap-target" onClick={() => void onRun()} disabled={running}>
-            {running ? t('pearl.running') : t('pearl.runNow')}
-          </button>
+          {authed && (
+            <button type="button" className="btn btn-primary tap-target" onClick={() => void onRun()} disabled={running}>
+              {running ? t('pearl.running') : t('pearl.runNow')}
+            </button>
+          )}
         </div>
         {status?.agents && (
           <div className="pearl-agents">

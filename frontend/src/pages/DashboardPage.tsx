@@ -5,7 +5,6 @@ import { InstrumentShareMenu } from '../components/InstrumentShareMenu'
 import { AgentTelemetryStrip } from '../components/AgentTelemetryStrip'
 import { CoordinatorHealthStrip } from '../components/CoordinatorHealthStrip'
 import { FomoGhostStrip } from '../components/FomoGhostStrip'
-import { CycleCardBitcoin } from '../components/CycleCardBitcoin'
 import { MarketSummaryBanner } from '../components/MarketAssessmentCard'
 import { ProgramUsBacktestPanel } from '../components/ProgramUsBacktestPanel'
 import { OpportunityCard } from '../components/OpportunityCard'
@@ -37,15 +36,6 @@ export function DashboardPage() {
       <CoordinatorHealthStrip />
       <FomoGhostStrip />
       <ProgramUsBacktestPanel />
-
-      <section className="dashboard-section">
-        <div className="section-header">
-          <h2 className="section-title">{t('dashboard.marketCycles')}</h2>
-        </div>
-        <div className="cycles-grid">
-          <CycleCardBitcoin cycle={data.bitcoin_cycle} />
-        </div>
-      </section>
 
       <div className="dashboard-columns">
         <section className="dashboard-section dashboard-section-main">

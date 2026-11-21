@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { fetchSocialDecisions, fetchSocialPublished, fetchSocialStatus, type SocialDeskStatus } from '../api'
 import { useLocale } from '../context/LocaleContext'
+import { useDeskSession } from '../hooks/useDeskSession'
 
 type PublishedPost = {
   id?: number
@@ -20,6 +21,7 @@ type DecisionRow = {
 
 export function SocialDeskPanel({ refreshKey = 0 }: { refreshKey?: number }) {
   const { t } = useLocale()
+  const authed = useDeskSession()
   const [status, setStatus] = useState<SocialDeskStatus | null>(null)
   const [published, setPublished] = useState<PublishedPost[]>([])
   const [decisions, setDecisions] = useState<DecisionRow[] | null>(null)
@@ -27,10 +29,11 @@ export function SocialDeskPanel({ refreshKey = 0 }: { refreshKey?: number }) {
 
   const load = useCallback(async () => {
     try {
+      // The decision log is desk-only; guests skip it so no 401/403 is logged.
       const [desk, sent, log] = await Promise.all([
         fetchSocialStatus(),
         fetchSocialPublished(12),
-        fetchSocialDecisions(12),
+        authed ? fetchSocialDecisions(12) : Promise.resolve(null),
       ])
       setStatus(desk)
       setPublished(sent.posts ?? [])
@@ -42,7 +45,7 @@ export function SocialDeskPanel({ refreshKey = 0 }: { refreshKey?: number }) {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [authed])
 
   useEffect(() => {
     setLoading(true)

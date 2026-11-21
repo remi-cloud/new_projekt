@@ -8,11 +8,13 @@ import {
   type PredatorStatus,
 } from '../api'
 import { useLocale } from '../context/LocaleContext'
+import { useDeskSession } from '../hooks/useDeskSession'
 import { formatThrownError } from '../i18n/utils'
 import { QuickTradeButtons } from './QuickTradeButtons'
 
 export function PredatorDeskPanel() {
   const { t, dateLocale } = useLocale()
+  const authed = useDeskSession()
   const [status, setStatus] = useState<PredatorStatus | null>(null)
   const [signals, setSignals] = useState<PredatorSignal[]>([])
   const [busy, setBusy] = useState(false)
@@ -52,9 +54,11 @@ export function PredatorDeskPanel() {
           : t('predator.needToken')}
       </p>
       <div className="predator-actions">
-        <button type="button" className="btn-secondary tap-target" disabled={busy} onClick={() => void onPoll()}>
-          {busy ? '…' : t('predator.poll')}
-        </button>
+        {authed && (
+          <button type="button" className="btn-secondary tap-target" disabled={busy} onClick={() => void onPoll()}>
+            {busy ? '…' : t('predator.poll')}
+          </button>
+        )}
         <a className="btn btn-ghost tap-target" href="https://t.me/BotFather" target="_blank" rel="noreferrer">
           BotFather
         </a>

@@ -79,6 +79,17 @@ export async function triggerScan(): Promise<{
   return res.json()
 }
 
+export async function triggerScanPublic(): Promise<{
+  scanned: boolean
+  already_running?: boolean
+  reason?: string
+  opportunities_count: number
+}> {
+  const res = await apiFetch(`${API_BASE}/scan/public`, { method: 'POST' })
+  if (!res.ok) await throwApiError(res, 'scanFailed')
+  return res.json()
+}
+
 export async function fetchNotificationStatus(): Promise<NotificationStatus> {
   const res = await apiFetch(`${API_BASE}/notifications/status`)
   if (!res.ok) await throwApiError(res, 'fetchNotifications')
